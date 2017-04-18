@@ -68,8 +68,8 @@ $MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
 # User content
 # ------------------------
 
-$MODULE_SEARCHPATHS = @("C:\Windows\system32\")
-$MODULE_ROOT = Find-FirstFile "cmd.exe" "" $MODULE_SEARCHPATHS
+$MODULE_SEARCHPATHS = @("C:\Program Files (x86)\Notepad++\")
+$MODULE_ROOT = Find-FirstFile "notepad++.exe" "" $MODULE_SEARCHPATHS
 
 function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
 {
