@@ -50,6 +50,9 @@ Import an environment module with the function
 Removing an evnironment module
 - **Dismount-EnvironmentModule [ModuleName]**
 
+List all loaded mounted environment modules
+- **Get-EnvironmentModule**
+
 
 Environment-Module-Files
 ------------------------
