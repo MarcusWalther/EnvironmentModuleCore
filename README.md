@@ -19,7 +19,7 @@ Write-Host $env:PATH
 
 Mount-EnvironmentModule NotepadPlusPlus
 Write-Host $env:PATH
-# Output: C:\Program Files\Notepad++
+# Output: C:\Program Files (x86)\Notepad++
 
 # npp is alias to start Notepad++
 npp
