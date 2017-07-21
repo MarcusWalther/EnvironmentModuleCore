@@ -5,8 +5,7 @@ Overview
 --------
 
 This PowerShell extension can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules 
-are defined that are called "environment modules". Such an environment module defines a set of variables, aliases and functions that are added to 
-the session when the module is mounted.
+are defined that are called "environment modules". Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.
 
 Example
 -------
@@ -17,14 +16,14 @@ Import-Module EnvironmentModules
 Write-Host $env:PATH
 # Output: 
 
-Mount-EnvironmentModule NotepadPlusPlus
+Import-EnvironmentModule NotepadPlusPlus
 Write-Host $env:PATH
 # Output: C:\Program Files (x86)\Notepad++
 
 # npp is alias to start Notepad++
 npp
 
-Dismount-EnvironmentModule NotepadPlusPlus
+Remove-EnvironmentModule NotepadPlusPlus
 
 Write-Host $env:PATH
 # Output: 
@@ -45,10 +44,10 @@ Import the module to get access to the functions
 - **Import-Module EnvironmentModules**
 
 Import an environment module with the function
-- **Mount-EnvironmentModule [ModuleName]**
+- **Import-EnvironmentModule [ModuleName]**
 
 Removing an evnironment module
-- **Dismount-EnvironmentModule [ModuleName]**
+- **Remove-EnvironmentModule [ModuleName]**
 
 List all loaded mounted environment modules
 - **Get-EnvironmentModule**
@@ -59,7 +58,7 @@ Environment-Module-Files
 
 ```powershell
 # ------------------------
-# Static header
+# Static header - Do not touch
 # ------------------------
 
 $MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
@@ -68,8 +67,8 @@ $MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
 # User content
 # ------------------------
 
-$MODULE_SEARCHPATHS = @("C:\Program Files (x86)\Notepad++\")
-$MODULE_ROOT = Find-FirstFile "notepad++.exe" "" $MODULE_SEARCHPATHS
+$MODULE_ROOT = "C:\Program Files (x86)\Notepad++\notepad++.exe"
+$MODULE_DEPENDENCIES = @("Aspell") #All other environment modules that should be loaded as dependencies
 
 function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
 {
@@ -79,10 +78,12 @@ function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule,
 	return $eModule
 }
 
-New-EnvironmentModuleFunction "Start-NotepadPlusPlus" { & "$MODULE_ROOT" }
+New-EnvironmentModuleFunction "Start-NotepadPlusPlus" { 	
+	Start-Process -FilePath "$MODULE_ROOT" @args
+}
 
 # ------------------------
-# Static footer
+# Static footer - Do not touch
 # ------------------------
 
 function RemoveModulePathsInternal()
@@ -90,5 +91,11 @@ function RemoveModulePathsInternal()
 	[void](Dismount-EnvironmentModule -Name $MODULE_NAME)
 }
 
-Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal}
+$callStack = Get-PSCallStack | Select-Object -Property *
+if(($callStack.Count -gt 1) -and (($callStack[($callStack.Count - 2)].FunctionName) -match "Import-EnvironmentModule")) {
+  Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal} -Dependencies $MODULE_DEPENDENCIES
+}
+else {
+  Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Yellow" 
+}
 ```
