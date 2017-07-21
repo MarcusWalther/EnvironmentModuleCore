@@ -1,5 +1,5 @@
 # PS_EnvironmentModules
-A powershell extension to load and remove modules that affect the environment variables of the running session.
+A powershell extension to load and remove modules that affect the environment (variables, aliases and functions) of the running session. These features will make the Powershell more powerful when used interactively.
 
 Overview
 --------
@@ -52,6 +52,14 @@ Removing an evnironment module
 List all loaded mounted environment modules
 - **Get-EnvironmentModule**
 
+Creating a new environment module
+- **New-EnvironmentModule [params]**
+
+Editing an environment module
+- **Edit-EnvironmentModule [ModuleName]**
+
+Updating the cache
+- **Update-EnvironmentModuleCache**
 
 Environment-Module-Files
 ------------------------
@@ -99,3 +107,18 @@ else {
   Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Yellow" 
 }
 ```
+
+Naming Convention
+-----------------
+
+The name of an environment module plays an important role, because it is used to identify conflicts and default modules. The name of an environment module can be:
+ - EnvironmentModuleName -> A simple module name without dashes, indicating that the architecture and version doesn't matter (for instance *NotepadPlusPlus*)
+ - EnvironmentModuleName-Version -> A module with a version number. The version parts are separated by underscores (for instance *NotepadPlusPlus-7_4_2*)
+ - EnvironmentModuleName-Version-Architecture -> An additional version tag can be specified. Either 'x64' or 'x86' are supported at the moment (for instance *NotepadPlusPlus-7_4_2-x86*).
+ - EnvironmentModuleName-Version-Architecture-AdditionalInformation -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
+
+
+Caching and Default Modules
+---------------------------
+
+In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
