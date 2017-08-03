@@ -10,7 +10,6 @@ $MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
 
 $MODULE_SEARCHPATHS = @({{SearchDirectories}})
 $MODULE_ROOT = {{ModuleRoot}}
-$MODULE_DEPENDENCIES = @({{EnvironmentModuleDependencies}})
 
 function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
 {
@@ -41,7 +40,7 @@ function RemoveModulePathsInternal()
 
 $callStack = Get-PSCallStack | Select-Object -Property *
 if(($callStack.Count -gt 1) -and (($callStack[($callStack.Count - 2)].FunctionName) -match "Import-EnvironmentModule")) {
-  Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal} -Dependencies $MODULE_DEPENDENCIES
+  Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal}
 }
 else {
   Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Yellow" 

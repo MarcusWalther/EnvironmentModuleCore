@@ -9,7 +9,6 @@ $MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
 # ------------------------
 
 $MODULE_ROOT = ".\"
-$MODULE_DEPENDENCIES = @("NotepadPlusPlus", "Cmd")
 
 function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
 {	

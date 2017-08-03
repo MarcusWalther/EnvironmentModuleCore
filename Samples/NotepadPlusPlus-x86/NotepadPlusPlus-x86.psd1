@@ -29,20 +29,7 @@ Description = 'This environment module gives you access to the "Notepad++" edito
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @("EnvironmentModules")
 
-# Functions to export from this module
-FunctionsToExport = @()
-
-# Cmdlets to export from this module
-CmdletsToExport = @()
-
-# Variables to export from this module
-VariablesToExport = @()
-
-# Aliases to export from this module
-AliasesToExport = @()
-
 # List of all modules packaged with this module
 ModuleList = @("NotepadPlusPlus-x86")
 
 }
-

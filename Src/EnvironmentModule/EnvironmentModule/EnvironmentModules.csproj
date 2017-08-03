@@ -53,6 +53,9 @@
     <None Include="..\..\..\Templates\EnvironmentModule.psd1.template">
       <Link>EnvironmentModule.psd1.template</Link>
     </None>
+    <None Include="..\..\..\Templates\EnvironmentModule.pse1.template">
+      <Link>EnvironmentModule.pse1.template</Link>
+    </None>
     <None Include="..\..\..\Templates\EnvironmentModule.psm1.template">
       <Link>EnvironmentModule.psm1.template</Link>
     </None>

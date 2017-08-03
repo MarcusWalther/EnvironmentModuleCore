@@ -3,27 +3,77 @@ using System.Collections.Generic;
 
 namespace EnvironmentModules
 {
-    public enum EnvironmentModuleType { Default, Meta}
+    public enum EnvironmentModuleType { Default, Meta }
 
-    public class EnvironmentModule
+    public class EnvironmentModuleBase
     {
-        #region Properties
         /// <summary>
         /// The name of the module. This name can be used to load the module with the help of the powershell-environment.
         /// </summary>
         public string Name { get; }
+
         /// <summary>
         /// The version of the application or library.
         /// </summary>
         public string Version { get; }
+
         /// <summary>
         /// The machine code of the module (e.g. x86, x64, arm...).
         /// </summary>
         public string Architecture { get; }
+
         /// <summary>
         /// Additional infos like compiler or compilation flags (e.g. MSVC15, gcc, ...).
         /// </summary>
         public string AdditionalInfo { get; }
+
+        /// <summary>
+        /// Specifies the type of the module.
+        /// </summary>
+        public EnvironmentModuleType ModuleType { get; set; }
+
+        /// <summary>
+        /// All environment modules that must be loaded prior this module can be used.
+        /// </summary>
+        public string[] RequiredEnvironmentModules { get; set; }
+
+        /// <summary>
+        /// This value indicates whether the module should be unloaded after the import, so that just the dependencies will remain.
+        /// </summary>
+        public bool DirectUnload { get; set; }
+
+        /// <summary>
+        /// An additional description that is shown when the module is loaded
+        /// </summary>
+        public string AdditionalDescription { get; set; }
+
+
+        public EnvironmentModuleBase(
+            string name, 
+            string version, 
+            string architecture, 
+            string additionalInfo = "", 
+            EnvironmentModuleType moduleType = EnvironmentModuleType.Default, 
+            string[] requiredEnvironmentModules = null, 
+            string additionalDescription = "",
+            bool directUnload = false)
+        {
+            Name = name;
+            Version = version;
+            Architecture = architecture;
+            AdditionalInfo = additionalInfo;
+            ModuleType = moduleType;
+            AdditionalDescription = additionalDescription;
+            DirectUnload = directUnload;
+
+            RequiredEnvironmentModules = requiredEnvironmentModules ?? new string[0];
+        }
+    }
+
+    public class EnvironmentModule : EnvironmentModuleBase
+    {
+        #region Properties
+
         /// <summary>
         /// This value is set to 'true' if the Load-function was called and 'false' if the Unload-function was called.
         /// </summary>
@@ -52,16 +102,11 @@ namespace EnvironmentModules
         /// are deleted if unload is called. The value represents the command and an optional description.
         /// </summary>
         public Dictionary<string,Tuple<string,string>> Aliases { get; }
-        /// <summary>
-        /// Specifies the type of the module.
-        /// </summary>
-        public EnvironmentModuleType ModuleType { get; set; }
+
         /// <summary>
         /// This value indicates if the module was loaded by the user or as dependency of another module.
         /// </summary>
         public bool IsLoadedDirectly { get; set; }
-
-        public List<string> EnvironmentModuleDependencies { get; set; }
         #endregion
 
         #region Events
@@ -72,17 +117,24 @@ namespace EnvironmentModules
         #endregion
 
         #region Constructors
-        public EnvironmentModule(string name, string version, string architecture, string additionalInfo = "", int referenceCounter = 1, EnvironmentModuleType moduleType = EnvironmentModuleType.Default, bool isLoadedDirectly = true)
+        public EnvironmentModule(
+            string name, 
+            string version, 
+            string architecture, 
+            string additionalInfo = "", 
+            EnvironmentModuleType moduleType = EnvironmentModuleType.Default, 
+            string[] requiredEnvironmentModules = null,
+            string additionalDescription = "",
+            bool directUnload = false,
+            int referenceCounter = 1, 
+            bool isLoadedDirectly = true) : 
+            base(name, version, architecture, additionalInfo, moduleType, requiredEnvironmentModules, additionalDescription, directUnload)
         {
-            Name = name;
-            Version = version;
-            Architecture = architecture;
-            AdditionalInfo = additionalInfo;
+
             IsLoaded = false;
             ReferenceCounter = referenceCounter;
             ModuleType = moduleType;
             IsLoadedDirectly = isLoadedDirectly;
-            EnvironmentModuleDependencies = new List<string>();
             PrependPaths = new Dictionary<string, List<string>>();
             AppendPaths = new Dictionary<string, List<string>>();
             SetPaths = new Dictionary<string, List<string>>();

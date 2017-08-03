@@ -7,7 +7,7 @@ namespace EnvironmentModules
 {
     public class ModuleCreator
     {
-        public static void CreateMetaEnvironmentModule(string name, string rootDirectory, string defaultModule, string workingDirectory)
+        public static void CreateMetaEnvironmentModule(string name, string rootDirectory, string defaultModule, string workingDirectory, bool directUnload, string additionalDescription)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -35,13 +35,17 @@ namespace EnvironmentModules
                 ModuleRoot      = "\".\\\"",
                 EnvironmentModuleDependencies = $"\"{defaultModule}\"",
                 RequiredModules = "\"EnvironmentModules\"",
-                CustomCode      = "$eModule.ModuleType = [EnvironmentModules.EnvironmentModuleType]::Meta"
+                CustomCode      = "",
+                AdditionalDescription = additionalDescription,
+                DirectUnload    = $"${directUnload}",
+                ModuleType      = EnvironmentModuleType.Meta.ToString()
             };
 
             FileInfo templatePsd = new FileInfo(Path.Combine(workingDirectory, "Templates\\EnvironmentModule.psd1.template"));
             FileInfo templatePsm = new FileInfo(Path.Combine(workingDirectory, "Templates\\EnvironmentModule.psm1.template"));
+            FileInfo templatePse = new FileInfo(Path.Combine(workingDirectory, "Templates\\EnvironmentModule.pse1.template"));
 
-            CreateModuleFromTemplates(modelDefinition, templatePsd, templatePsm, rootDirectory, name, null, null);
+            CreateModuleFromTemplates(modelDefinition, templatePsd, templatePsm, templatePse, rootDirectory, name, null, null);
         }
         
         public static void CreateEnvironmentModule(string name, string rootDirectory, string description, string workingDirectory = null, 
@@ -96,16 +100,20 @@ namespace EnvironmentModules
                 SearchDirectories = executableFile?.DirectoryName ?? "",
                 RequiredModules = "EnvironmentModules",
                 EnvironmentModuleDependencies = "",
-                CustomCode = ""
+                AdditionalDescription = "",
+                CustomCode = "",
+                DirectUnload = "$false",
+                ModuleType = EnvironmentModuleType.Default.ToString()
             }; 
 
             FileInfo templatePsd = new FileInfo(Path.Combine(workingDirectory, "Templates\\EnvironmentModule.psd1.template"));
             FileInfo templatePsm = new FileInfo(Path.Combine(workingDirectory, "Templates\\EnvironmentModule.psm1.template"));
+            FileInfo templatePse = new FileInfo(Path.Combine(workingDirectory, "Templates\\EnvironmentModule.pse1.template"));
 
-            CreateModuleFromTemplates(modelDefinition, templatePsd, templatePsm, rootDirectory, name, version, architecture);
+            CreateModuleFromTemplates(modelDefinition, templatePsd, templatePsm, templatePse, rootDirectory, name, version, architecture);
         }
 
-        private static void CreateModuleFromTemplates(object modelDefinition, FileInfo templatePsd, FileInfo templatePsm, string rootDirectory, string name, string version, string architecture)
+        private static void CreateModuleFromTemplates(object modelDefinition, FileInfo templatePsd, FileInfo templatePsm, FileInfo templatePse, string rootDirectory, string name, string version, string architecture)
         {
             string targetName = $"{name}{(string.IsNullOrEmpty(version) ? "" : "-" + version)}{(string.IsNullOrEmpty(architecture) ? "" : "-" + architecture)}";
             DirectoryInfo targetDirectory = new DirectoryInfo(Path.Combine(rootDirectory, targetName));
@@ -125,7 +133,8 @@ namespace EnvironmentModules
             Dictionary<string, string> templateFiles = new Dictionary<string, string>
             {
                 [templatePsd.FullName] = Path.Combine(targetDirectory.FullName, targetName + ".psd1"),
-                [templatePsm.FullName] = Path.Combine(targetDirectory.FullName, targetName + ".psm1")
+                [templatePsm.FullName] = Path.Combine(targetDirectory.FullName, targetName + ".psm1"),
+                [templatePse.FullName] = Path.Combine(targetDirectory.FullName, targetName + ".pse1")
             };
 
             CreateConcreteFileFromTemplate(modelDefinition, templateFiles);

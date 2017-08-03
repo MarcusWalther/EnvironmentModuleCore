@@ -1,8 +1,7 @@
 # Depends on the logic of EnvironmentModules.psm1
 
 function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Version, [String] $Architecture, [System.Management.Automation.PSModuleInfo] $Info, 
-                                 [System.Management.Automation.ScriptBlock] $CreationDelegate, [System.Management.Automation.ScriptBlock] $DeletionDelegate, 
-                                 $Dependencies) {
+                                 [System.Management.Automation.ScriptBlock] $CreationDelegate, [System.Management.Automation.ScriptBlock] $DeletionDelegate) {
     <#
     .SYNOPSIS
     Creates a new environment module object out of the given parameters. After that, the creationDelegate is called, which can export environment variables or aliases.
@@ -26,8 +25,6 @@ function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Versi
     can be filled with further information and the root directory of the module.
     .PARAMETER DeletionDelegate
     The code that should be executed when the environment module is removed. This is just a wrapper for the OnRemove delegate.
-    .PARAMETER Dependencies
-    All dependencies to other enivronment modules. 
     .OUTPUTS
     A boolean value that indicates if the environment module was successfully created.
     .NOTE
@@ -35,7 +32,16 @@ function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Versi
     #>
     if($Root) {
         $moduleInfos = Split-EnvironmentModuleName $Name
+
+        $moduleDescription = Read-EnvironmentModuleDescriptionFile -Name $Name
         
+        if($moduleDescription -eq $null) {
+            Write-Error ("The module description for enivronment module '" + $Name + "'cannot be created")
+            return $null
+        }
+
+        Write-Verbose "Read module description $moduleDescription"
+
         if(!$moduleInfos) {
             Write-Error ("The name of the enivronment module '" + $Name + "'cannot be split into its parts")
             return $null
@@ -47,13 +53,16 @@ function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Versi
             $moduleInfos[2] = $Architecture
         }
         
-        Write-Verbose ("Creating environment module with name '" + $moduleInfos[0] + "', version '" + $moduleInfos[1] + "', architecture '" + $moduleInfos[2] + "', additional information '" + $moduleInfos[3] + "' and dependencies " + $Dependencies)
+        Write-Verbose ("Creating environment module with name '" + $moduleInfos[0] + "', version '" + $moduleInfos[1] + "', architecture '" + $moduleInfos[2] + "', additional information '" + $moduleInfos[3] + "' dependencies " + $moduleDescription.RequiredEnvironmentModules + " and direct unload " + "$($moduleDescription.DirectUnload)")
         [EnvironmentModules.EnvironmentModule] $module = New-Object EnvironmentModules.EnvironmentModule($moduleInfos[0], $moduleInfos[1], $moduleInfos[2], $moduleInfos[3])
         $module = ($CreationDelegate.Invoke($module, $Root))[0]
         $successfull = Mount-EnvironmentModuleInternal($module)
         $Info.OnRemove = $DeletionDelegate    
-        
-        $module.EnvironmentModuleDependencies = $Dependencies
+        $module.RequiredEnvironmentModules = $moduleDescription.RequiredEnvironmentModules
+        $module.ModuleType = $moduleDescription.ModuleType
+        $module.DirectUnload = $moduleDescription.DirectUnload
+        $module.AdditionalDescription = $moduleDescription.AdditionalDescription
+
         return $true
     }
     else {
@@ -299,7 +308,7 @@ function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.
         $Module.Unload()
         Write-Verbose "Removing module $(Get-EnvironmentModuleDetailedString $Module)"
         Remove-Module (Get-EnvironmentModuleDetailedString $Module) -Force
-        if(!$silentUnload) {
+        if(-not $script:silentUnload) {
             Write-Host ($Module.Name + " unloaded") -foregroundcolor "Yellow"
         }
         return
@@ -577,21 +586,23 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     
     if(!$isLoaded) {
         Write-Error "The module $FullName was not loaded successfully"
-        $silentUnload = $true
+        $script:silentUnload = $true
         Remove-Module $FullName -Force
-        $silentUnload = $false
+        $script:silentUnload = $false
         return
     }
-    
+
     $module = $script:loadedEnvironmentModules.Get_Item($name)
     $loadDependenciesDirectly = $false
     
+    [void] (New-Event -SourceIdentifier "MyOwnEvent" -EventArguments $module)
     Write-Verbose "Checking type of the module $name - it is $($module.ModuleType)"
-    if($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) {
-        Write-Verbose "The module is a meta module and hence unloaded"
-        $silentUnload = $true
+
+    if($module.DirectUnload -eq $true) {
+        Write-Verbose "The module is set to direct unload"
+        $script:silentUnload = $true
         Dismount-EnvironmentModule $module
-        $silentUnload = $false
+        $script:silentUnload = $false
         $loadDependenciesDirectly = ($true -and $LoadedDirectly)
     }      
     else {
@@ -599,7 +610,7 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
     
     Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
-    foreach ($dependency in $module.EnvironmentModuleDependencies) {
+    foreach ($dependency in $module.RequiredEnvironmentModules) {
         Write-Verbose "Importing dependency $dependency"
         Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly
     }
@@ -693,7 +704,7 @@ function Remove-RequiredModulesRecursive([String] $FullName, [Bool] $UnloadedDir
     
     Write-Verbose "The module $($module.Name) has now a reference counter of $($module.ReferenceCounter)"
     
-    foreach ($refModule in $module.EnvironmentModuleDependencies) {
+    foreach ($refModule in $module.RequiredEnvironmentModules) {
         Remove-RequiredModulesRecursive $refModule $False
     }   
     
@@ -737,7 +748,7 @@ function New-EnvironmentModule
             $Author = [Environment]::UserName
         }
         if([string]::IsNullOrEmpty($Description)) {
-            $Description = "Empty Description"
+            $Description = ""
         }       
         if([string]::IsNullOrEmpty($Executable)) {
             Write-Error('An executable must be specified')
@@ -752,11 +763,13 @@ function New-EnvironmentModule
         
         $i = 1
         foreach ($path in $pathPossibilities) {
+            $path = $(Resolve-Path $path)
             Write-Host "[$i] $path"
             $i++
         }
         
-        $selectedIndex = Read-Host -Prompt ""
+        $selectedIndex = Read-Host -Prompt " "
+        Write-Host "Not completely implemented"
         #[EnvironmentModules.ModuleCreator]::CreateEnvironmentModule($Name, $moduleRootPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable)
         #Update-EnvironmentModuleCache
     }
@@ -945,8 +958,22 @@ function Copy-EnvironmentModule
         if($Path) {
             $destination = $Path
         }
+        else {
+            $pathPossibilities = (Split-String -Input $env:PSModulePath -Separator ";")
+            Write-Host "Select the target directory for the module:"
+            
+            $i = 1
+            foreach ($path in $pathPossibilities) {
+                $path = $(Resolve-Path $path)
+                Write-Host "[$i] $path"
+                $i++
+            }
+            
+            $selectedIndex = Read-Host -Prompt " " 
+            Write-Host "Not completely implemented"           
+            return
+        }
         
-        $destination = New-Object -TypeName "System.IO.DirectoryInfo" (Join-Path $destination $NewName)
         $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" ($script:tmpEnvironmentRootPath)
 
         $destination.FullName

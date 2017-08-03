@@ -11,9 +11,11 @@ mkdir $tmpEnvironmentModulePath -Force
 
 $env:PSModulePath = "$env:PSModulePath;$tmpEnvironmentModulePath"
 $script:environmentModules = @()
-$silentUnload = $false
+$script:silentUnload = $false
 
-function Load-EnvironmentModuleCache()
+[System.Management.Automation.ScriptBlock] $ModuleLoadedEvent = $null
+
+function Initialize-EnvironmentModuleCache()
 {
     <#
     .SYNOPSIS
@@ -90,6 +92,72 @@ function Split-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Module)
     return $Module.Name, $Module.Version, $Module.Architecture, $Module.AdditionalOptions
 }
 
+function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module, [String] $Name)
+{
+    <#
+    .SYNOPSIS
+    Read the PS Module Info of the given module info.
+    .DESCRIPTION
+    This function will read the environment module info of the given module. If the module does not depend on the environment module, $null is returned.
+    .OUTPUTS
+    The environment module info or $null.
+    #>    
+
+    if($Module -eq $null) {
+        $Module = Get-Module -ListAvailable $Name
+
+        if($Module -eq $null) {
+            Write-Verbose "Unable to find the module $Name in the list of all modules"
+            return $null
+        }
+    }
+
+    Write-Verbose "Reading environment module description file for $($Module.Name)"
+    $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
+
+    if(-not $isEnvironmentModule) {
+        return $null
+    }
+
+    $baseDirectory = $Module.ModuleBase
+    $result = New-Object "EnvironmentModules.EnvironmentModuleBase" -ArgumentList (Split-EnvironmentModuleName $Module.Name)
+    $result.DirectUnload = $false
+
+    # Search for a pse1 file in the base directory
+    $descriptionFile = Join-Path $baseDirectory "$($Module.Name).pse1"
+
+    Write-Verbose "Checking description file $descriptionFile"
+
+    if(Test-Path $descriptionFile) {
+        # Parse the pse1 file
+        Write-Verbose "Found desciption file $descriptionFile"
+        $descriptionFileContent = Get-Content $descriptionFile -Raw
+        $descriptionContent = Invoke-Expression $descriptionFileContent
+
+        if($descriptionContent.Contains("ModuleType")) {
+            $result.ModuleType = [Enum]::Parse([EnvironmentModules.EnvironmentModuleType], $descriptionContent.Item("ModuleType"))
+            Write-Verbose "Read module type $($result.ModuleType)"
+        }
+
+        if($descriptionContent.Contains("RequiredEnvironmentModules")) {
+            $result.RequiredEnvironmentModules = $descriptionContent.Item("RequiredEnvironmentModules")
+            Write-Verbose "Read module dependencies $($result.RequiredEnvironmentModules)"
+        }    
+        
+        if($descriptionContent.Contains("DirectUnload")) {
+            $result.DirectUnload = $descriptionContent.Item("DirectUnload")
+            Write-Verbose "Read module direct unload $($result.DirectUnload)"
+        }      
+        
+        if($descriptionContent.Contains("AdditionalDescription")) {
+            $result.AdditionalDescription = $descriptionContent.Item("AdditionalDescription")
+            Write-Verbose "Read module additional description $($result.AdditionalDescription)"
+        }           
+    }
+ 
+    return $result
+}
+
 function Update-EnvironmentModuleCache()
 {
     <#
@@ -126,10 +194,13 @@ function Update-EnvironmentModuleCache()
             }
             
             # Add the module to the list of all modules
-            $unused = $allModuleNames.Add($module.Name)
+            $allModuleNames.Add($module.Name) > $null
             
-            if($moduleNameParts[0] -eq "Project") {
-                continue; #Ignore project modules
+            # Read the environment module properties from the pse1 file
+            $description = Read-EnvironmentModuleDescriptionFile $module
+
+            if($description.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) {
+                continue; #Ignore meta modules
             }
             
             # Handle the module by architecture (if architecture is specified)
@@ -177,7 +248,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")))
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "")
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + $moduleName
     }
@@ -195,7 +266,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")))
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "")
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + $moduleName
     }    
@@ -211,7 +282,7 @@ function Update-EnvironmentModuleCache()
 # Check if the cache file is available -> create it if not
 if(test-path $moduleCacheFileLocation)
 {
-    Load-EnvironmentModuleCache
+    Initialize-EnvironmentModuleCache
 }
 else
 {
