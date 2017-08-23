@@ -1,13 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using DotLiquid;
 
 namespace EnvironmentModules
 {
     public class ModuleCreator
     {
-        public static void CreateMetaEnvironmentModule(string name, string rootDirectory, string defaultModule, string workingDirectory, bool directUnload, string additionalDescription)
+        public static void CreateMetaEnvironmentModule(string name, 
+            string rootDirectory, 
+            string defaultModule, 
+            string workingDirectory, 
+            bool directUnload, 
+            string additionalDescription,
+            string[] additionalEnvironmentModules)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -24,17 +31,22 @@ namespace EnvironmentModules
                 throw new EnvironmentModuleException($"The given working directory '{workingDirectory}' does not exist");
             }
 
+            if (additionalEnvironmentModules == null)
+            {
+                additionalEnvironmentModules = new string[] { };
+            }
+
             var modelDefinition = new
             {
                 Author = "EnvironmentModule",
+                CompanyName = "",
                 Name = name,
                 DateTime.Now.Year,
                 Date            = DateTime.Now.ToString("dd/MM/yyyy"),
                 Guid            = Guid.NewGuid(),
-                DefaultModule   = defaultModule,
                 ModuleRoot      = "\".\\\"",
-                EnvironmentModuleDependencies = $"\"{defaultModule}\"",
                 RequiredModules = "\"EnvironmentModules\"",
+                RequiredEnvironmentModules = $"\"{defaultModule}\"" + (additionalEnvironmentModules.Length > 0 ? additionalEnvironmentModules.Select(x => $"\"x\"").Aggregate((a, b) => a + "," + b ) : ""),
                 CustomCode      = "",
                 AdditionalDescription = additionalDescription,
                 DirectUnload    = $"${directUnload}",
@@ -50,7 +62,7 @@ namespace EnvironmentModules
         
         public static void CreateEnvironmentModule(string name, string rootDirectory, string description, string workingDirectory = null, 
                                                    string author = null, string version = null, string architecture = null, 
-                                                   string executable = null)
+                                                   string executable = null, string[] additionalEnvironmentModules = null)
         {
             if (string.IsNullOrEmpty(name))
             {
@@ -69,15 +81,20 @@ namespace EnvironmentModules
 
             if (string.IsNullOrEmpty(author))
             {
-                throw new EnvironmentModuleException("The author cannot be empty");
+                author = "";
             }
 
             if (string.IsNullOrEmpty(description))
             {
-                throw new EnvironmentModuleException("The description cannot be empty");
-            }  
+                description = "";
+            }
 
-            FileInfo executableFile = null;
+            if (additionalEnvironmentModules == null)
+            {
+                additionalEnvironmentModules = new string[] {};
+            }
+
+            FileInfo executableFile;
             if (!string.IsNullOrEmpty(executable))
             {
                 executableFile = new FileInfo(executable);
@@ -85,22 +102,27 @@ namespace EnvironmentModules
                 {
                     throw new EnvironmentModuleException("The executable does not exist");
                 }
-            }   
+            }
+            else
+            {
+                throw new EnvironmentModuleException("No executable given");
+            }
 
             var modelDefinition = new
             {
                 Author = author,
+                CompanyName = "",
                 Name = name,
                 Version = version,
                 DateTime.Now.Year,
                 Date = DateTime.Now.ToString("dd/MM/yyyy"),
                 Guid = Guid.NewGuid(),
-                ModuleRoot = "$null",
-                FileName = executableFile?.Name ?? "",
-                SearchDirectories = executableFile?.DirectoryName ?? "",
-                RequiredModules = "EnvironmentModules",
-                EnvironmentModuleDependencies = "",
-                AdditionalDescription = "",
+                ModuleRoot = $"(Find-FirstFile \"{executableFile.Name}\" $MODULE_SEARCHPATHS)",
+                FileName = executableFile.Name,
+                SearchDirectories = $"\"{executableFile.DirectoryName}\"",
+                RequiredModules = "\"EnvironmentModules\"",
+                RequiredEnvironmentModules = additionalEnvironmentModules.Length > 0 ? additionalEnvironmentModules.Select(x => $"\"{x}\"").Aggregate((a, b) => a + "," + b) : "",
+                AdditionalDescription = description,
                 CustomCode = "",
                 DirectUnload = "$false",
                 ModuleType = EnvironmentModuleType.Default.ToString()

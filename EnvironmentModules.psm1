@@ -248,7 +248,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "")
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + $moduleName
     }
@@ -266,7 +266,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "")
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + $moduleName
     }    

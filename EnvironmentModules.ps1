@@ -736,7 +736,9 @@ function New-EnvironmentModule
         [String] $Description,
         [String] $Version,
         [String] $Architecture,
-        [String] $Executable
+        [String] $Executable,
+        [String[]] $AdditionalEnvironmentModules,
+        [Switch] $Force
     )
     
     process {
@@ -756,23 +758,54 @@ function New-EnvironmentModule
         }       
         
         $environmentModulePath = Resolve-Path (Join-Path $moduleFileLocation "..\")
-        $moduleRootPath = Resolve-Path (Join-Path $environmentModulePath "..\")
-        
-        $pathPossibilities = (Split-String -Input $env:PSModulePath -Separator ";")
-        Write-Host "Select the target directory for the module:"
-        
-        $i = 1
-        foreach ($path in $pathPossibilities) {
-            $path = $(Resolve-Path $path)
-            Write-Host "[$i] $path"
-            $i++
+
+        $selectedPath = Select-ModulePath
+
+        if($selectedPath -eq $null) {
+            return
         }
-        
-        $selectedIndex = Read-Host -Prompt " "
-        Write-Host "Not completely implemented"
-        #[EnvironmentModules.ModuleCreator]::CreateEnvironmentModule($Name, $moduleRootPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable)
-        #Update-EnvironmentModuleCache
+
+        Check-IsPartOfTmpDirectory $selectedPath $Force
+
+        [EnvironmentModules.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
+        Update-EnvironmentModuleCache
     }
+}
+
+function Select-ModulePath
+{
+    $pathPossibilities = $env:PSModulePath.Split(";")
+    Write-Host "Select the target directory for the module:"
+        
+    $i = 0
+    foreach ($path in $pathPossibilities) {
+        $path = $(Resolve-Path $path)
+        Write-Host "[$i] $path"
+        $i++
+    }
+        
+    $selectedIndex = Read-Host -Prompt " "
+
+    if((-not($selectedIndex -match '^[0-9]+$')) -or ($selectedIndex -lt 0) -or ($selectedIndex -ge $pathPossibilities.Count)) {
+        Write-Error "Invalid index specified"
+        return $null
+    }
+
+    Write-Verbose "The selected path is $($pathPossibilities[$selectedIndex])"
+
+    return $pathPossibilities[$selectedIndex]
+}
+
+function Check-IsPartOfTmpDirectory([string] $Destination, [bool] $Force)
+{
+    $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" ($script:tmpEnvironmentRootPath)
+
+    if(($Destination.StartsWith($tmpDirectory.FullName)) -and (-not $Force)) {
+        Write-Error "The target destination is part of the temporary directory. Please specify another directory or set the force parameter."
+        return $true
+    }
+
+    return $false
 }
 
 function New-EnvironmentModuleFunction
@@ -959,30 +992,16 @@ function Copy-EnvironmentModule
             $destination = $Path
         }
         else {
-            $pathPossibilities = (Split-String -Input $env:PSModulePath -Separator ";")
-            Write-Host "Select the target directory for the module:"
-            
-            $i = 1
-            foreach ($path in $pathPossibilities) {
-                $path = $(Resolve-Path $path)
-                Write-Host "[$i] $path"
-                $i++
+            $selectedPath = Select-ModulePath          
+
+            if($selectedPath -eq $null) {
+                return
             }
-            
-            $selectedIndex = Read-Host -Prompt " " 
-            Write-Host "Not completely implemented"           
-            return
-        }
-        
-        $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" ($script:tmpEnvironmentRootPath)
 
-        $destination.FullName
-        $tmpDirectory.FullName
-
-        if(($destination.FullName.StartsWith($tmpDirectory.FullName)) -and (-not $Force)) {
-            Write-Error "The target destination is part of the temporary directory. Please specify another directory."
-            return
+            $destination = $selectedPath
         }
+
+        Check-IsPartOfTmpDirectory $selectedPath $Force
 
         if((Test-Path $destination) -and (-not $Force)) {
             Write-Error "The folder $destination does already exist"
