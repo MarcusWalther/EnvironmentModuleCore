@@ -12,6 +12,7 @@ mkdir $tmpEnvironmentModulePath -Force
 $env:PSModulePath = "$env:PSModulePath;$tmpEnvironmentModulePath"
 $script:environmentModules = @()
 $script:silentUnload = $false
+$script:importingModule = $null
 
 [System.Management.Automation.ScriptBlock] $ModuleLoadedEvent = $null
 

@@ -30,6 +30,11 @@ function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Versi
     .NOTE
     With the current concept it's impossible to get the description and other information from the module manifest.
     #>
+    if($script:importingModule -ne $Name) {
+        Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Yellow"
+        return
+    }
+
     if($Root) {
         $moduleInfos = Split-EnvironmentModuleName $Name
 
@@ -579,7 +584,10 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
     
     Write-Verbose "Importing the module $FullName into the Powershell environment"
+    $script:importingModule = $FullName
     Import-Module $FullName -Scope Global -Force
+    $script:importingModule = $null
+
     Write-Verbose "Importing of module $FullName done"
     
     $isLoaded = Test-IsEnvironmentModuleLoaded $name
