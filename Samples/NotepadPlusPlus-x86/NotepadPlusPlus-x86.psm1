@@ -27,9 +27,4 @@ New-EnvironmentModuleFunction "Start-NotepadPlusPlus" {
 # Static footer
 # ------------------------
 
-function RemoveModulePathsInternal()
-{
-	[void](Dismount-EnvironmentModule -Name $MODULE_NAME)
-}
-
-Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal}
+Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${Dismount-EnvironmentModule @args}

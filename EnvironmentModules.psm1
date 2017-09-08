@@ -49,7 +49,7 @@ function Split-EnvironmentModuleName([String] $Name)
     .OUTPUTS
     A string array with 4 parts (name, version, architecture, additionalOptions) 
     #>
-    $doesMatch = $Name -match '^(?<name>[0-9A-Za-z]+)((-(?<version>([0-9]+(|_[0-9]+)(|_[0-9]+))|(DEF|DEV|NIGHTLY)))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
+    $doesMatch = $Name -match '^(?<name>[0-9A-Za-z_]+)((-(?<version>([0-9]+(|_[0-9]+)(|_[0-9]+))|(DEF|DEV|NIGHTLY)))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
     if($doesMatch) 
     {
         if($matches.version -eq "") {

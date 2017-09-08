@@ -31,7 +31,8 @@ function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Versi
     With the current concept it's impossible to get the description and other information from the module manifest.
     #>
     if($script:importingModule -ne $Name) {
-        Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Yellow"
+        Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Red"
+        Write-Host "The importing module is $script:importingModule and the current module is $Name"
         return
     }
 
@@ -582,7 +583,23 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         $module.ReferenceCounter++
         return;
     }
+
+    # Load the dependencies first
+    $loadDependenciesDirectly = $false
+
+    if($module.DirectUnload -eq $true) {
+        $loadDependenciesDirectly = ($true -and $LoadedDirectly)
+    }
+
+    $moduleDescription = Read-EnvironmentModuleDescriptionFile -Name $FullName
+
+    Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
+    foreach ($dependency in $moduleDescription.RequiredEnvironmentModules) {
+        Write-Verbose "Importing dependency $dependency"
+        Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly
+    }    
     
+    # Load the module itself
     Write-Verbose "Importing the module $FullName into the Powershell environment"
     $script:importingModule = $FullName
     Import-Module $FullName -Scope Global -Force
@@ -601,7 +618,6 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
 
     $module = $script:loadedEnvironmentModules.Get_Item($name)
-    $loadDependenciesDirectly = $false
     
     [void] (New-Event -SourceIdentifier "MyOwnEvent" -EventArguments $module)
     Write-Verbose "Checking type of the module $name - it is $($module.ModuleType)"
@@ -611,16 +627,9 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         $script:silentUnload = $true
         Dismount-EnvironmentModule $module
         $script:silentUnload = $false
-        $loadDependenciesDirectly = ($true -and $LoadedDirectly)
     }      
     else {
         $module.IsLoadedDirectly = $LoadedDirectly
-    }
-    
-    Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
-    foreach ($dependency in $module.RequiredEnvironmentModules) {
-        Write-Verbose "Importing dependency $dependency"
-        Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly
     }
 }
 
@@ -785,8 +794,11 @@ function Select-ModulePath
     $pathPossibilities = $env:PSModulePath.Split(";")
     Write-Host "Select the target directory for the module:"
         
-    $i = 0
+    $i = 1
     foreach ($path in $pathPossibilities) {
+        if(-not (Test-Path $path)) {
+            continue
+        }
         $path = $(Resolve-Path $path)
         Write-Host "[$i] $path"
         $i++
@@ -1009,6 +1021,8 @@ function Copy-EnvironmentModule
             $destination = $selectedPath
         }
 
+        $destination = Join-Path $destination $NewName
+
         Check-IsPartOfTmpDirectory $selectedPath $Force
 
         if((Test-Path $destination) -and (-not $Force)) {
@@ -1042,7 +1056,7 @@ function Copy-EnvironmentModule
 
             switch ($file.Extension.ToUpper()) {
                 ".PSD1" {
-                    $fileContent -replace "GUID[ ]*=[ ]*'[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}'",'GUID = $newId'
+                    $fileContent = $fileContent -replace "GUID[ ]*=[ ]*'[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}'", "GUID = '$newId'"
                 }
                 Default {}
             }
