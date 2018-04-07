@@ -1,5 +1,7 @@
 ﻿# Creata a empty collection of known and loaded environment modules first
 [HashTable] $loadedEnvironmentModules = @{}
+[HashTable] $loadedEnvironmentModuleAliases = @{} # AliasName -> (String, ModuleName)[]
+[HashTable] $loadedEnvironmentModuleFunctions = @{} # FunctionName -> (String, ModuleName)[]
 
 $moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $script:tmpEnvironmentRootPath = ([IO.Path]::Combine($moduleFileLocation, "..\Tmp\"))
@@ -105,12 +107,14 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module, [String] 
     #>    
 
     if($Module -eq $null) {
-        $Module = Get-Module -ListAvailable $Name
+        $matchingModules = Get-Module -ListAvailable $Name
 
-        if($Module -eq $null) {
+        if($matchingModules.Length -eq 0) {
             Write-Verbose "Unable to find the module $Name in the list of all modules"
             return $null
         }
+        
+        $Module = $matchingModules[0]
     }
 
     Write-Verbose "Reading environment module description file for $($Module.Name)"
@@ -121,7 +125,8 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module, [String] 
     }
 
     $baseDirectory = $Module.ModuleBase
-    $result = New-Object "EnvironmentModules.EnvironmentModuleBase" -ArgumentList (Split-EnvironmentModuleName $Module.Name)
+    $arguments = @($Module.Name) + (Split-EnvironmentModuleName $Module.Name)
+    $result = New-Object EnvironmentModules.EnvironmentModuleBase -ArgumentList $arguments
     $result.DirectUnload = $false
 
     # Search for a pse1 file in the base directory
@@ -153,7 +158,12 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module, [String] 
         if($descriptionContent.Contains("AdditionalDescription")) {
             $result.AdditionalDescription = $descriptionContent.Item("AdditionalDescription")
             Write-Verbose "Read module additional description $($result.AdditionalDescription)"
-        }           
+        }  
+
+        if($descriptionContent.Contains("StyleVersion")) {
+            $result.StyleVersion = $descriptionContent.Item("StyleVersion")
+            Write-Verbose "Read module style version $($result.StyleVersion)"
+        }         
     }
  
     return $result
@@ -278,6 +288,47 @@ function Update-EnvironmentModuleCache()
     $modulesByVersion.GetEnumerator()
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
+}
+
+function Add-EnvironmentModuleAlias([String] $Name, [String] $Module, [String] $Definition)
+{
+    $newTupleValue = [System.Tuple]::Create($Definition, $Module)
+    # Check if the alias was already used
+    if($loadedEnvironmentModuleAliases.ContainsKey($Name))
+    {
+        $knownAliases = $loadedEnvironmentModuleAliases[$Name]
+        $knownAliases.Add($newTupleValue)
+    }
+    else {
+        $newValue = New-Object "System.Collections.Generic.List[System.Tuple[String, String]]"
+        $newValue.Add($newTupleValue)
+        $loadedEnvironmentModuleAliases.Add($Name, $newValue)
+    }
+}
+
+function Remove-EnvironmentModuleAlias([String] $Name, [String] $Module)
+{
+    $knownAliases = $loadedEnvironmentModuleAliases[$Name]
+    $index = $knownAliases.IndexOf({param ($x) $x.Item2 -eq $Module})
+
+    #if($index )
+}
+
+function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System.Management.Automation.ScriptBlock] $Definition)
+{
+    Write-Verbose $Module.ToString()
+    $newTupleValue = [System.Tuple]::Create($Definition, $Module)
+    # Check if the alias was already used
+    if($loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    {
+        $knownFunctions = $loadedEnvironmentModuleFunctions[$Name]
+        $knownFunctions.Add($newTupleValue)
+    }
+    else {
+        $newValue = New-Object "System.Collections.Generic.List[System.Tuple[System.Management.Automation.ScriptBlock, String]]"
+        $newValue.Add($newTupleValue)
+        $loadedEnvironmentModuleFunctions.Add($Name, $newValue)
+    }
 }
 
 # Check if the cache file is available -> create it if not

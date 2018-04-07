@@ -11,10 +11,11 @@ $MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
 $MODULE_ROOT = ".\"
 
 function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
-{	
-    $eModule.ModuleType = [EnvironmentModules.EnvironmentModuleType]::Meta
+{
     return $eModule
 }
+
+New-EnvironmentModuleFunction "Start-Cmd" $MODULE_NAME { Get-EnvironmentModuleFunction -Name "Start-Cmd" -OverwrittenBy $MODULE_NAME }
 
 # ------------------------
 # Static footer

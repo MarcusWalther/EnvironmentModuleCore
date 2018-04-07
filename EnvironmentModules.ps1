@@ -60,9 +60,9 @@ function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Versi
         }
         
         Write-Verbose ("Creating environment module with name '" + $moduleInfos[0] + "', version '" + $moduleInfos[1] + "', architecture '" + $moduleInfos[2] + "', additional information '" + $moduleInfos[3] + "' dependencies " + $moduleDescription.RequiredEnvironmentModules + " and direct unload " + "$($moduleDescription.DirectUnload)")
-        [EnvironmentModules.EnvironmentModule] $module = New-Object EnvironmentModules.EnvironmentModule($moduleInfos[0], $moduleInfos[1], $moduleInfos[2], $moduleInfos[3])
+        [EnvironmentModules.EnvironmentModule] $module = New-Object EnvironmentModules.EnvironmentModule($Name, $moduleInfos[0], $moduleInfos[1], $moduleInfos[2], $moduleInfos[3])
         $module = ($CreationDelegate.Invoke($module, $Root))[0]
-        $successfull = Mount-EnvironmentModuleInternal($module)
+        $successful = Mount-EnvironmentModuleInternal($module)
         $Info.OnRemove = $DeletionDelegate    
         $module.RequiredEnvironmentModules = $moduleDescription.RequiredEnvironmentModules
         $module.ModuleType = $moduleDescription.ModuleType
@@ -115,7 +115,9 @@ function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable)
     name was found, $null is returned.
     #>
     if($ListAvailable) {
-        $script:environmentModules
+        foreach($module in $script:environmentModules) {
+            Read-EnvironmentModuleDescriptionFile -Name $module
+        }
     }
     
     if([string]::IsNullOrEmpty($Name)) {
@@ -123,10 +125,10 @@ function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable)
         return
     }
     
-    #$moduleInfos = Split-EnvironmentModuleName $Name
-    #if(!$moduleInfos) {
-    #   return $null
-    #}
+    $moduleInfos = Split-EnvironmentModuleName $Name
+    if(!$moduleInfos) {
+       return $null
+    }
     #
     #Write-Verbose ("Try to find environment module with name '" + $Name + "'")
     #foreach ($var in $loadedEnvironmentModules.GetEnumerator()) {
@@ -139,7 +141,7 @@ function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable)
     
     #return $null
     
-    return $loadedEnvironmentModules.Get_Item($Name)
+    return $loadedEnvironmentModules.Get_Item($moduleInfos[0])
 }
 
 function Get-EnvironmentModuleDetailedString([EnvironmentModules.EnvironmentModule] $Module)
@@ -232,6 +234,9 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         
         foreach ($alias in $Module.Aliases.Keys) {
             $aliasValue = $Module.Aliases[$alias]
+
+            Add-EnvironmentModuleAlias $alias $Module.FullName $aliasValue.Item1
+
             Set-Alias -name $alias -value $aliasValue.Item1 -scope "Global"
             if($aliasValue.Item2 -ne "") {
                 Write-Host $aliasValue.Item2 -foregroundcolor "Green"
@@ -317,6 +322,7 @@ function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.
         if(-not $script:silentUnload) {
             Write-Host ($Module.Name + " unloaded") -foregroundcolor "Yellow"
         }
+        
         return
     }
 }
@@ -331,8 +337,7 @@ function Get-LoadedEnvironmentModules()
     .OUTPUTS
     The String list containing the names of all environment modules.
     #>
-    [String[]]$values = $loadedEnvironmentModules.getEnumerator() | % { Get-EnvironmentModuleDetailedString $_.Value }
-    return $values
+    return $loadedEnvironmentModules.getEnumerator() | % { $_.Value }
 }
 
 function Get-LoadedEnvironmentModulesFullName()
@@ -440,7 +445,6 @@ function Switch-EnvironmentModule
     #>
     [CmdletBinding()]
     Param(
-        [switch] $Force
     )
     DynamicParam {
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -487,12 +491,7 @@ function Switch-EnvironmentModule
         }
         
         $moduleName = Get-EnvironmentModuleDetailedString($module)
-        if($Force) {
-            Remove-Module $moduleName -Force
-        }
-        else {
-            Remove-Module $moduleName
-        }
+        Remove-EnvironmentModule $moduleName -Force
         
         Import-EnvironmentModule $newModuleName
     }
@@ -585,20 +584,26 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
 
     # Load the dependencies first
+    $module = Read-EnvironmentModuleDescriptionFile -Name $FullName
+
     $loadDependenciesDirectly = $false
 
     if($module.DirectUnload -eq $true) {
-        $loadDependenciesDirectly = ($true -and $LoadedDirectly)
+        $loadDependenciesDirectly = $LoadedDirectly
     }
 
-    $moduleDescription = Read-EnvironmentModuleDescriptionFile -Name $FullName
-
     Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
-    foreach ($dependency in $moduleDescription.RequiredEnvironmentModules) {
+    foreach ($dependency in $module.RequiredEnvironmentModules) {
         Write-Verbose "Importing dependency $dependency"
         Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly
     }    
-    
+
+    Write-Verbose "The module has direct unload state $($module.DirectUnload)"
+    if($module.DirectUnload -eq $true) {
+        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
+        return
+    }
+
     # Load the module itself
     Write-Verbose "Importing the module $FullName into the Powershell environment"
     $script:importingModule = $FullName
@@ -617,20 +622,11 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         return
     }
 
+    # Get the completely loaded module
     $module = $script:loadedEnvironmentModules.Get_Item($name)
-    
-    [void] (New-Event -SourceIdentifier "MyOwnEvent" -EventArguments $module)
-    Write-Verbose "Checking type of the module $name - it is $($module.ModuleType)"
+    $module.IsLoadedDirectly = $LoadedDirectly
 
-    if($module.DirectUnload -eq $true) {
-        Write-Verbose "The module is set to direct unload"
-        $script:silentUnload = $true
-        Dismount-EnvironmentModule $module
-        $script:silentUnload = $false
-    }      
-    else {
-        $module.IsLoadedDirectly = $LoadedDirectly
-    }
+    [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
 }
 
 function Remove-EnvironmentModule
@@ -647,7 +643,7 @@ function Remove-EnvironmentModule
     #>
     [CmdletBinding()]
     Param(
-        # Any other parameters can go here
+        [switch] $Force
     )
     DynamicParam {
         # Set the dynamic parameters' name
@@ -686,11 +682,11 @@ function Remove-EnvironmentModule
     }
 
     process {   
-        Remove-RequiredModulesRecursive -FullName $Name -UnloadedDirectly $True
+        Remove-RequiredModulesRecursive -FullName $Name -UnloadedDirectly $True -Force $Force
     }
 }
 
-function Remove-RequiredModulesRecursive([String] $FullName, [Bool] $UnloadedDirectly)
+function Remove-RequiredModulesRecursive([String] $FullName, [Bool] $UnloadedDirectly, [switch] $Force)
 {
     <#
     .SYNOPSIS
@@ -712,7 +708,7 @@ function Remove-RequiredModulesRecursive([String] $FullName, [Bool] $UnloadedDir
     
     $module = $script:loadedEnvironmentModules.Get_Item($name)
     
-    if($UnloadedDirectly -and !$module.IsLoadedDirectly) {
+    if(!$Force -and $UnloadedDirectly -and !$module.IsLoadedDirectly) {
         Write-Error "Unable to remove module $Name because it was imported as dependency"
         return;
     }
@@ -839,43 +835,31 @@ function New-EnvironmentModuleFunction
     The name of the function to export.
     .PARAMETER Value
     The script block to export.
+    .PARAMETER ModuleName
+    The name of the module exporting the function.    
     .OUTPUTS
     No outputs are returned.
     #>
     Param(
+        [Parameter(Mandatory=$true)]
         [String] $Name,
-        [System.Management.Automation.ScriptBlock] $Value
+        [Parameter(Mandatory=$true)]
+        [String] $ModuleName,
+        [Parameter(Mandatory=$true)] 
+        [System.Management.Automation.ScriptBlock] $Value 
     )
     
     process {   
+        Write-Verbose "Registering environment module function $Name with value $Value and module name $ModuleName"
+        if([System.String]::IsNullOrEmpty($ModuleName)) {
+            Write-Error "No module name for the environment module function $Name given"
+            return
+        }
+        
+        Add-EnvironmentModuleFunction $Name $ModuleName $Value
+
         new-item -path function:\ -name "global:$Name" -value $Value -Force
     }
-}
-
-function New-EnvironmentModuleExecuteFunction
-{
-    <#
-    .SYNOPSIS
-    Export the given function in global scope.
-    .DESCRIPTION
-    This function will export a module function in global scope. This will prevent the powershell from automtically explore the function if the module is not loaded.
-    .PARAMETER Name
-    The name of the function to export.
-    .PARAMETER Value
-    The script block to export.
-    .OUTPUTS
-    No outputs are returned.
-    #>
-    Param(
-        [String] $Name,
-        [System.Management.Automation.ScriptBlock] $Value
-    )
-    
-    process {   
-        new-item -path function:\ -name "global:$Name" -Force -value {
-          $Value.invoke($args)
-        }
-    }  
 }
 
 function Edit-EnvironmentModule
@@ -922,6 +906,19 @@ function Edit-EnvironmentModule
         # Create and return the dynamic parameter
         $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
         $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+
+        $FileParameterName = 'File'       
+        $FileAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]      
+        $FileParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $FileParameterAttribute.Mandatory = $false
+        $FileParameterAttribute.Position = 1
+        $FileAttributeCollection.Add($FileParameterAttribute)     
+        $FileArrSet = @($RuntimeParameter.Value)
+        $FileValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($FileArrSet)     
+        $FileAttributeCollection.Add($FileValidateSetAttribute)
+        $FileRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($FileParameterName, [string], $FileAttributeCollection)
+        $RuntimeParameterDictionary.Add($FileParameterName, $FileRuntimeParameter)
+
         return $RuntimeParameterDictionary
     }
     

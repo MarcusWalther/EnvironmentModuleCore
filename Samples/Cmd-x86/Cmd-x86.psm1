@@ -13,7 +13,7 @@ $MODULE_ROOT = Find-FirstFile "cmd.exe" "" $MODULE_SEARCHPATHS
 
 function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
 {
-	$eModule.AddAlias("npp", "Start-Cmd", "Use 'cm' to start Cmd")
+	$eModule.AddAlias("cm", "Start-Cmd", "Use 'cm' to start Cmd")
 	$eModuleRoot = (Resolve-Path (Join-Path $eModuleRoot "..\"))
 	
 	return $eModule

@@ -8,7 +8,12 @@ namespace EnvironmentModules
     public class EnvironmentModuleBase
     {
         /// <summary>
-        /// The name of the module. This name can be used to load the module with the help of the powershell-environment.
+        /// The full name of the module. This name can be used to load the module with the help of the powershell-environment.
+        /// </summary>
+        public string FullName { get; }
+
+        /// <summary>
+        /// The short name of the module.
         /// </summary>
         public string Name { get; }
 
@@ -43,12 +48,17 @@ namespace EnvironmentModules
         public bool DirectUnload { get; set; }
 
         /// <summary>
-        /// An additional description that is shown when the module is loaded
+        /// An additional description that is shown when the module is loaded.
         /// </summary>
         public string AdditionalDescription { get; set; }
 
+        /// <summary>
+        /// The version of the code style used to write the pse/psm file.
+        /// </summary>
+        public double StyleVersion { get; set; }
 
         public EnvironmentModuleBase(
+            string fullName,
             string name, 
             string version, 
             string architecture, 
@@ -56,8 +66,10 @@ namespace EnvironmentModules
             EnvironmentModuleType moduleType = EnvironmentModuleType.Default, 
             string[] requiredEnvironmentModules = null, 
             string additionalDescription = "",
-            bool directUnload = false)
+            bool directUnload = false,
+            double StyleVersion = 0.0)
         {
+            FullName = fullName;
             Name = name;
             Version = version;
             Architecture = architecture;
@@ -118,6 +130,7 @@ namespace EnvironmentModules
 
         #region Constructors
         public EnvironmentModule(
+            string fullName,
             string name, 
             string version, 
             string architecture, 
@@ -128,7 +141,7 @@ namespace EnvironmentModules
             bool directUnload = false,
             int referenceCounter = 1, 
             bool isLoadedDirectly = true) : 
-            base(name, version, architecture, additionalInfo, moduleType, requiredEnvironmentModules, additionalDescription, directUnload)
+            base(fullName, name, version, architecture, additionalInfo, moduleType, requiredEnvironmentModules, additionalDescription, directUnload)
         {
 
             IsLoaded = false;

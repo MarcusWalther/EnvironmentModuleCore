@@ -18,6 +18,9 @@ ModuleType = "{{ModuleType}}"
 # Additional information that are displayed when the module is loaded
 AdditionalDescription = "{{AdditionalDescription}}"
 
-# If this value is set to true, the module will be removed after loading it and the given dependencies, so that just the dependencies will remain.
+# If this value is set to true, the module will be removed after loading it including the given dependencies - so that just the dependencies will remain.
 DirectUnload = {{DirectUnload}}
+
+# The version of the description files
+StyleVersion = 1.0
 }
