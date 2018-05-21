@@ -318,7 +318,7 @@ function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System
 {
     Write-Verbose $Module.ToString()
     $newTupleValue = [System.Tuple]::Create($Definition, $Module)
-    # Check if the alias was already used
+    # Check if the function was already used
     if($loadedEnvironmentModuleFunctions.ContainsKey($Name))
     {
         $knownFunctions = $loadedEnvironmentModuleFunctions[$Name]
@@ -329,6 +329,39 @@ function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System
         $newValue.Add($newTupleValue)
         $loadedEnvironmentModuleFunctions.Add($Name, $newValue)
     }
+}
+
+function Get-EnvironmentModuleFunctions([String] $Name)
+{
+    $result = New-Object "System.Collections.Generic.List[string]"
+    if(-not $loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    {
+        return $result
+    }
+
+    foreach($knownFunction in $loadedEnvironmentModuleFunctions[$Name]) {
+        $result.Add($knownFunction.Item2)
+    }
+
+    return $result  
+}
+
+function Invoke-EnvironmentModuleFunction([String] $Name, [String] $Module)
+{
+    if(-not $loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    {
+        throw "The function $Name is not registered"
+    }
+
+    $knownFunctionPairs = $loadedEnvironmentModuleFunctions[$Name]
+
+    foreach($functionPair in $knownFunctionPairs) {
+        if($functionPair.Item2 -eq $Module) {
+            return Invoke-Command -ScriptBlock $functionPair.Item1
+        }
+    }
+
+    throw "The module $Module has no function registered named $Name"
 }
 
 # Check if the cache file is available -> create it if not

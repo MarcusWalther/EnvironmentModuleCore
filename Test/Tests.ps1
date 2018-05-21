@@ -1,3 +1,7 @@
+if(Get-Module "EnvironmentModules") {
+    Remove-Module "EnvironmentModules"
+}
+
 Import-Module "$PSScriptRoot\..\EnvironmentModules.psm1"
 
 . "$PSScriptRoot\..\Samples\StartSampleEnvironment.ps1"
@@ -78,6 +82,21 @@ Describe 'TestGet' {
     Remove-EnvironmentModule 'Project-ProgramA'
 }
 
-Describe 'Test' {
-    Edit-EnvironmentModule "Aspell" -File "Test"
+Describe 'TestFunctionStack' {
+    Import-EnvironmentModule 'Cmd'
+    Import-EnvironmentModule 'Project-ProgramA'
+
+    $knownFunctions = Get-EnvironmentModuleFunctions "Start-Cmd"
+
+    $knownFunctions | Should -HaveCount 2
+
+    $knownFunctions[0] | Should -Be "Cmd"
+    $knownFunctions[1] | Should -Be "Project-ProgramA"
+
+    $result = Invoke-EnvironmentModuleFunction "Start-Cmd" "Cmd"
+
+    Remove-EnvironmentModule 'Cmd'
+    Remove-EnvironmentModule 'Project-ProgramA'
 }
+
+#Get-EnvironmentModuleFunction -Name "Start-Cmd" -OverwrittenBy $MODULE_NAME

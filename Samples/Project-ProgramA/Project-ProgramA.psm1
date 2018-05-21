@@ -15,7 +15,7 @@ function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule,
     return $eModule
 }
 
-New-EnvironmentModuleFunction "Start-Cmd" $MODULE_NAME { Get-EnvironmentModuleFunction -Name "Start-Cmd" -OverwrittenBy $MODULE_NAME }
+New-EnvironmentModuleFunction "Start-Cmd" $MODULE_NAME { return 42; }
 
 # ------------------------
 # Static footer
