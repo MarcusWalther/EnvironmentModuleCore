@@ -15,5 +15,12 @@ RequiredEnvironmentModules = @("Aspell")
 # The type of the module, either "Default" or "Meta" if it is a project-module
 ModuleType = "Default"
 
-AdditionalDescription = ""
+# Default search paths in the registry
+DefaultRegistryPaths = @()
+
+# Default search paths on the file system
+DefaultSearchPaths = @("C:\Program Files\Notepad++")
+
+# Required files that must be part of the folder candidate
+RequiredFiles = @("notepad++.exe")
 }

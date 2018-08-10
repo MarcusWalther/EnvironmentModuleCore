@@ -41,16 +41,45 @@ function Find-Directory([string]$directoryName, [string[]]$searchDirectories) {
 	return $null
 }
 
+function Find-FirstDirectory([string[]]$filePatterns, [string[]]$searchDirectories) {
+	foreach($directory in $searchDirectories)
+	{
+		$valid = $true
+		if(!(Test-Path $directory)) {
+			continue
+		}	
+		
+		foreach($filePattern in $filePatterns) {
+			$files = Get-ChildItem $completePath -Filter $filePattern
+			if(!$files) {
+				$valid = $false
+				break
+			}
+		}
+
+		if($valid) {
+			return $directory
+		}
+	}
+	return $null
+}
+
 function Find-FirstFile([string]$filePattern, [string]$directorySubPath, [string[]]$searchDirectories) {
 	foreach($directory in $searchDirectories)
 	{
 		if(!(Test-Path $directory)) {
 			continue
 		}	
-		$completePath = Join-Path $directory $directorySubPath
+
+		$completePath = $directory
+		if($directorySubPath) {
+			$completePath = Join-Path $directory $directorySubPath
+		}
+		
 		if(!(Test-Path $completePath)) {
 			continue
 		}
+
 		$files = Get-ChildItem $completePath -Filter $filePattern
 		if($files) {
 			return (Join-Path $completePath $files[0])

@@ -1,81 +1,76 @@
 # Depends on the logic of EnvironmentModules.psm1
 
-function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Version, [String] $Architecture, [System.Management.Automation.PSModuleInfo] $Info, 
-                                 [System.Management.Automation.ScriptBlock] $CreationDelegate, [System.Management.Automation.ScriptBlock] $DeletionDelegate) {
-    <#
-    .SYNOPSIS
-    Creates a new environment module object out of the given parameters. After that, the creationDelegate is called, which can export environment variables or aliases.
-    .DESCRIPTION
-    Each environment module must be available as 'EnvironmentModules.EnvironmentModule'-object, which holds all information about the exported environment variables and aliases. 
-    This function is a factory-function that generates a new 'EnvironmentModules.EnvironmentModule'-object with the given name, program-version 
-    and architecture. After the creation is completed, the code given in the creationDelegate is invoked. If the module is removed from the environment, the deletionDelegate
-    is invoked.
-    .PARAMETER Name
-    The name of the environment module. That is usually the same as the powershell module name. 
-    .PARAMETER Root
-    The root directory of the program which is loaded through the environment module. 
-    .PARAMETER Version
-    The version of the program that is loaded through the powershell module. This is not be the version of the powershell-module!
-    .PARAMETER Architecture
-    The architecture of the program that is loaded through the powershell module. This value is unused at the moment.
-    .PARAMETER Info
-    The powershell module that should be registered. This is usually '$MyInvocation.MyCommand.ScriptBlock.Module'
-    .PARAMETER CreationDelegate
-    The code that should be executed when the environment module is loaded. The code should take 2 arguments, the generated module that 
-    can be filled with further information and the root directory of the module.
-    .PARAMETER DeletionDelegate
-    The code that should be executed when the environment module is removed. This is just a wrapper for the OnRemove delegate.
-    .OUTPUTS
-    A boolean value that indicates if the environment module was successfully created.
-    .NOTE
-    With the current concept it's impossible to get the description and other information from the module manifest.
-    #>
-    if($script:importingModule -ne $Name) {
-        Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Red"
-        Write-Host "The importing module is $script:importingModule and the current module is $Name"
-        return
-    }
+# function Mount-EnvironmentModule([String] $Name, [String] $Root, [String] $Version, [String] $Architecture, [System.Management.Automation.PSModuleInfo] $Info, 
+#                                  [System.Management.Automation.ScriptBlock] $CreationDelegate, [System.Management.Automation.ScriptBlock] $DeletionDelegate) {
+#     <#
+#     .SYNOPSIS
+#     Creates a new environment module object out of the given parameters. After that, the creationDelegate is called, which can export environment variables or aliases.
+#     .DESCRIPTION
+#     Each environment module must be available as 'EnvironmentModules.EnvironmentModule'-object, which holds all information about the exported environment variables and aliases. 
+#     This function is a factory-function that generates a new 'EnvironmentModules.EnvironmentModule'-object with the given name, program-version 
+#     and architecture. After the creation is completed, the code given in the creationDelegate is invoked. If the module is removed from the environment, the deletionDelegate
+#     is invoked.
+#     .PARAMETER Name
+#     The name of the environment module. That is usually the same as the powershell module name. 
+#     .PARAMETER Root
+#     The root directory of the program which is loaded through the environment module. 
+#     .PARAMETER Version
+#     The version of the program that is loaded through the powershell module. This is not be the version of the powershell-module!
+#     .PARAMETER Architecture
+#     The architecture of the program that is loaded through the powershell module. This value is unused at the moment.
+#     .PARAMETER Info
+#     The powershell module that should be registered. This is usually '$MyInvocation.MyCommand.ScriptBlock.Module'
+#     .PARAMETER CreationDelegate
+#     The code that should be executed when the environment module is loaded. The code should take 2 arguments, the generated module that 
+#     can be filled with further information and the root directory of the module.
+#     .PARAMETER DeletionDelegate
+#     The code that should be executed when the environment module is removed. This is just a wrapper for the OnRemove delegate.
+#     .OUTPUTS
+#     A boolean value that indicates if the environment module was successfully created.
+#     .NOTE
+#     With the current concept it's impossible to get the description and other information from the module manifest.
+#     #>
 
-    if($Root) {
-        $moduleInfos = Split-EnvironmentModuleName $Name
+#     if($Root) {
+#         $moduleInfos = Split-EnvironmentModuleName $Name
 
-        $moduleDescription = Read-EnvironmentModuleDescriptionFile -Name $Name
+#         $moduleDescription = Read-EnvironmentModuleDescriptionFile -Name $Name
         
-        if($moduleDescription -eq $null) {
-            Write-Error ("The module description for enivronment module '" + $Name + "'cannot be created")
-            return $null
-        }
+#         if($moduleDescription -eq $null) {
+#             Write-Error ("The module description for enivronment module '" + $Name + "'cannot be created")
+#             return $null
+#         }
 
-        Write-Verbose "Read module description $moduleDescription"
+#         Write-Verbose "Read module description $moduleDescription"
 
-        if(!$moduleInfos) {
-            Write-Error ("The name of the enivronment module '" + $Name + "'cannot be split into its parts")
-            return $null
-        }
-        if($Version) {
-            $moduleInfos[1] = $Version
-        }
-        if($Architecture) {
-            $moduleInfos[2] = $Architecture
-        }
+#         if(!$moduleInfos) {
+#             Write-Error ("The name of the enivronment module '" + $Name + "'cannot be split into its parts")
+#             return $null
+#         }
+#         if($Version) {
+#             $moduleInfos[1] = $Version
+#         }
+#         if($Architecture) {
+#             $moduleInfos[2] = $Architecture
+#         }
         
-        Write-Verbose ("Creating environment module with name '" + $moduleInfos[0] + "', version '" + $moduleInfos[1] + "', architecture '" + $moduleInfos[2] + "', additional information '" + $moduleInfos[3] + "' dependencies " + $moduleDescription.RequiredEnvironmentModules + " and direct unload " + "$($moduleDescription.DirectUnload)")
-        [EnvironmentModules.EnvironmentModule] $module = New-Object EnvironmentModules.EnvironmentModule($Name, $moduleInfos[0], $moduleInfos[1], $moduleInfos[2], $moduleInfos[3])
-        $module = ($CreationDelegate.Invoke($module, $Root))[0]
-        $successful = Mount-EnvironmentModuleInternal($module)
-        $Info.OnRemove = $DeletionDelegate    
-        $module.RequiredEnvironmentModules = $moduleDescription.RequiredEnvironmentModules
-        $module.ModuleType = $moduleDescription.ModuleType
-        $module.DirectUnload = $moduleDescription.DirectUnload
-        $module.AdditionalDescription = $moduleDescription.AdditionalDescription
+#         Write-Verbose ("Creating environment module with name '" + $moduleInfos[0] + "', version '" + $moduleInfos[1] + "', architecture '" + $moduleInfos[2] + "', additional information '" + $moduleInfos[3] + "' dependencies " + $moduleDescription.RequiredEnvironmentModules + " and direct unload " + "$($moduleDescription.DirectUnload)")
+#         [EnvironmentModules.EnvironmentModule] $module = New-Object EnvironmentModules.EnvironmentModule($Name, $moduleInfos[0], $moduleInfos[1], $moduleInfos[2], $moduleInfos[3])
+#         $module = ($CreationDelegate.Invoke($module, $Root))[0]
+#         $successful = Mount-EnvironmentModuleInternal($module)
+#         $Info.OnRemove = $DeletionDelegate    
+#         $module.RequiredEnvironmentModules = $moduleDescription.RequiredEnvironmentModules
+#         $module.ModuleType = $moduleDescription.ModuleType
+#         $module.DirectUnload = $moduleDescription.DirectUnload
+#         $module.AdditionalDescription = $moduleDescription.AdditionalDescription
 
-        return $true
-    }
-    else {
-        Write-Host ($Name + " not found") -foregroundcolor "DarkGray"
-    }
-    return $false
-}
+#         return $true
+#     }
+#     else {
+#         Write-Host ($Name + " not found") -foregroundcolor "DarkGray"
+#     }
+#     return $false
+# }
 
 function Compare-EnvironmentModuleInfos([String[]] $Module1, [String[]] $Module2)
 {
@@ -174,86 +169,6 @@ function Get-EnvironmentModuleDetailedString([EnvironmentModules.EnvironmentModu
     return $resultString
 }
 
-function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] $Module)
-{
-    <#
-    .SYNOPSIS
-    Deploy all the aliases and environment variables that are stored in the given module object to the environment.
-    .DESCRIPTION
-    This function will export all aliases and environment variables that are defined in the given EnvironmentModule-object. An error 
-    is written if the module conflicts with another module that is already loaded.
-    .PARAMETER Module
-    The module that should be deployed.
-    .OUTPUTS
-    A boolean value that is $true if the module was loaded successfully. Otherwise the value is $false.
-    #>
-    process {
-        Write-Verbose "Try to load module '$($Module.Name)' with architecture '$($Module.Architecture)', Version '$($Module.Version)' and type '$($Module.ModuleType)'"
-        
-        if($loadedEnvironmentModules.ContainsKey($Module.Name))
-        {
-            Write-Verbose "The module name '$($Module.Name)' was found in the list of already loaded modules"
-            if($loadedEnvironmentModules.Get_Item($Module.Name).Equals($Module)) {
-                Write-Host ("The Environment-Module '" + (Get-EnvironmentModuleDetailedString $Module) + "' is already loaded.") -foregroundcolor "Red"
-                return $false
-            }
-            else {
-                Write-Host ("The module '" + (Get-EnvironmentModuleDetailedString $Module) + " conflicts with the already loaded module '" + (Get-EnvironmentModuleDetailedString $loadedEnvironmentModules.($Module.Name)) + "'") -foregroundcolor "Red"
-                return $false
-            }
-        }
-        
-        foreach ($pathKey in $Module.PrependPaths.Keys)
-        {
-            [String] $joinedValue = $Module.PrependPaths[$pathKey] -join ';'
-            if($joinedValue -eq "") 
-            {
-                continue
-            }
-            Write-Verbose "Joined Prepend-Path: $pathKey = $joinedValue"
-            Add-EnvironmentVariableValue -Variable "$pathKey" -Value "$joinedValue" -Append $false          
-        }
-        
-        foreach ($pathKey in $Module.AppendPaths.Keys)
-        {
-            [String] $joinedValue = $Module.AppendPaths[$pathKey] -join ';'
-            if($joinedValue -eq "") 
-            {
-                continue
-            }
-            Write-Verbose "Joined Append-Path: $pathKey = $joinedValue"
-            Add-EnvironmentVariableValue -Variable "$pathKey" -Value "$joinedValue" -Append $true           
-        }
-        
-        foreach ($pathKey in $Module.SetPaths.Keys)
-        {
-            [String] $joinedValue = $Module.SetPaths[$pathKey] -join ';'
-            Write-Verbose "Joined Set-Path: $pathKey = $joinedValue"
-            [Environment]::SetEnvironmentVariable($pathKey, $joinedValue, "Process")
-        }
-        
-        foreach ($alias in $Module.Aliases.Keys) {
-            $aliasValue = $Module.Aliases[$alias]
-
-            Add-EnvironmentModuleAlias $alias $Module.FullName $aliasValue.Item1
-
-            Set-Alias -name $alias -value $aliasValue.Item1 -scope "Global"
-            if($aliasValue.Item2 -ne "") {
-                Write-Host $aliasValue.Item2 -foregroundcolor "Green"
-            }
-        }
-        
-        Write-Verbose ("Register environment module with name " + $Module.Name + " and object " + $Module)
-        
-        Write-Verbose "Adding module $($Module.Name) to mapping"
-        $loadedEnvironmentModules[$Module.Name] = $Module
-
-        $Module.Load()
-        Write-Host ((Get-EnvironmentModuleDetailedString $Module) + " loaded") -foregroundcolor "Yellow"
-        return $true
-    }
-}
-
 function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.EnvironmentModule] $Module = $null)
 {
     <#
@@ -337,7 +252,7 @@ function Get-LoadedEnvironmentModules()
     .OUTPUTS
     The String list containing the names of all environment modules.
     #>
-    return $loadedEnvironmentModules.getEnumerator() | % { $_.Value }
+    return $script:loadedEnvironmentModules.getEnumerator() | % { $_.Value }
 }
 
 function Get-LoadedEnvironmentModulesFullName()
@@ -495,138 +410,6 @@ function Switch-EnvironmentModule
         
         Import-EnvironmentModule $newModuleName
     }
-}
-
-function Import-EnvironmentModule
-{
-    <#
-    .SYNOPSIS
-    Import the environment module.
-    .DESCRIPTION
-    This function will import the environment module into the scope of the console.
-    .PARAMETER Name
-    The name of the environment module.
-    .OUTPUTS
-    No outputs are returned.
-    #>
-    [CmdletBinding()]
-    Param(
-        # Any other parameters can go here
-    )
-    DynamicParam {
-        # Set the dynamic parameters' name
-        $ParameterName = 'Name'
-        
-        # Create the dictionary 
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-    
-        # Create the collection of attributes
-        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        
-        # Create and set the parameters' attributes
-        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttribute.Mandatory = $true
-        $ParameterAttribute.Position = 0
-    
-        # Add the attributes to the attributes collection
-        $AttributeCollection.Add($ParameterAttribute)
-    
-        # Generate and set the ValidateSet 
-        $arrSet = $script:environmentModules
-        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
-    
-        # Add the ValidateSet to the attributes collection
-        $AttributeCollection.Add($ValidateSetAttribute)
-    
-        # Create and return the dynamic parameter
-        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
-        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
-        return $RuntimeParameterDictionary
-    }
-    
-    begin {
-        # Bind the parameter to a friendly variable
-        $Name = $PsBoundParameters[$ParameterName]
-    }
-
-    process {   
-        Import-RequiredModulesRecursive -FullName $Name -LoadedDirectly $True
-    }
-}
-
-function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirectly)
-{
-    <#
-    .SYNOPSIS
-    Import the environment module with the given name and all required environment modules.
-    .DESCRIPTION
-    This function will import the environment module into the scope of the console and will later iterate over all required modules to import them as well.
-    .PARAMETER FullName
-    The name of the environment module to import.
-    .OUTPUTS
-    No outputs are returned.
-    #>
-    Write-Verbose "Importing the module $Name recursive"
-    
-    $moduleInfos = Split-EnvironmentModuleName $FullName
-    $name = $moduleInfos[0]
-    
-    if($script:loadedEnvironmentModules.ContainsKey($name)) {
-        $module = $script:loadedEnvironmentModules.Get_Item($name)
-        Write-Verbose "The module $name has loaded directly state $($module.IsLoadedDirectly) and should be loaded with state $LoadedDirectly"
-        if($module.IsLoadedDirectly -and $LoadedDirectly) {
-            return;
-        }
-        Write-Verbose "The module $name is already loaded. Increasing reference counter"
-        $module.IsLoadedDirectly = $True
-        $module.ReferenceCounter++
-        return;
-    }
-
-    # Load the dependencies first
-    $module = Read-EnvironmentModuleDescriptionFile -Name $FullName
-
-    $loadDependenciesDirectly = $false
-
-    if($module.DirectUnload -eq $true) {
-        $loadDependenciesDirectly = $LoadedDirectly
-    }
-
-    Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
-    foreach ($dependency in $module.RequiredEnvironmentModules) {
-        Write-Verbose "Importing dependency $dependency"
-        Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly
-    }    
-
-    Write-Verbose "The module has direct unload state $($module.DirectUnload)"
-    if($module.DirectUnload -eq $true) {
-        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
-        return
-    }
-
-    # Load the module itself
-    Write-Verbose "Importing the module $FullName into the Powershell environment"
-    $script:importingModule = $FullName
-    Import-Module $FullName -Scope Global -Force
-    $script:importingModule = $null
-
-    Write-Verbose "Importing of module $FullName done"
-    
-    $isLoaded = Test-IsEnvironmentModuleLoaded $name
-    
-    if(!$isLoaded) {
-        Write-Error "The module $FullName was not loaded successfully"
-        $script:silentUnload = $true
-        Remove-Module $FullName -Force
-        $script:silentUnload = $false
-        return
-    }
-
-    # Get the completely loaded module
-    $module = $script:loadedEnvironmentModules.Get_Item($name)
-    $module.IsLoadedDirectly = $LoadedDirectly
-
-    [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
 }
 
 function Remove-EnvironmentModule

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace EnvironmentModules
 {
@@ -11,6 +12,12 @@ namespace EnvironmentModules
         /// The full name of the module. This name can be used to load the module with the help of the powershell-environment.
         /// </summary>
         public string FullName { get; }
+
+        /// <summary>
+        /// The base directory of the environment module. Should be the same as for the underlaying 
+        /// PowerShell module.
+        /// </summary>
+        public DirectoryInfo ModuleBase { get; }
 
         /// <summary>
         /// The short name of the module.
@@ -42,15 +49,16 @@ namespace EnvironmentModules
         /// </summary>
         public string[] RequiredEnvironmentModules { get; set; }
 
+        public string[] DefaultRegistryPaths { get; }
+
+        public string[] DefaultFolderPaths { get; }
+
+        public string[] RequiredFiles { get; }
+
         /// <summary>
         /// This value indicates whether the module should be unloaded after the import, so that just the dependencies will remain.
         /// </summary>
         public bool DirectUnload { get; set; }
-
-        /// <summary>
-        /// An additional description that is shown when the module is loaded.
-        /// </summary>
-        public string AdditionalDescription { get; set; }
 
         /// <summary>
         /// The version of the code style used to write the pse/psm file.
@@ -59,23 +67,26 @@ namespace EnvironmentModules
 
         public EnvironmentModuleBase(
             string fullName,
+            DirectoryInfo moduleBase,
             string name, 
             string version, 
-            string architecture, 
+            string architecture,
             string additionalInfo = "", 
             EnvironmentModuleType moduleType = EnvironmentModuleType.Default, 
-            string[] requiredEnvironmentModules = null, 
-            string additionalDescription = "",
+            string[] requiredEnvironmentModules = null,
+            string[] defaultRegistryPaths = null,
+            string[] defaultFolderPaths = null,
+            string[] requiredFiles = null,
             bool directUnload = false,
             double StyleVersion = 0.0)
         {
             FullName = fullName;
+            ModuleBase = moduleBase;
             Name = name;
             Version = version;
             Architecture = architecture;
             AdditionalInfo = additionalInfo;
             ModuleType = moduleType;
-            AdditionalDescription = additionalDescription;
             DirectUnload = directUnload;
 
             RequiredEnvironmentModules = requiredEnvironmentModules ?? new string[0];
@@ -131,17 +142,21 @@ namespace EnvironmentModules
         #region Constructors
         public EnvironmentModule(
             string fullName,
-            string name, 
-            string version, 
-            string architecture, 
-            string additionalInfo = "", 
-            EnvironmentModuleType moduleType = EnvironmentModuleType.Default, 
+            DirectoryInfo moduleBase,
+            DirectoryInfo moduleRoot,
+            string name,
+            string version,
+            string architecture,
+            string additionalInfo = "",
+            EnvironmentModuleType moduleType = EnvironmentModuleType.Default,
             string[] requiredEnvironmentModules = null,
-            string additionalDescription = "",
+            string[] defaultRegistryPaths = null,
+            string[] defaultFolderPaths = null,
+            string[] requiredFiles = null,
             bool directUnload = false,
             int referenceCounter = 1, 
             bool isLoadedDirectly = true) : 
-            base(fullName, name, version, architecture, additionalInfo, moduleType, requiredEnvironmentModules, additionalDescription, directUnload)
+            base(fullName, moduleBase, name, version, architecture, additionalInfo, moduleType, requiredEnvironmentModules, defaultRegistryPaths, defaultFolderPaths, requiredFiles, directUnload)
         {
 
             IsLoaded = false;
@@ -152,7 +167,14 @@ namespace EnvironmentModules
             AppendPaths = new Dictionary<string, List<string>>();
             SetPaths = new Dictionary<string, List<string>>();
             Aliases = new Dictionary<string, Tuple<string,string>>();
-        } 
+        }
+
+        public EnvironmentModule(DirectoryInfo moduleRoot, EnvironmentModuleBase baseModule) : 
+            this(baseModule.FullName, baseModule.ModuleBase, moduleRoot, baseModule.Name,
+                baseModule.Version, baseModule.Architecture, baseModule.AdditionalInfo,
+                baseModule.ModuleType, baseModule.RequiredEnvironmentModules, baseModule.DefaultRegistryPaths,
+                baseModule.DefaultFolderPaths, baseModule.RequiredFiles, baseModule.DirectUnload)
+        { }
         #endregion
 
         public void Load()

@@ -2,7 +2,8 @@ if(Get-Module "EnvironmentModules") {
     Remove-Module "EnvironmentModules"
 }
 
-Import-Module "$PSScriptRoot\..\EnvironmentModules.psm1"
+Import-Module "$PSScriptRoot\..\EnvironmentModules.psd1"
+Import-Module Pester
 
 . "$PSScriptRoot\..\Samples\StartSampleEnvironment.ps1"
 
@@ -16,8 +17,8 @@ Describe 'TestLoading' {
     It 'Default Modules were created' {
         $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand Name
         'NotepadPlusPlus' | Should -BeIn $availableModules
-    }  
-    
+    }
+
     Import-EnvironmentModule 'NotepadPlusPlus'
 
     It 'Meta-Module is unloaded directly' {
@@ -26,19 +27,19 @@ Describe 'TestLoading' {
     }
 
     It 'Module is loaded correctly' {
-        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "NotepadPlusPlus-x86"
-        $module | Should -Not -BeNullOrEmpty        
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "NotepadPlusPlus-x64"
+        $module | Should -Not -BeNullOrEmpty
     }
 
     It 'Dependency was loaded correctly' {
         $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Aspell-2_1-x86"
-        $module | Should -Not -BeNullOrEmpty       
+        $module | Should -Not -BeNullOrEmpty
     }
 
-    Remove-EnvironmentModule 'NotepadPlusPlus-x86'   
+    Remove-EnvironmentModule 'NotepadPlusPlus-x64'
 
     It 'Module can be removed with dependencies' {
-        $module = Get-EnvironmentModule #| Where-Object -Property "FullName" -eq "Aspell-2_1-x86"   
+        $module = Get-EnvironmentModule
         $module | Should -BeNullOrEmpty   
     }   
 }
