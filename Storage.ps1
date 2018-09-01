@@ -1,4 +1,5 @@
 $script:moduleCacheFileLocation = [IO.Path]::Combine($script:tmpEnvironmentRootPath, "ModuleCache.xml")
+$script:searchPathsFileLocation = [IO.Path]::Combine($script:tmpEnvironmentRootPath, "CustomSearchPaths.xml")
 
 function Initialize-EnvironmentModuleCache()
 {
@@ -17,6 +18,20 @@ function Initialize-EnvironmentModuleCache()
     }
     
     $script:environmentModules = Import-CliXml -Path $moduleCacheFileLocation
+}
+
+function Initialize-CustomSearchPaths()
+{
+    <#
+    .SYNOPSIS
+    Load the custom search paths file.
+    .DESCRIPTION
+    This function will load all environment modules that part of the cache file and will provide them in the environemtModules list.
+    .OUTPUTS
+    No output is returned.
+    #>
+    $script:customSearchPaths = @{}
+    $script:customSearchPaths = Import-CliXml -Path $searchPathsFileLocation
 }
 
 function Update-EnvironmentModuleCache()
@@ -138,4 +153,91 @@ function Update-EnvironmentModuleCache()
     $modulesByVersion.GetEnumerator()
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
+}
+
+function Add-CustomSearchPath
+{
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("Directory", "Registry")]
+        [string] $Type,
+        [Parameter(Mandatory=$true)]
+        [string] $Value
+    )
+    DynamicParam {
+        # Set the dynamic parameters' name
+        $ParameterName = 'Module'
+
+        # Create the dictionary 
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+    
+        # Create the collection of attributes
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        
+        # Create and set the parameters' attributes
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 0
+    
+        # Add the attributes to the attributes collection
+        $AttributeCollection.Add($ParameterAttribute)
+    
+        $arrSet = $script:environmentModules
+        if($arrSet.Length -gt 0) {
+            # Generate and set the ValidateSet 
+            $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        
+            # Add the ValidateSet to the attributes collection
+            $AttributeCollection.Add($ValidateSetAttribute)
+        }
+    
+        # Create and return the dynamic parameter
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+        return $RuntimeParameterDictionary
+    }
+
+    begin {
+        # Bind the parameter to a friendly variable
+        $Module = $PsBoundParameters[$ParameterName]
+    }
+
+    process {   
+        $oldSearchPaths = $script:customSearchPaths[$Module]
+        $newSearchPath
+        if($Type -eq "Directory") {
+            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($false, $Value)
+        }
+        else {
+            $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($false, $Value)
+        }
+
+        if($oldSearchPaths) {
+            $script:customSearchPaths[$Module] = $oldSearchPaths + @($newSearchPath)
+        }
+        else {
+            $script:customSearchPaths[$Module] = @($newSearchPath)
+        }
+        Export-Clixml -Path "$script:searchPathsFileLocation" -InputObject $script:customSearchPaths
+    }
+}
+
+function Clear-CustomSearchPaths
+{
+    Param(
+        [Switch] $Force
+    )
+
+    # Ask for deletion
+    if(-not $Force) {
+        $answer = Read-Host -Prompt "Do you really want to delete all custom seach paths (Y/N)?"
+
+        if($answer.ToLower() -ne "y") {
+            return
+        }
+    }
+
+    $script:customSearchPaths.Clear()
+    Export-Clixml -Path "$script:searchPathsFileLocation" -InputObject $script:customSearchPaths
 }
