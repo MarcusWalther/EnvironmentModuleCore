@@ -8,12 +8,21 @@
 
 
 @{
+    # Environment Modules that must be imported into the global environment prior importing this module
+    RequiredEnvironmentModules = @("Aspell")
 
-# Environment Modules that must be imported into the global environment prior importing this module
-RequiredEnvironmentModules = @("Aspell")
+    # The type of the module, either "Default" or "Meta" if it is a project-module
+    ModuleType = "Default"
 
-# The type of the module, either "Default" or "Meta" if it is a project-module
-ModuleType = "Default"
+    # Default search paths in the registry
+    DefaultRegistryPaths = @("HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon")
+        
+    # Default search paths on the file system
+    DefaultFolderPaths = @("C:\Program Files (x86)\Notepad++")
+        
+    # Required files that must be part of the folder candidate
+    RequiredFiles = @("notepad++.exe")
 
-AdditionalDescription = ""
+    # The version of the description files
+    StyleVersion = 2.0    
 }

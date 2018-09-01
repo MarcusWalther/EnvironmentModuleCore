@@ -29,18 +29,6 @@ Description = 'This environment module will add the Aspell program to the PATH.'
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @("EnvironmentModules")
 
-# Functions to export from this module
-FunctionsToExport = @()
-
-# Cmdlets to export from this module
-CmdletsToExport = @()
-
-# Variables to export from this module
-VariablesToExport = @()
-
-# Aliases to export from this module
-AliasesToExport = @()
-
 # List of all modules packaged with this module
 ModuleList = @("Aspell-2_1-x86")
 

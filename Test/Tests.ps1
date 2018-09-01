@@ -44,6 +44,40 @@ Describe 'TestLoading' {
     }   
 }
 
+Describe 'TestLoading_CustomPath' {
+    Clear-CustomSearchPaths -Force
+    $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
+    Add-CustomSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+
+    Import-EnvironmentModule "Project-ProgramB"
+    It 'Module is loaded correctly' {
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Project-ProgramB"
+        $module | Should -Not -BeNullOrEmpty
+    }
+
+    Remove-EnvironmentModule 'Project-ProgramB'
+
+    It 'Module can be removed with dependencies' {
+        $module = Get-EnvironmentModule
+        $module | Should -BeNullOrEmpty   
+    }       
+}
+
+Describe 'TestLoading_InvalidCustomPath' {
+    Clear-CustomSearchPaths -Force
+    $customDirectory = Join-Path $PSScriptRoot "..\..\Samples\Project-ProgramB"
+    Add-CustomSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+
+    Import-EnvironmentModule "Project-ProgramB"
+    It 'Module should not be loaded because of invalid root path' {
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Project-ProgramB"
+        $module | Should -BeNullOrEmpty
+    }    
+}
+
+Describe 'TestLoading_AbstractModule' {
+}
+
 Describe 'TestSwitch' {
     Import-EnvironmentModule 'Project-ProgramA'
 
@@ -62,6 +96,11 @@ Describe 'TestSwitch' {
 
         $module = Get-EnvironmentModule | Where-Object -Property "FullName" -like "NotepadPlusPlus-x64" 
         $module | Should -Not -BeNullOrEmpty         
+    }
+
+    It 'Meta function works' {
+        $result = Start-Cmd 42
+        $result | Should -BeExactly 42
     }
 
     Remove-EnvironmentModule 'Project-ProgramA'

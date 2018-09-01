@@ -8,14 +8,15 @@
 
 
 @{
+    # Environment Modules that must be imported into the global environment prior importing this module
+    RequiredEnvironmentModules = @("NotepadPlusPlus-x86", "Cmd")
 
-# Environment Modules that must be imported into the global environment prior importing this module
-RequiredEnvironmentModules = @("NotepadPlusPlus-x86", "Cmd")
+    # The type of the module, either "Default" or "Meta" if it is a project-module
+    ModuleType = "Meta"
 
-# The type of the module, either "Default" or "Meta" if it is a project-module
-ModuleType = "Meta"
+    # If this value is set to true, the module will be removed after loading it and the given dependencies, so that just the dependencies will remain.
+    DirectUnload = $false
 
-# If this value is set to true, the module will be removed after loading it and the given dependencies, so that just the dependencies will remain.
-DirectUnload = $false
-
+    # The version of the description files
+    StyleVersion = 2.0
 }

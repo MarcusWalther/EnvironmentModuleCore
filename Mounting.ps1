@@ -1,3 +1,32 @@
+function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
+    <#
+    .SYNOPSIS
+    Check if the given folder contains all files given as second parameter.
+    .DESCRIPTION
+    This function will check if the folder does exist and if it contains all given files.
+    .PARAMETER FolderPath
+    The folder to check.
+    .PARAMETER Files
+    The files to check.    
+    .OUTPUTS
+    True if the folder does exist and if it contains all files, false otherwise.
+    #>
+
+    if (-not (Test-Path $FolderPath)) {
+        Write-Verbose "The folder $FolderPath does not exist"
+        return $false
+    }
+
+    foreach($file in $Files) {
+        if (-not (Test-Path (Join-Path $FolderPath $file))) {
+            Write-Verbose "The file $file does not exist in folder $FolderPath"
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Find-RootDirectory([EnvironmentModules.EnvironmentModuleBase] $Module) {
     <#
     .SYNOPSIS
@@ -7,9 +36,69 @@ function Find-RootDirectory([EnvironmentModules.EnvironmentModuleBase] $Module) 
     .PARAMETER Module
     The module to handle.
     .OUTPUTS
-    The path to the root directory.
+    The path to the root directory or $null if it was not found.
     #>
-    return ""
+
+    foreach($searchPath in $Module.SearchPaths)
+    {
+        if($searchPath.GetType() -eq [EnvironmentModules.RegistrySearchPath]) {
+            $pathSegments = $searchPath.Key.Split('\')
+            $propertyName = $pathSegments[-1]
+            $propertyPath = [string]::Join('\', $pathSegments[0..($pathSegments.Length - 2)])
+    
+            try {
+                $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"   
+                if ($null -eq $registryValue) {
+                    continue
+                }
+                if (Test-FileExistence (Split-Path -parent $registryValue) $Module.RequiredFiles) {
+                    return (Split-Path -parent $registryValue)
+                }
+            }
+            catch {
+                continue
+            }
+
+            continue
+        }
+
+        if($searchPath.GetType() -eq [EnvironmentModules.DirectorySearchPath]) {
+            if (Test-FileExistence $searchPath.Directory $Module.RequiredFiles) {
+                return $searchPath.Directory
+            }
+
+            continue
+        }
+    }
+
+    # # Search the registry paths
+    # foreach($path in ($Module.CustomRegistryPaths + $Module.DefaultRegistryPaths)) {
+    #     $pathSegments = $path.Split('\')
+    #     $propertyName = $pathSegments[-1]
+    #     $propertyPath = [string]::Join('\', $pathSegments[0..($pathSegments.Length - 2)])
+
+    #     try {
+    #         $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"   
+    #         if ($null -eq $registryValue) {
+    #             continue
+    #         }
+    #         if (Test-FileExistence (Split-Path -parent $registryValue) $Module.RequiredFiles) {
+    #             return (Split-Path -parent $registryValue)
+    #         }
+    #     }
+    #     catch {
+    #         continue
+    #     }
+    # }
+
+    # # Search the folder paths
+    # foreach($path in ($Module.CustomFolderPaths + $Module.DefaultFolderPaths)) {
+    #     if (Test-FileExistence $path $Module.RequiredFiles) {
+    #         return $path
+    #     }
+    # }
+
+    return $null
 }
 
 function Import-EnvironmentModule
@@ -67,7 +156,7 @@ function Import-EnvironmentModule
     }
 
     process {   
-        Import-RequiredModulesRecursive -FullName $Name -LoadedDirectly $True
+        $_ = Import-RequiredModulesRecursive -FullName $Name -LoadedDirectly $True
     }
 }
 
@@ -81,7 +170,7 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     .PARAMETER FullName
     The name of the environment module to import.
     .OUTPUTS
-    No outputs are returned.
+    True if the module was loaded correctly, otherwise false.
     #>
     Write-Verbose "Importing the module $Name recursive"
     
@@ -92,16 +181,21 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         $module = $script:loadedEnvironmentModules.Get_Item($name)
         Write-Verbose "The module $name has loaded directly state $($module.IsLoadedDirectly) and should be loaded with state $LoadedDirectly"
         if($module.IsLoadedDirectly -and $LoadedDirectly) {
-            return;
+            return $true
         }
         Write-Verbose "The module $name is already loaded. Increasing reference counter"
         $module.IsLoadedDirectly = $True
         $module.ReferenceCounter++
-        return;
+        return $true
     }
 
     # Load the dependencies first
     $module = Read-EnvironmentModuleDescriptionFile -Name $FullName
+
+    if ($null -eq $module) {
+        Write-Error "Unable to read environment module description file of module $FullName"
+        return $false
+    }
 
     $loadDependenciesDirectly = $false
 
@@ -109,28 +203,30 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         $loadDependenciesDirectly = $LoadedDirectly
     }
 
+    # Identify the root directory
+    $moduleRoot = Find-RootDirectory $module
+
+    if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
+        Write-Error "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?"
+        return $false
+    }
+
     Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
     foreach ($dependency in $module.RequiredEnvironmentModules) {
         Write-Verbose "Importing dependency $dependency"
-        Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly
+        if (-not (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly)) {
+            return $false
+        }
     }    
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"
     if($module.DirectUnload -eq $true) {
         [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
-        return
-    }
-
-    try {
-        # Identify the root directory of the module
-        Find-RootDirectory $module
-    }
-    catch {
-        return
+        return $true
     }
 
     # Load the module itself
-    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ((Find-EnvironmentModuleRoot $module), $module)
+    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
     Write-Verbose "Importing the module $FullName into the Powershell environment"
     Import-Module $FullName -Scope Global -Force -ArgumentList $module
     Mount-EnvironmentModuleInternal $module
@@ -143,21 +239,18 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         $script:silentUnload = $true
         Remove-Module $FullName -Force
         $script:silentUnload = $false
-        return
+        return $false
     }
 
-    # Get the completely loaded module
-    $module = $script:loadedEnvironmentModules.Get_Item($name)
-    $module.IsLoadedDirectly = $LoadedDirectly
-
     [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
+    return $true
 }
 
 function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] $Module)
 {
     <#
     .SYNOPSIS
-    Deploy all the aliases and environment variables that are stored in the given module object to the environment.
+    Deploy all the aliases, environment variables and functions that are stored in the given module object to the environment.
     .DESCRIPTION
     This function will export all aliases and environment variables that are defined in the given EnvironmentModule-object. An error 
     is written if the module conflicts with another module that is already loaded.
@@ -221,13 +314,19 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
                 Write-Host $aliasValue.Item2 -foregroundcolor "Green"
             }
         }
+
+        foreach ($function in $Module.Functions.Keys) {
+            $value = $Module.Functions[$function]
+            Add-EnvironmentModuleFunction $function $Module.Name $value
+
+            new-item -path function:\ -name "global:$function" -value $value -Force
+        }
         
         Write-Verbose ("Register environment module with name " + $Module.Name + " and object " + $Module)
         
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
-        $Module.Load()
         Write-Host ((Get-EnvironmentModuleDetailedString $Module) + " loaded") -foregroundcolor "Yellow"
         return $true
     }

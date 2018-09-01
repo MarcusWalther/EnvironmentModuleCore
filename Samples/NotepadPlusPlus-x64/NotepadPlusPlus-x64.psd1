@@ -15,7 +15,7 @@ RootModule = 'NotepadPlusPlus-x64.psm1'
 ModuleVersion = '1.0'
 
 # ID used to uniquely identify this module
-GUID = '2458903f-ca40-412b-bdb3-c1de8e70395d'
+GUID = 'e00e6d51-6e4e-4dce-8c87-374cf8a2fe43'
 
 # Author of this module
 Author = 'Marcus Walther'

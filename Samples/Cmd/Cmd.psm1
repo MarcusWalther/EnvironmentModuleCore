@@ -1,33 +1,13 @@
-# ------------------------
-# Static header
-# ------------------------
+param(
+    [parameter(Position=0, Mandatory=$true)]
+	[EnvironmentModules.EnvironmentModule]
+	$Module
+)
 
-$MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
+$Module.AddPrependPath("PATH", $Module.ModuleRoot)
+$Module.AddFunction("Start-Cmd", {
+	Start-Process -FilePath "$Module.ModuleRoot\cmd.exe" @args
+})
 
-# ------------------------
-# User content
-# ------------------------
-
-$MODULE_SEARCHPATHS = @("C:\Windows\system32\")
-$MODULE_ROOT = Find-FirstFile "cmd.exe" "" $MODULE_SEARCHPATHS
-
-function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
-{
-	$eModule.AddAlias("cm", "Start-Cmd", "Use 'cm' to start Cmd")
-	$eModuleRoot = (Resolve-Path (Join-Path $eModuleRoot "..\"))
-	
-	return $eModule
-}
-
-New-EnvironmentModuleFunction "Start-Cmd" $MODULE_NAME { & "$MODULE_ROOT" }
-
-# ------------------------
-# Static footer
-# ------------------------
-
-function RemoveModulePathsInternal()
-{
-	[void](Dismount-EnvironmentModule -Name $MODULE_NAME)
-}
-
-Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal}
+[String] $cmd = "Start-Process -FilePath '$($Module.ModuleRoot)\cmd.exe' @args"
+$Module.AddFunction("Start-Cmd", [ScriptBlock]::Create($cmd))

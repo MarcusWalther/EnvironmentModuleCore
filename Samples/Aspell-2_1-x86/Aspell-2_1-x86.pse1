@@ -19,8 +19,11 @@
     DefaultRegistryPaths = @()
     
     # Default search paths on the file system
-    DefaultSearchPaths = @("C:\Program Files (x86)\Aspell\bin")
+    DefaultFolderPaths = @("C:\Program Files (x86)\Aspell\bin")
     
     # Required files that must be part of the folder candidate
     RequiredFiles = @("aspell.exe")
-    }
+
+    # The version of the description files
+    StyleVersion = 2.0
+}

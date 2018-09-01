@@ -9,18 +9,18 @@
 
 @{
 
-# Environment Modules that must be imported into the global environment prior importing this module
-RequiredEnvironmentModules = @({{RequiredEnvironmentModules}})
+    # Environment Modules that must be imported into the global environment prior importing this module
+    RequiredEnvironmentModules = @({{RequiredEnvironmentModules}})
 
-# The type of the module, either "Default" or "Meta" if it is a project-module
-ModuleType = "{{ModuleType}}"
+    # The type of the module, either "Default" or "Meta" if it is a project-module
+    ModuleType = "{{ModuleType}}"
 
-# Additional information that are displayed when the module is loaded
-AdditionalDescription = "{{AdditionalDescription}}"
+    # Additional information that are displayed when the module is loaded
+    AdditionalDescription = "{{AdditionalDescription}}"
 
-# If this value is set to true, the module will be removed after loading it including the given dependencies - so that just the dependencies will remain.
-DirectUnload = {{DirectUnload}}
+    # If this value is set to true, the module will be removed after loading it including the given dependencies - so that just the dependencies will remain.
+    DirectUnload = {{DirectUnload}}
 
-# The version of the description files
-StyleVersion = 1.0
+    # The version of the description files
+    StyleVersion = 2.0
 }
