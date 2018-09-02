@@ -27,7 +27,7 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
     return $true
 }
 
-function Find-RootDirectory([EnvironmentModules.EnvironmentModuleBase] $Module) {
+function Find-RootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module) {
     <#
     .SYNOPSIS
     Find the root directory of the module, that is either specified by a registry entry or by a path.
@@ -135,7 +135,7 @@ function Import-EnvironmentModule
         # Add the attributes to the attributes collection
         $AttributeCollection.Add($ParameterAttribute)
     
-        $arrSet = $script:environmentModules
+        $arrSet = Get-ConcreteEnvironmentModules
         if($arrSet.Length -gt 0) {
             # Generate and set the ValidateSet 
             $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
@@ -190,7 +190,7 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
 
     # Load the dependencies first
-    $module = Read-EnvironmentModuleDescriptionFile -Name $FullName
+    $module = New-EnvironmentModuleInfo -Name $FullName
 
     if ($null -eq $module) {
         Write-Error "Unable to read environment module description file of module $FullName"
@@ -317,7 +317,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
 
         foreach ($function in $Module.Functions.Keys) {
             $value = $Module.Functions[$function]
-            Add-EnvironmentModuleFunction $function $Module.Name $value
+            Add-EnvironmentModuleFunction $function $Module.FullName $value
 
             new-item -path function:\ -name "global:$function" -value $value -Force
         }

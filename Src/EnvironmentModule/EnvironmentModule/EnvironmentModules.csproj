@@ -50,8 +50,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EnvironmentModule.cs" />
-    <Compile Include="EnvironmentModuleBase.cs" />
+    <Compile Include="EnvironmentModuleInfo.cs" />
     <Compile Include="EnvironmentModuleException.cs" />
+    <Compile Include="EnvironmentModuleInfoBase.cs" />
     <Compile Include="EnvironmentModuleSearchPath.cs" />
     <Compile Include="ModuleCreator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

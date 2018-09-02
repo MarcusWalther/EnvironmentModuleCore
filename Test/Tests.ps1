@@ -3,7 +3,10 @@ if(Get-Module "EnvironmentModules") {
 }
 
 Import-Module "$PSScriptRoot\..\EnvironmentModules.psd1"
-Import-Module Pester
+
+if((Get-Module -Name "Pester") -eq $null) {
+    Import-Module Pester
+}
 
 . "$PSScriptRoot\..\Samples\StartSampleEnvironment.ps1"
 
@@ -15,9 +18,19 @@ Describe 'TestLoading' {
     }
 
     It 'Default Modules were created' {
-        $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand Name
+        $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand FullName
         'NotepadPlusPlus' | Should -BeIn $availableModules
     }
+
+    It 'Abstract Default Module was not created' {
+        $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand FullName
+        'Abstract' | Should -Not -BeIn $availableModules
+    }    
+
+    It 'Meta Default Module was not created' {
+        $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand FullName
+        'Project' | Should -Not -BeIn $availableModules
+    }        
 
     Import-EnvironmentModule 'NotepadPlusPlus'
 
@@ -76,6 +89,41 @@ Describe 'TestLoading_InvalidCustomPath' {
 }
 
 Describe 'TestLoading_AbstractModule' {
+    try {
+        Import-EnvironmentModule 'Abstract-Project'
+    }
+    catch {
+
+    }
+
+    It 'Modules was not loaded' {   
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -like "Abstract-Project" 
+        $module | Should -BeNullOrEmpty 
+    }
+    
+    Import-EnvironmentModule "Project-ProgramA"
+    It 'Module is loaded correctly' {
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Project-ProgramA"
+        $module | Should -Not -BeNullOrEmpty
+    }
+
+    It 'Abstract Module is loaded correctly' {
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Abstract-Project"
+        $module | Should -Not -BeNullOrEmpty
+    }   
+
+    It 'Abstract Module Functions are available' {
+        $result = Get-ProjectRoot  # Call function of abstract module
+        $result | Should -BeExactly "C:\Temp"
+    }       
+
+    Remove-EnvironmentModule 'Project-ProgramA'
+
+    It 'Module can be removed with dependencies' {
+        $module = Get-EnvironmentModule
+        $module | Should -BeNullOrEmpty   
+    }   
+
 }
 
 Describe 'TestSwitch' {
@@ -128,12 +176,23 @@ Describe 'TestFunctionStack' {
 
     $knownFunctions = Get-EnvironmentModuleFunctions "Start-Cmd"
 
-    $knownFunctions | Should -HaveCount 2
+    It 'Function Stack has correct structure' {
+        $knownFunctions | Should -HaveCount 2
 
-    $knownFunctions[0] | Should -Be "Cmd"
-    $knownFunctions[1] | Should -Be "Project-ProgramA"
+        $knownFunctions[0] | Should -Be "Cmd"
+        $knownFunctions[1] | Should -Be "Project-ProgramA"
+    }
 
-    $result = Invoke-EnvironmentModuleFunction "Start-Cmd" "Cmd"
+    It 'Function Stack invoke does work correctly' {
+        $result = Invoke-EnvironmentModuleFunction "Start-Cmd" "Project-ProgramA" -ArgumentList "42"
+        $result | Should -Be 42
+
+        $result = Start-Cmd "42"
+        $result | Should -Be 42     
+        
+        $result = Invoke-EnvironmentModuleFunction "Start-Cmd" "Cmd" -ArgumentList "/C echo 45"
+        $result | Should -Not -BeNullOrEmpty $result.Id  
+    }
 
     Remove-EnvironmentModule 'Cmd'
     Remove-EnvironmentModule 'Project-ProgramA'

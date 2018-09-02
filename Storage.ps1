@@ -58,7 +58,7 @@ function Update-EnvironmentModuleCache()
         $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
         if($isEnvironmentModule) {
             Write-Verbose "Environment module $($module.Name) found"
-            $script:environmentModules = $script:environmentModules + $module.Name
+            $script:environmentModules = $script:environmentModules + (New-EnvironmentModuleInfoBase -Name $module.Name)
             $moduleNameParts = Split-EnvironmentModuleName $module.Name
             
             if($moduleNameParts[1] -eq $null) {
@@ -69,15 +69,15 @@ function Update-EnvironmentModuleCache()
               $moduleNameParts[2] = ""
             }
             
+            # Read the environment module properties from the pse1 file
+            $info = New-EnvironmentModuleInfoBase $module
+
+            if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
+                continue; #Ignore meta and abstract modules
+            }
+
             # Add the module to the list of all modules
             $allModuleNames.Add($module.Name) > $null
-            
-            # Read the environment module properties from the pse1 file
-            $description = Read-EnvironmentModuleDescriptionFile $module
-
-            if($description.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) {
-                continue; #Ignore meta modules
-            }
             
             # Handle the module by architecture (if architecture is specified)
             if($moduleNameParts[2] -ne "") {
@@ -126,7 +126,7 @@ function Update-EnvironmentModuleCache()
       
       [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
-      $script:environmentModules = $script:environmentModules + $moduleName
+      $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
     
     foreach($module in $modulesByVersion.GetEnumerator()) {
@@ -144,7 +144,7 @@ function Update-EnvironmentModuleCache()
       
       [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
-      $script:environmentModules = $script:environmentModules + $moduleName
+      $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }    
     
     Write-Host "By Architecture"
@@ -183,7 +183,7 @@ function Add-CustomSearchPath
         # Add the attributes to the attributes collection
         $AttributeCollection.Add($ParameterAttribute)
     
-        $arrSet = $script:environmentModules
+        $arrSet = Get-AllEnvironmentModules
         if($arrSet.Length -gt 0) {
             # Generate and set the ValidateSet 
             $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)

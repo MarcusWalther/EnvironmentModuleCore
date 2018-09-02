@@ -6,7 +6,7 @@ param(
 
 $Module.AddPrependPath("PATH", $Module.ModuleRoot)
 $Module.AddFunction("Start-Cmd", {
-	Start-Process -FilePath "$Module.ModuleRoot\cmd.exe" @args
+	return (Start-Process -PassThru -FilePath "$Module.ModuleRoot\cmd.exe" @args)
 })
 
 [String] $cmd = "Start-Process -FilePath '$($Module.ModuleRoot)\cmd.exe' @args"

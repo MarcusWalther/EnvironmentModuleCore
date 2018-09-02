@@ -5,7 +5,7 @@ using System.IO;
 
 namespace EnvironmentModules
 {
-    public class EnvironmentModule : EnvironmentModuleBase
+    public class EnvironmentModule : EnvironmentModuleInfo
     {
         #region Properties
         public string ModuleRoot { get; private set; }
@@ -47,7 +47,7 @@ namespace EnvironmentModules
 
         #region Constructors
         public EnvironmentModule(
-            EnvironmentModuleBase baseModule,
+            EnvironmentModuleInfo baseModule,
             string moduleRoot,
             bool isLoadedDirectly = true) : 
             base(baseModule)

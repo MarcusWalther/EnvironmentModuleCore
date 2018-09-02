@@ -15,6 +15,16 @@ $script:environmentModules = @()
 $script:customSearchPaths = @{}
 $script:silentUnload = $false
 
+function Get-AllEnvironmentModules()
+{
+    return ($script:environmentModules | Select-Object -ExpandProperty "FullName")
+}
+
+function Get-ConcreteEnvironmentModules()
+{
+    return $script:environmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract} | Select-Object -ExpandProperty "FullName"
+}
+
 function Add-EnvironmentModuleAlias([String] $Name, [String] $Module, [String] $Definition)
 {
     $newTupleValue = [System.Tuple]::Create($Definition, $Module)
@@ -71,7 +81,7 @@ function Get-EnvironmentModuleFunctions([String] $Name)
     return $result  
 }
 
-function Invoke-EnvironmentModuleFunction([String] $Name, [String] $Module)
+function Invoke-EnvironmentModuleFunction([String] $Name, [String] $Module, [Object[]] $ArgumentList)
 {
     if(-not $loadedEnvironmentModuleFunctions.ContainsKey($Name))
     {
@@ -82,7 +92,7 @@ function Invoke-EnvironmentModuleFunction([String] $Name, [String] $Module)
 
     foreach($functionPair in $knownFunctionPairs) {
         if($functionPair.Item2 -eq $Module) {
-            return Invoke-Command -ScriptBlock $functionPair.Item1
+            return Invoke-Command -ScriptBlock $functionPair.Item1 -ArgumentList $ArgumentList
         }
     }
 

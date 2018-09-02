@@ -36,8 +36,8 @@ function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable)
     name was found, $null is returned.
     #>
     if($ListAvailable) {
-        foreach($module in $script:environmentModules) {
-            Read-EnvironmentModuleDescriptionFile -Name $module
+        foreach($module in Get-AllEnvironmentModules) {
+            New-EnvironmentModuleInfo -Name $module
         }
     }
     
@@ -235,7 +235,7 @@ function Switch-EnvironmentModule
         $NewModuleNameParameterAttribute.Mandatory = $true
         $NewModuleNameParameterAttribute.Position = 1
         $NewModuleNameAttributeCollection.Add($NewModuleNameParameterAttribute)     
-        $NewModuleNameArrSet = $script:environmentModules
+        $NewModuleNameArrSet = Get-ConcreteEnvironmentModules
         $NewModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($NewModuleNameArrSet)     
         $NewModuleNameAttributeCollection.Add($NewModuleNameValidateSetAttribute)
         $NewModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($NewModuleNameParameterName, [string], $NewModuleNameAttributeCollection)
@@ -513,6 +513,7 @@ function Edit-EnvironmentModule
     [CmdletBinding()]
     Param(
         # Any other parameters can go here
+        [String] $FileFilter = '*.*'
     )
     DynamicParam {
         # Set the dynamic parameters' name
@@ -533,7 +534,7 @@ function Edit-EnvironmentModule
         $AttributeCollection.Add($ParameterAttribute)
     
         # Generate and set the ValidateSet 
-        $arrSet = $script:environmentModules
+        $arrSet = Get-AllEnvironmentModules
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
     
         # Add the ValidateSet to the attributes collection
@@ -542,18 +543,6 @@ function Edit-EnvironmentModule
         # Create and return the dynamic parameter
         $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
         $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
-
-        $FileParameterName = 'File'       
-        $FileAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]      
-        $FileParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $FileParameterAttribute.Mandatory = $false
-        $FileParameterAttribute.Position = 1
-        $FileAttributeCollection.Add($FileParameterAttribute)     
-        $FileArrSet = @($RuntimeParameter.Value)
-        $FileValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($FileArrSet)     
-        $FileAttributeCollection.Add($FileValidateSetAttribute)
-        $FileRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($FileParameterName, [string], $FileAttributeCollection)
-        $RuntimeParameterDictionary.Add($FileParameterName, $FileRuntimeParameter)
 
         return $RuntimeParameterDictionary
     }
@@ -566,12 +555,12 @@ function Edit-EnvironmentModule
     process {   
         $modules = Get-Module -ListAvailable $Name
         
-        if(($modules -eq $null) -or ($modules.Count -eq 0)) {
+        if(($null -eq $modules) -or ($modules.Count -eq 0)) {
             Write-Error "The module was not found"
             return
         }
         
-        Get-ChildItem ($modules[0].ModuleBase) | Invoke-Item
+        Get-ChildItem ($modules[0].ModuleBase) | Where-Object {$_ -like $FileFilter} | Invoke-Item
     }
 }
 
@@ -615,7 +604,7 @@ function Copy-EnvironmentModule
         $AttributeCollection.Add($ParameterAttribute)
     
         # Generate and set the ValidateSet 
-        $arrSet = $script:environmentModules
+        $arrSet = Get-AllEnvironmentModules
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
     
         # Add the ValidateSet to the attributes collection
