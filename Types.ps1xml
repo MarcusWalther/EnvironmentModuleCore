@@ -12,6 +12,7 @@
                 <Name>ModuleType</Name>
                 <Name>FullName</Name>
                 <Name>StyleVersion</Name>
+                <Name>ModuleBase</Name>
               </ReferencedProperties>
             </PropertySet>
           </Members>

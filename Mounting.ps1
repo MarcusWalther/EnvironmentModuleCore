@@ -27,7 +27,7 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
     return $true
 }
 
-function Find-RootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module) {
+function Find-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module) {
     <#
     .SYNOPSIS
     Find the root directory of the module, that is either specified by a registry entry or by a path.
@@ -204,7 +204,7 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
 
     # Identify the root directory
-    $moduleRoot = Find-RootDirectory $module
+    $moduleRoot = Find-EnvironmentModuleRootDirectory $module
 
     if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
         Write-Error "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?"
@@ -329,5 +329,75 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
 
         Write-Host ((Get-EnvironmentModuleDetailedString $Module) + " loaded") -foregroundcolor "Yellow"
         return $true
+    }
+}
+
+function Switch-EnvironmentModule
+{   
+    <#
+    .SYNOPSIS
+    Switch a already loaded environment module with a different one.
+    .DESCRIPTION
+    This function will unmount the giben enivronment module and will load the new one instead.
+    .PARAMETER ModuleName
+    The name of the environment module to unload.
+    .PARAMETER NewModuleName
+    The name of the new environment module to load.
+    .OUTPUTS
+    No output is returned.
+    #>
+    [CmdletBinding()]
+    Param(
+    )
+    DynamicParam {
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        
+        $ModuleNameParameterName = 'ModuleName'
+        $ModuleNameAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ModuleNameParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ModuleNameParameterAttribute.Mandatory = $true
+        $ModuleNameParameterAttribute.Position = 0
+        $ModuleNameAttributeCollection.Add($ModuleNameParameterAttribute)
+        $ModuleNameArrSet = Get-LoadedEnvironmentModulesFullName
+        $ModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($ModuleNameArrSet)
+        $ModuleNameAttributeCollection.Add($ModuleNameValidateSetAttribute)
+        $ModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ModuleNameParameterName, [string], $ModuleNameAttributeCollection)
+        $RuntimeParameterDictionary.Add($ModuleNameParameterName, $ModuleNameRuntimeParameter)
+
+        $NewModuleNameParameterName = 'NewModuleName'       
+        $NewModuleNameAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]      
+        $NewModuleNameParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $NewModuleNameParameterAttribute.Mandatory = $true
+        $NewModuleNameParameterAttribute.Position = 1
+        $NewModuleNameAttributeCollection.Add($NewModuleNameParameterAttribute)     
+        $NewModuleNameArrSet = Get-ConcreteEnvironmentModules
+        $NewModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($NewModuleNameArrSet)     
+        $NewModuleNameAttributeCollection.Add($NewModuleNameValidateSetAttribute)
+        $NewModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($NewModuleNameParameterName, [string], $NewModuleNameAttributeCollection)
+        $RuntimeParameterDictionary.Add($NewModuleNameParameterName, $NewModuleNameRuntimeParameter)
+        
+        return $RuntimeParameterDictionary
+    }
+    
+    begin {
+        # Bind the parameter to a friendly variable
+        $moduleName = $PsBoundParameters[$ModuleNameParameterName]
+        $newModuleName = $PsBoundParameters[$NewModuleNameParameterName]
+    }
+
+    process {
+        $module = Get-EnvironmentModule($moduleName)
+        
+        if (!$module) {
+            Write-Error ("No loaded environment module named $moduleName")
+            return
+        }
+        
+        $moduleName = Get-EnvironmentModuleDetailedString($module)
+        Remove-EnvironmentModule $moduleName -Force
+        
+        Import-EnvironmentModule $newModuleName
+
+        [void] (New-Event -SourceIdentifier "EnvironmentModuleSwitched" -EventArguments $moduleName, $newModuleName)
     }
 }

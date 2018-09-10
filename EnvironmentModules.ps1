@@ -19,7 +19,7 @@ function Compare-EnvironmentModuleInfos([String[]] $Module1, [String[]] $Module2
     return ((Compare-PossibleNullStrings $Module1[0] $Module2[0]) -and ((Compare-PossibleNullStrings $Module1[1] $Module2[1]) -and (Compare-PossibleNullStrings $Module1[2] $Module2[2])))
 }
 
-function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable)
+function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable, [switch] $AppendModuleRoot)
 {
     <#
     .SYNOPSIS
@@ -37,7 +37,12 @@ function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable)
     #>
     if($ListAvailable) {
         foreach($module in Get-AllEnvironmentModules) {
-            New-EnvironmentModuleInfo -Name $module
+            $result = New-EnvironmentModuleInfo -Name $module
+            if($AppendModuleRoot) {
+                $result | Add-Member -MemberType NoteProperty -Name "ModuleRoot" -Value (Find-EnvironmentModuleRootDirectory $result)
+            }
+            
+            $result
         }
     }
     
@@ -195,74 +200,6 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     $allPathValues = ($allPathValues | Where {$_.ToString() -ne $Value.ToString()})
     $newValue = ($allPathValues -join ";")
     [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
-}
-
-function Switch-EnvironmentModule
-{   
-    <#
-    .SYNOPSIS
-    Switch a already loaded environment module with a different one.
-    .DESCRIPTION
-    This function will unmount the giben enivronment module and will load the new one instead.
-    .PARAMETER ModuleName
-    The name of the environment module to unload.
-    .PARAMETER NewModuleName
-    The name of the new environment module to load.
-    .OUTPUTS
-    No output is returned.
-    #>
-    [CmdletBinding()]
-    Param(
-    )
-    DynamicParam {
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        
-        $ModuleNameParameterName = 'ModuleName'
-        $ModuleNameAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ModuleNameParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ModuleNameParameterAttribute.Mandatory = $true
-        $ModuleNameParameterAttribute.Position = 0
-        $ModuleNameAttributeCollection.Add($ModuleNameParameterAttribute)
-        $ModuleNameArrSet = Get-LoadedEnvironmentModulesFullName
-        $ModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($ModuleNameArrSet)
-        $ModuleNameAttributeCollection.Add($ModuleNameValidateSetAttribute)
-        $ModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ModuleNameParameterName, [string], $ModuleNameAttributeCollection)
-        $RuntimeParameterDictionary.Add($ModuleNameParameterName, $ModuleNameRuntimeParameter)
-
-        $NewModuleNameParameterName = 'NewModuleName'       
-        $NewModuleNameAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]      
-        $NewModuleNameParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $NewModuleNameParameterAttribute.Mandatory = $true
-        $NewModuleNameParameterAttribute.Position = 1
-        $NewModuleNameAttributeCollection.Add($NewModuleNameParameterAttribute)     
-        $NewModuleNameArrSet = Get-ConcreteEnvironmentModules
-        $NewModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($NewModuleNameArrSet)     
-        $NewModuleNameAttributeCollection.Add($NewModuleNameValidateSetAttribute)
-        $NewModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($NewModuleNameParameterName, [string], $NewModuleNameAttributeCollection)
-        $RuntimeParameterDictionary.Add($NewModuleNameParameterName, $NewModuleNameRuntimeParameter)
-        
-        return $RuntimeParameterDictionary
-    }
-    
-    begin {
-        # Bind the parameter to a friendly variable
-        $moduleName = $PsBoundParameters[$ModuleNameParameterName]
-        $newModuleName = $PsBoundParameters[$NewModuleNameParameterName]
-    }
-
-    process {
-        $module = Get-EnvironmentModule($moduleName)
-        
-        if (!$module) {
-            Write-Error ("No loaded environment module named $moduleName")
-            return
-        }
-        
-        $moduleName = Get-EnvironmentModuleDetailedString($module)
-        Remove-EnvironmentModule $moduleName -Force
-        
-        Import-EnvironmentModule $newModuleName
-    }
 }
 
 function Remove-EnvironmentModule

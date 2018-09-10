@@ -1,5 +1,5 @@
 # PS_EnvironmentModules
-A powershell extension to load and remove modules that affect the environment (variables, aliases and functions) of the running session. These features will make the Powershell more powerful when used interactively.
+A powershell extension to load and remove modules that affect the environment (variables, aliases and functions) of the running session. These features will make the Powershell more powerful when used interactively or in automatic processes.
 
 Overview
 --------
@@ -55,57 +55,51 @@ List all loaded mounted environment modules
 Creating a new environment module
 - **New-EnvironmentModule [params]**
 
-Editing an environment module
-- **Edit-EnvironmentModule [ModuleName]**
+Editing environment module files
+- **Edit-EnvironmentModule [ModuleName] [FileFilter]**
 
 Updating the cache
 - **Update-EnvironmentModuleCache**
 
-Environment-Module-Files
-------------------------
+Environment-Module-Description-File (*.pse)
+-------------------------------------------
 
 ```powershell
-# ------------------------
-# Static header - Do not touch
-# ------------------------
+@{
+    # Environment Modules that must be imported into the global environment prior importing this module
+    RequiredEnvironmentModules = @("Aspell")
 
-$MODULE_NAME = $MyInvocation.MyCommand.ScriptBlock.Module.Name
+    # The type of the module, either "Default" or "Meta" if it is a project-module
+    ModuleType = "Default"
 
-# ------------------------
-# User content
-# ------------------------
+    # Default search paths in the registry
+    DefaultRegistryPaths = @("HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon")
+        
+    # Default search paths on the file system
+    DefaultFolderPaths = @("C:\Program Files (x86)\Notepad++")
+        
+    # Required files that must be part of the folder candidate
+    RequiredFiles = @("notepad++.exe")
 
-$MODULE_ROOT = "C:\Program Files (x86)\Notepad++\notepad++.exe"
-$MODULE_DEPENDENCIES = @("Aspell") #All other environment modules that should be loaded as dependencies
-
-function SetModulePathsInternal([EnvironmentModules.EnvironmentModule] $eModule, [String] $eModuleRoot)
-{
-	$eModule.AddAlias("npp", "Start-NotepadPlusPlus", "Use 'npp' to start Notepad++")
-	$eModuleRoot = (Resolve-Path (Join-Path $eModuleRoot "..\"))
-	
-	return $eModule
+    # The version of the description files
+    StyleVersion = 2.0    
 }
+```
 
-New-EnvironmentModuleFunction "Start-NotepadPlusPlus" { 	
-	Start-Process -FilePath "$MODULE_ROOT" @args
-}
+Environment-Module-Files (*.psm)
+--------------------------------
+```powershell
+param(
+    [parameter(Position=0, Mandatory=$true)]
+	[EnvironmentModules.EnvironmentModule]
+	$Module
+)
 
-# ------------------------
-# Static footer - Do not touch
-# ------------------------
+$Module.AddPrependPath("PATH", $Module.ModuleRoot)
+$Module.AddAlias("npp", "Start-NotepadPlusPlus", "Use 'npp' to start NotepadPlusPlus")
 
-function RemoveModulePathsInternal()
-{
-	[void](Dismount-EnvironmentModule -Name $MODULE_NAME)
-}
-
-$callStack = Get-PSCallStack | Select-Object -Property *
-if(($callStack.Count -gt 1) -and (($callStack[($callStack.Count - 2)].FunctionName) -match "Import-EnvironmentModule")) {
-  Mount-EnvironmentModule -Name $MODULE_NAME -Root $MODULE_ROOT -Info $MyInvocation.MyCommand.ScriptBlock.Module -CreationDelegate ${function:SetModulePathsInternal} -DeletionDelegate ${function:RemoveModulePathsInternal} -Dependencies $MODULE_DEPENDENCIES
-}
-else {
-  Write-Host "The environment module was not loaded via 'Import-EnvironmentModule' - it is treated as simple PowerShell-module" -foregroundcolor "Yellow" 
-}
+[String] $cmd = "Start-Process -FilePath '$($Module.ModuleRoot)\notepad++.exe' @args"
+$Module.AddFunction("Start-NotepadPlusPlus", [ScriptBlock]::Create($cmd))
 ```
 
 Naming Convention
