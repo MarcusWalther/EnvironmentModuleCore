@@ -12,13 +12,13 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
     True if the folder does exist and if it contains all files, false otherwise.
     #>
 
-    if (-not (Test-Path $FolderPath)) {
+    if (-not (Test-Path "$FolderPath")) {
         Write-Verbose "The folder $FolderPath does not exist"
         return $false
     }
 
     foreach($file in $Files) {
-        if (-not (Test-Path (Join-Path $FolderPath $file))) {
+        if (-not (Test-Path (Join-Path "$FolderPath" "$file"))) {
             Write-Verbose "The file $file does not exist in folder $FolderPath"
             return $false
         }
@@ -45,13 +45,22 @@ function Find-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
             $pathSegments = $searchPath.Key.Split('\')
             $propertyName = $pathSegments[-1]
             $propertyPath = [string]::Join('\', $pathSegments[0..($pathSegments.Length - 2)])
-    
+            
+            Write-Verbose "Checking registry search path $($searchPath.Key)"
+
             try {
                 $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"   
                 if ($null -eq $registryValue) {
                     continue
                 }
-                if (Test-FileExistence (Split-Path -parent $registryValue) $Module.RequiredFiles) {
+
+                Write-Verbose "Found registry value $registryValue"
+                $folder = $registryValue
+                if(-not [System.IO.Directory]::Exists($folder)) {
+                    $folder = Split-Path -parent $registryValue
+                }
+
+                if (Test-FileExistence $folder $Module.RequiredFiles) {
                     return (Split-Path -parent $registryValue)
                 }
             }
@@ -63,6 +72,7 @@ function Find-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
         }
 
         if($searchPath.GetType() -eq [EnvironmentModules.DirectorySearchPath]) {
+            Write-Verbose "Checking directory seach path $($searchPath.Directory)"
             if (Test-FileExistence $searchPath.Directory $Module.RequiredFiles) {
                 return $searchPath.Directory
             }
@@ -71,6 +81,7 @@ function Find-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
         }
 
         if($searchPath.GetType() -eq [EnvironmentModules.EnvironmentSearchPath]) {
+            Write-Verbose "Checking environment search path $($searchPath.Variable)"
             $directory = $([environment]::GetEnvironmentVariable($searchPath.Variable))
             if (Test-FileExistence $directory $Module.RequiredFiles) {
                 return $directory

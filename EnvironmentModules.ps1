@@ -374,6 +374,7 @@ function Select-ModulePath
     }
         
     $selectedIndex = Read-Host -Prompt " "
+    $selectedIndex -= 1
 
     if((-not($selectedIndex -match '^[0-9]+$')) -or ($selectedIndex -lt 0) -or ($selectedIndex -ge $pathPossibilities.Count)) {
         Write-Error "Invalid index specified"
