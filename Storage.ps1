@@ -160,7 +160,7 @@ function Add-CustomSearchPath
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [ValidateSet("Directory", "Registry")]
+        [ValidateSet("Directory", "Registry", "Environment")]
         [string] $Type,
         [Parameter(Mandatory=$true)]
         [string] $Value
@@ -210,7 +210,12 @@ function Add-CustomSearchPath
             $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($false, $Value)
         }
         else {
-            $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($false, $Value)
+            if($Type -eq "Registry") {
+                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($false, $Value)
+            }
+            else {
+                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($false, $Value)
+            }
         }
 
         if($oldSearchPaths) {

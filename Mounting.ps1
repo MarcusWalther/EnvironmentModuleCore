@@ -69,34 +69,16 @@ function Find-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
 
             continue
         }
+
+        if($searchPath.GetType() -eq [EnvironmentModules.EnvironmentSearchPath]) {
+            $directory = $([environment]::GetEnvironmentVariable($searchPath.Variable))
+            if (Test-FileExistence $directory $Module.RequiredFiles) {
+                return $directory
+            }
+
+            continue
+        }
     }
-
-    # # Search the registry paths
-    # foreach($path in ($Module.CustomRegistryPaths + $Module.DefaultRegistryPaths)) {
-    #     $pathSegments = $path.Split('\')
-    #     $propertyName = $pathSegments[-1]
-    #     $propertyPath = [string]::Join('\', $pathSegments[0..($pathSegments.Length - 2)])
-
-    #     try {
-    #         $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"   
-    #         if ($null -eq $registryValue) {
-    #             continue
-    #         }
-    #         if (Test-FileExistence (Split-Path -parent $registryValue) $Module.RequiredFiles) {
-    #             return (Split-Path -parent $registryValue)
-    #         }
-    #     }
-    #     catch {
-    #         continue
-    #     }
-    # }
-
-    # # Search the folder paths
-    # foreach($path in ($Module.CustomFolderPaths + $Module.DefaultFolderPaths)) {
-    #     if (Test-FileExistence $path $Module.RequiredFiles) {
-    #         return $path
-    #     }
-    # }
 
     return $null
 }

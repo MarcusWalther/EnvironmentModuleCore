@@ -47,4 +47,14 @@ namespace EnvironmentModules
             Key = key;
         }
     }
+
+    public class EnvironmentSearchPath : SearchPath
+    {
+        public string Variable { get; set; }
+
+        public EnvironmentSearchPath(bool isDefault, string variable = "") : base(isDefault, 9)
+        {
+            Variable = variable;
+        }
+    }
 }

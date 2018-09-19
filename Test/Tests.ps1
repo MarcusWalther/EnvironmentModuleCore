@@ -57,10 +57,30 @@ Describe 'TestLoading' {
     }   
 }
 
-Describe 'TestLoading_CustomPath' {
+Describe 'TestLoading_CustomPath_Directory' {
     Clear-CustomSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
     Add-CustomSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+
+    Import-EnvironmentModule "Project-ProgramB"
+    It 'Module is loaded correctly' {
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Project-ProgramB"
+        $module | Should -Not -BeNullOrEmpty
+    }
+
+    Remove-EnvironmentModule 'Project-ProgramB'
+
+    It 'Module can be removed with dependencies' {
+        $module = Get-EnvironmentModule
+        $module | Should -BeNullOrEmpty   
+    }       
+}
+
+Describe 'TestLoading_CustomPath_Environment' {
+    Clear-CustomSearchPaths -Force
+    $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
+    $env:TESTLADOING_PATH = "$customDirectory"
+    Add-CustomSearchPath -Module "Project-ProgramB" -Type "Environment" -Value "TESTLADOING_PATH"
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module is loaded correctly' {

@@ -188,7 +188,13 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
         $pathValues = $descriptionContent.Item("DefaultFolderPaths")
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($true, $_)}))
         Write-Verbose "Read default folder paths $($result.DefaultFolderPaths)"
-    }         
+    }      
+    
+    if($descriptionContent.Contains("DefaultEnvironmentPaths")) {
+        $pathValues = $descriptionContent.Item("DefaultEnvironmentPaths")
+        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($true, $_)}))
+        Write-Verbose "Read default environment paths $($result.DefaultEnvironmentPaths)"
+    }       
 
     if($descriptionContent.Contains("StyleVersion")) {
         $result.StyleVersion = $descriptionContent.Item("StyleVersion")
