@@ -34,7 +34,7 @@ Write-Host $env:PATH
 Installation
 ------------
 
-The code is provided as PowerShell-Module. Download the files and add the EnvironmentModules folder to the **PSModulePath** environment variable. 
+The code is provided as PowerShell-Module. Download the files to a folder called "EnvironmentModules" and add the parent folder to the **PSModulePath** environment variable. 
 
 
 Usage
