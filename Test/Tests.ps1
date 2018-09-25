@@ -58,9 +58,9 @@ Describe 'TestLoading' {
 }
 
 Describe 'TestLoading_CustomPath_Directory' {
-    Clear-CustomSearchPaths -Force
+    Clear-EnvironmentModuleSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
-    Add-CustomSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+    Add-EnvironmentModuleSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module is loaded correctly' {
@@ -77,10 +77,10 @@ Describe 'TestLoading_CustomPath_Directory' {
 }
 
 Describe 'TestLoading_CustomPath_Environment' {
-    Clear-CustomSearchPaths -Force
+    Clear-EnvironmentModuleSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
     $env:TESTLADOING_PATH = "$customDirectory"
-    Add-CustomSearchPath -Module "Project-ProgramB" -Type "Environment" -Value "TESTLADOING_PATH"
+    Add-EnvironmentModuleSearchPath -Module "Project-ProgramB" -Type "Environment" -Value "TESTLADOING_PATH"
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module is loaded correctly' {
@@ -97,9 +97,9 @@ Describe 'TestLoading_CustomPath_Environment' {
 }
 
 Describe 'TestLoading_InvalidCustomPath' {
-    Clear-CustomSearchPaths -Force
+    Clear-EnvironmentModuleSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\..\Samples\Project-ProgramB"
-    Add-CustomSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+    Add-EnvironmentModuleSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module should not be loaded because of invalid root path' {
@@ -184,7 +184,7 @@ Describe 'TestGet' {
 
     It 'Correct style version is returned' {
         $module = Get-EnvironmentModule | Where-Object -Property "FullName" -like "Project-ProgramA" 
-        ($module.StyleVersion) | Should -Be 0
+        ($module.StyleVersion) | Should -Be 2
     }
 
     Remove-EnvironmentModule 'Project-ProgramA'

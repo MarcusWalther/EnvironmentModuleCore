@@ -1,20 +1,20 @@
-﻿using System;
-
-namespace EnvironmentModules
+﻿namespace EnvironmentModules
 {
+    using System;
+    using System.Runtime.Serialization;
+
+    [KnownType(typeof(DirectorySearchPath))]
+    [KnownType(typeof(RegistrySearchPath))]
+    [KnownType(typeof(EnvironmentSearchPath))]
+    [DataContract]
     public abstract class SearchPath : IComparable
     {
-        public bool IsDefault { get; private set; }
-
+        [DataMember]
         protected int Priority { get; private set; }
 
-        public SearchPath(bool isDefault, int priority)
+        public SearchPath(int priority)
         {
-            IsDefault = isDefault;
             Priority = priority;
-
-            if (!isDefault)
-                Priority++;
         }
 
         public int CompareTo(object obj)
@@ -28,31 +28,52 @@ namespace EnvironmentModules
         }
     }
 
+    [DataContract]
     public class DirectorySearchPath : SearchPath
     {
+        [DataMember]
         public string Directory { get; set; }
 
-        public DirectorySearchPath(bool isDefault, string directory = "") : base(isDefault, 10)
+        public DirectorySearchPath() : this("")
+        {
+
+        }
+
+        public DirectorySearchPath(string directory, int priority = 10) : base(priority)
         {
             Directory = directory;
         }
     }
 
+    [DataContract]
     public class RegistrySearchPath : SearchPath
     {
+        [DataMember]
         public string Key { get; set; }
 
-        public RegistrySearchPath(bool isDefault, string key = "") : base(isDefault, 20)
+        public RegistrySearchPath() : this("")
+        {
+
+        }
+
+        public RegistrySearchPath(string key, int priority = 20) : base(priority)
         {
             Key = key;
         }
     }
 
+    [DataContract]
     public class EnvironmentSearchPath : SearchPath
     {
+        [DataMember]
         public string Variable { get; set; }
 
-        public EnvironmentSearchPath(bool isDefault, string variable = "") : base(isDefault, 9)
+        public EnvironmentSearchPath() : this("")
+        {
+
+        }
+
+        public EnvironmentSearchPath(string variable, int priority = 9) : base(priority)
         {
             Variable = variable;
         }

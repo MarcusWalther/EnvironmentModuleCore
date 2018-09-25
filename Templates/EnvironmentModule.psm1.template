@@ -3,3 +3,20 @@ param(
     [EnvironmentModules.EnvironmentModule]
     $Module
 )
+
+$moduleCandidates = Get-EnvironmentModule -ListAvailable "$($Module.Name)*" -Architecture "$($Module.Architecture)" -Version "$($Module.Version)"
+$found = $false
+foreach($moduleCandidate in $moduleCandidates) {
+    if($moduleCandidate.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) {
+        continue
+    }
+
+    if(Test-EnvironmentModuleRootDirectory $moduleCandidate -IncludeDependencies) {
+        $found = $True
+        Import-EnvironmentModule $moduleCandidate.FullName
+    }
+}
+
+if(-not $found) {
+    Write-Error "Unable to find an installed module matching name $($Module.Name)"
+}

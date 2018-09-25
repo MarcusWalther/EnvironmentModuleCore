@@ -30,8 +30,39 @@ function Initialize-CustomSearchPaths()
     .OUTPUTS
     No output is returned.
     #>
-    $script:customSearchPaths = @{}
-    $script:customSearchPaths = Import-CliXml -Path $searchPathsFileLocation
+    $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
+
+    $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:searchPathsFileLocation
+    if(($null -eq $fileInfo) -or ($fileInfo.Length -eq 0)) {
+        return
+    }
+
+    $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
+    $knownTypes.Add([EnvironmentModules.SearchPath])
+
+    $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
+
+    $fileStream = $null
+    try {
+        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:searchPathsFileLocation, ([System.IO.FileMode]::Open)
+        $reader = $null
+        try {
+            $reader = [System.Xml.XmlDictionaryReader]::CreateTextReader($fileStream, (New-Object "System.Xml.XmlDictionaryReaderQuotas"))
+            $script:customSearchPaths = $serializer.ReadObject($reader)
+        }
+        finally {
+            if ($null -ne $reader)
+            {            
+                $reader.Close()
+            }
+        }        
+    }
+    finally {
+        if ($null -ne $fileStream)
+        {
+            $fileStream.Dispose()
+        }
+    }
 }
 
 function Update-EnvironmentModuleCache()
@@ -113,7 +144,6 @@ function Update-EnvironmentModuleCache()
  
     foreach($module in $modulesByArchitecture.GetEnumerator()) {
       $moduleName = "$($module.Key.Item1)-$($module.Key.Item2)"
-      $defaultModule = $module.Value.Item2
       
       Write-Verbose "Creating module with name $moduleName"
 
@@ -124,14 +154,13 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
     
     foreach($module in $modulesByVersion.GetEnumerator()) {
       $moduleName = $module.Key
-      $defaultModule = $module.Value.Item2
       
       Write-Verbose "Creating module with name $moduleName"
 
@@ -142,7 +171,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, $defaultModule, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }    
@@ -155,7 +184,7 @@ function Update-EnvironmentModuleCache()
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
 }
 
-function Add-CustomSearchPath
+function Add-EnvironmentModuleSearchPath
 {
     [CmdletBinding()]
     Param(
@@ -183,7 +212,7 @@ function Add-CustomSearchPath
         # Add the attributes to the attributes collection
         $AttributeCollection.Add($ParameterAttribute)
     
-        $arrSet = Get-AllEnvironmentModules
+        $arrSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty "FullName"
         if($arrSet.Length -gt 0) {
             # Generate and set the ValidateSet 
             $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
@@ -207,28 +236,31 @@ function Add-CustomSearchPath
         $oldSearchPaths = $script:customSearchPaths[$Module]
         $newSearchPath
         if($Type -eq "Directory") {
-            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($false, $Value)
+            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($Value, 30)
         }
         else {
             if($Type -eq "Registry") {
-                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($false, $Value)
+                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($Value, 30)
             }
             else {
-                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($false, $Value)
+                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($Value, 30)
             }
         }
 
         if($oldSearchPaths) {
-            $script:customSearchPaths[$Module] = $oldSearchPaths + @($newSearchPath)
+            $script:customSearchPaths[$Module] = $oldSearchPaths.Add($newSearchPath)
         }
         else {
-            $script:customSearchPaths[$Module] = @($newSearchPath)
+            $searchPaths = New-Object "System.Collections.Generic.List[EnvironmentModules.SearchPath]"
+            $searchPaths.Add($newSearchPath)
+            $script:customSearchPaths[$Module] = $searchPaths
         }
-        Export-Clixml -Path "$script:searchPathsFileLocation" -InputObject $script:customSearchPaths
+
+        Write-CustomSearchPaths
     }
 }
 
-function Clear-CustomSearchPaths
+function Clear-EnvironmentModuleSearchPaths
 {
     Param(
         [Switch] $Force
@@ -244,5 +276,44 @@ function Clear-CustomSearchPaths
     }
 
     $script:customSearchPaths.Clear()
-    Export-Clixml -Path "$script:searchPathsFileLocation" -InputObject $script:customSearchPaths
+    Write-CustomSearchPaths
+}
+
+function Write-CustomSearchPaths
+{
+    $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
+    $knownTypes.Add([EnvironmentModules.SearchPath])
+
+    $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
+    $fileStream = $null
+    try {
+        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:searchPathsFileLocation, ([System.IO.FileMode]::Create)
+        $writer = $null
+        try {
+            $writer = New-Object "System.IO.StreamWriter" -ArgumentList $fileStream, ([System.Text.Encoding]::UTF8)
+            $xmlWriter = $null
+            try {
+                $xmlWriter = [System.Xml.XmlTextWriter]($writer)
+                $xmlWriter.Formatting = [System.Xml.Formatting]::Indented
+                $xmlWriter.WriteStartDocument()
+                $serializer.WriteObject($xmlWriter, $script:customSearchPaths)
+                $xmlWriter.Flush()
+            }
+            finally {
+                if($null -ne $xmlWriter) {
+                    $xmlWriter.Close()
+                }
+            }
+        }
+        finally {
+            if($null -ne $writer) {
+                $writer.Close()
+            }
+        }
+    }
+    finally {
+        if($null -ne $fileStream) {
+            $fileStream.Close()
+        }
+    }
 }

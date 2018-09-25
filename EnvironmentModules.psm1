@@ -12,12 +12,12 @@ mkdir $tmpEnvironmentModulePath -Force
 
 $env:PSModulePath = "$env:PSModulePath;$tmpEnvironmentModulePath"
 $script:environmentModules = @()
-$script:customSearchPaths = @{}
+$script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
 $script:silentUnload = $false
 
 function Get-AllEnvironmentModules()
 {
-    return ($script:environmentModules | Select-Object -ExpandProperty "FullName")
+    return $script:environmentModules
 }
 
 function Get-ConcreteEnvironmentModules()
