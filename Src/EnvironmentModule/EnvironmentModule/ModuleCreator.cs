@@ -9,8 +9,7 @@ namespace EnvironmentModules
     public class ModuleCreator
     {
         public static void CreateMetaEnvironmentModule(string name, 
-            string rootDirectory, 
-            string defaultModule, 
+            string rootDirectory,
             string workingDirectory, 
             bool directUnload, 
             string additionalDescription,
@@ -46,7 +45,7 @@ namespace EnvironmentModules
                 Guid            = Guid.NewGuid(),
                 ModuleRoot      = "\".\\\"",
                 RequiredModules = "\"EnvironmentModules\"",
-                RequiredEnvironmentModules = $"\"{defaultModule}\"" + (additionalEnvironmentModules.Length > 0 ? additionalEnvironmentModules.Select(x => $"\"x\"").Aggregate((a, b) => a + "," + b ) : ""),
+                RequiredEnvironmentModules = additionalEnvironmentModules.Length > 0 ? additionalEnvironmentModules.Select(x => $"\"x\"").Aggregate((a, b) => a + "," + b ) : "",
                 CustomCode      = "",
                 AdditionalDescription = additionalDescription,
                 DirectUnload    = $"${directUnload}",

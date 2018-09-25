@@ -27,7 +27,29 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
     return $true
 }
 
-function Find-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module) {
+function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module, [switch] $IncludeDependencies) {
+    if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Get-EnvironmentModuleRootDirectory $Module))) {
+        return $false
+    }
+
+    if($IncludeDependencies) {
+        foreach ($dependencyModuleName in $Module.RequiredEnvironmentModules) {
+            $dependencyModule = Get-EnvironmentModule -ListAvailable $dependencyModuleName
+
+            if(-not $dependencyModule) {
+                return $false
+            }
+
+            if(-not (Test-EnvironmentModuleRootDirectory $dependencyModule $IncludeDependencies)) {
+                return $false
+            }
+        }
+    }
+
+    return $true
+}
+
+function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module) {
     <#
     .SYNOPSIS
     Find the root directory of the module, that is either specified by a registry entry or by a path.
@@ -197,7 +219,7 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
 
     # Identify the root directory
-    $moduleRoot = Find-EnvironmentModuleRootDirectory $module
+    $moduleRoot = Get-EnvironmentModuleRootDirectory $module
 
     if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
         Write-Error "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?"
@@ -210,30 +232,33 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
         if (-not (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly)) {
             return $false
         }
-    }    
-
-    Write-Verbose "The module has direct unload state $($module.DirectUnload)"
-    if($module.DirectUnload -eq $true) {
-        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
-        return $true
     }
 
     # Load the module itself
     $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
     Write-Verbose "Importing the module $FullName into the Powershell environment"
     Import-Module $FullName -Scope Global -Force -ArgumentList $module
-    Mount-EnvironmentModuleInternal $module
-    Write-Verbose "Importing of module $FullName done"
-    
-    $isLoaded = Test-IsEnvironmentModuleLoaded $name
-    
-    if(!$isLoaded) {
-        Write-Error "The module $FullName was not loaded successfully"
-        $script:silentUnload = $true
-        Remove-Module $FullName -Force
-        $script:silentUnload = $false
-        return $false
+
+    Write-Verbose "The module has direct unload state $($module.DirectUnload)"
+    if($Module.DirectUnload -eq $false) {
+        Mount-EnvironmentModuleInternal $module
+        Write-Verbose "Importing of module $FullName done"
+        
+        $isLoaded = Test-IsEnvironmentModuleLoaded $FullName
+        
+        if(!$isLoaded) {
+            Write-Error "The module $FullName was not loaded successfully"
+            $script:silentUnload = $true
+            Remove-Module $FullName -Force
+            $script:silentUnload = $false
+            return $false
+        }
     }
+    else {
+        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
+        Remove-Module $FullName -Force
+        return $true
+    }    
 
     [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
     return $true

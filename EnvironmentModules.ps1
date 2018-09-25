@@ -19,7 +19,7 @@ function Compare-EnvironmentModuleInfos([String[]] $Module1, [String[]] $Module2
     return ((Compare-PossibleNullStrings $Module1[0] $Module2[0]) -and ((Compare-PossibleNullStrings $Module1[1] $Module2[1]) -and (Compare-PossibleNullStrings $Module1[2] $Module2[2])))
 }
 
-function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable, [switch] $AppendModuleRoot)
+function Get-EnvironmentModule([String] $Name = "*", [switch] $ListAvailable, [string] $Architecture = "*", [string] $Version = "*")
 {
     <#
     .SYNOPSIS
@@ -37,37 +37,28 @@ function Get-EnvironmentModule([String] $Name = $null, [switch] $ListAvailable, 
     #>
     if($ListAvailable) {
         foreach($module in Get-AllEnvironmentModules) {
-            $result = New-EnvironmentModuleInfo -Name $module
-            if($AppendModuleRoot) {
-                $result | Add-Member -MemberType NoteProperty -Name "ModuleRoot" -Value (Find-EnvironmentModuleRootDirectory $result)
+            if(-not ($module.FullName -like $Name)) {
+                continue
             }
-            
+
+            if(($null -ne $module.Architecture) -and (-not ($module.Architecture -like $Architecture))) {
+                continue
+            }
+
+            if(($null -ne $module.Version) -and (-not ($module.Version -like $Version))) {
+                continue
+            }            
+
+            $result = New-EnvironmentModuleInfo -Name $module.FullName     
             $result
         }
     }
-    
-    if([string]::IsNullOrEmpty($Name)) {
-        Get-LoadedEnvironmentModules
-        return
+    else {
+        $filteredResult = $loadedEnvironmentModules.GetEnumerator() | Where-Object {$_.Value.FullName -like $Name} | Select-Object -ExpandProperty "Value"
+        $filteredResult = $filteredResult | Where-Object {(($null -eq $_.Version) -or ($_.Version -like $Version)) -and (($null -eq $_.Architecture) -or ($_.Architecture -like $Architecture))}
+
+        return $filteredResult
     }
-    
-    $moduleInfos = Split-EnvironmentModuleName $Name
-    if(!$moduleInfos) {
-       return $null
-    }
-    #
-    #Write-Verbose ("Try to find environment module with name '" + $Name + "'")
-    #foreach ($var in $loadedEnvironmentModules.GetEnumerator()) {
-    #   Write-Verbose ("Checking " + (Get-EnvironmentModuleDetailedString $var.Value))
-    #   $tmpModuleInfos = Split-EnvironmentModule $var.Value
-    #   if(Compare-EnvironmentModuleInfos $moduleInfos $tmpModuleInfos) {
-    #       return $var.Value
-    #   }
-    #}
-    
-    #return $null
-    
-    return $loadedEnvironmentModules.Get_Item($moduleInfos[0])
 }
 
 function Get-EnvironmentModuleDetailedString([EnvironmentModules.EnvironmentModule] $Module)
@@ -296,7 +287,7 @@ function Remove-RequiredModulesRecursive([String] $FullName, [Bool] $UnloadedDir
     
     if($module.ReferenceCounter -le 0) {
         Write-Verbose "Removing Module $($module.Name)" 
-        Dismount-EnvironmentModule $module
+        Dismount-EnvironmentModule -Module $module
     }   
 }
 
@@ -472,7 +463,7 @@ function Edit-EnvironmentModule
         $AttributeCollection.Add($ParameterAttribute)
     
         # Generate and set the ValidateSet 
-        $arrSet = Get-AllEnvironmentModules
+        $arrSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty "FullName"
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
     
         # Add the ValidateSet to the attributes collection
@@ -542,7 +533,7 @@ function Copy-EnvironmentModule
         $AttributeCollection.Add($ParameterAttribute)
     
         # Generate and set the ValidateSet 
-        $arrSet = Get-AllEnvironmentModules
+        $arrSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty "FullName"
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
     
         # Add the ValidateSet to the attributes collection

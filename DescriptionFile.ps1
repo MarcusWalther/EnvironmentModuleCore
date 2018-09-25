@@ -180,19 +180,19 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
 
     if($descriptionContent.Contains("DefaultRegistryPaths")) {
         $pathValues = $descriptionContent.Item("DefaultRegistryPaths")
-        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($true, $_)}))
+        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($_)}))
         Write-Verbose "Read default registry paths $($result.DefaultRegistryPaths)"
     }     
 
     if($descriptionContent.Contains("DefaultFolderPaths")) {
         $pathValues = $descriptionContent.Item("DefaultFolderPaths")
-        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($true, $_)}))
+        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($_)}))
         Write-Verbose "Read default folder paths $($result.DefaultFolderPaths)"
     }      
     
     if($descriptionContent.Contains("DefaultEnvironmentPaths")) {
         $pathValues = $descriptionContent.Item("DefaultEnvironmentPaths")
-        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($true, $_)}))
+        $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($_)}))
         Write-Verbose "Read default environment paths $($result.DefaultEnvironmentPaths)"
     }       
 
