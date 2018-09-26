@@ -11,6 +11,10 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
     .OUTPUTS
     True if the folder does exist and if it contains all files, false otherwise.
     #>
+    if (-not $FolderPath) {
+        Write-Error "No folder path given"
+        return $false
+    }
 
     if (-not (Test-Path "$FolderPath")) {
         Write-Verbose "The folder $FolderPath does not exist"
@@ -60,6 +64,11 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
     .OUTPUTS
     The path to the root directory or $null if it was not found.
     #>
+    Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredFiles.Count) required files"
+
+    if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredFiles.Count -gt 0)) {
+        Write-Warning "The module $($Module.FullName) has no defined search paths. Please use the function Add-EnvironmentModuleSearchPath to specify the location"
+    }
 
     foreach($searchPath in $Module.SearchPaths)
     {
@@ -73,17 +82,22 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
             try {
                 $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"   
                 if ($null -eq $registryValue) {
+                    Write-Verbose "Unable to find the registry value $($searchPath.Key)"
                     continue
                 }
 
                 Write-Verbose "Found registry value $registryValue"
                 $folder = $registryValue
                 if(-not [System.IO.Directory]::Exists($folder)) {
+                    Write-Verbose "The folder $folder does not exist, using parent"
                     $folder = Split-Path -parent $registryValue
                 }
 
+                Write-Verbose "Checking the folder $folder"
+
                 if (Test-FileExistence $folder $Module.RequiredFiles) {
-                    return (Split-Path -parent $registryValue)
+                    Write-Verbose "The folder $folder contains the required files"
+                    return $folder
                 }
             }
             catch {
@@ -105,7 +119,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         if($searchPath.GetType() -eq [EnvironmentModules.EnvironmentSearchPath]) {
             Write-Verbose "Checking environment search path $($searchPath.Variable)"
             $directory = $([environment]::GetEnvironmentVariable($searchPath.Variable))
-            if (Test-FileExistence $directory $Module.RequiredFiles) {
+            if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles)) {
                 return $directory
             }
 
@@ -222,7 +236,8 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     $moduleRoot = Get-EnvironmentModuleRootDirectory $module
 
     if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
-        Write-Error "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?"
+        Write-Host "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+        Write-Host "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
         return $false
     }
 
@@ -284,11 +299,11 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         {
             Write-Verbose "The module name '$($Module.Name)' was found in the list of already loaded modules"
             if($loadedEnvironmentModules.Get_Item($Module.Name).Equals($Module)) {
-                Write-Host ("The Environment-Module '" + (Get-EnvironmentModuleDetailedString $Module) + "' is already loaded.") -foregroundcolor "Red"
+                Write-Host ("The Environment-Module '" + (Get-EnvironmentModuleDetailedString $Module) + "' is already loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
                 return $false
             }
             else {
-                Write-Host ("The module '" + (Get-EnvironmentModuleDetailedString $Module) + " conflicts with the already loaded module '" + (Get-EnvironmentModuleDetailedString $loadedEnvironmentModules.($Module.Name)) + "'") -foregroundcolor "Red"
+                Write-Host ("The module '" + (Get-EnvironmentModuleDetailedString $Module) + " conflicts with the already loaded module '" + (Get-EnvironmentModuleDetailedString $loadedEnvironmentModules.($Module.Name)) + "'") -ForeGroundcolor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
                 return $false
             }
         }
@@ -345,7 +360,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
-        Write-Host ((Get-EnvironmentModuleDetailedString $Module) + " loaded") -foregroundcolor "Yellow"
+        Write-Host ((Get-EnvironmentModuleDetailedString $Module) + " loaded") -ForegroundColor $Host.PrivateData.DebugForegroundColor -BackgroundColor $Host.PrivateData.DebugBackgroundColor
         return $true
     }
 }

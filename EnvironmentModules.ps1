@@ -353,7 +353,8 @@ function Select-ModulePath
 {
     $pathPossibilities = $env:PSModulePath.Split(";")
     Write-Host "Select the target directory for the module:"
-        
+    $indexPathMap = @{}
+
     $i = 1
     foreach ($path in $pathPossibilities) {
         if(-not (Test-Path $path)) {
@@ -361,20 +362,27 @@ function Select-ModulePath
         }
         $path = $(Resolve-Path $path)
         Write-Host "[$i] $path"
+        $indexPathMap[$i] = $path
         $i++
     }
         
     $selectedIndex = Read-Host -Prompt " "
-    $selectedIndex -= 1
-
-    if((-not($selectedIndex -match '^[0-9]+$')) -or ($selectedIndex -lt 0) -or ($selectedIndex -ge $pathPossibilities.Count)) {
+    Write-Verbose "Got selected index $selectedIndex and path possibilities $($pathPossibilities.Count)"
+    if(-not($selectedIndex -match '^[0-9]+$')) {
         Write-Error "Invalid index specified"
         return $null
     }
 
-    Write-Verbose "The selected path is $($pathPossibilities[$selectedIndex])"
+    $selectedIndex = [int]($selectedIndex)
+    if(($selectedIndex -lt 1) -or ($selectedIndex -gt $pathPossibilities.Count)) {
+        Write-Error "Invalid index specified"
+        return $null
+    }
 
-    return $pathPossibilities[$selectedIndex]
+    Write-Verbose "The selected path is $($indexPathMap[$selectedIndex])"
+    Write-Verbose "Calculated selected index $selectedIndex - for possibilities $pathPossibilities"
+
+    return $indexPathMap[$selectedIndex]
 }
 
 function Check-IsPartOfTmpDirectory([string] $Destination, [bool] $Force)

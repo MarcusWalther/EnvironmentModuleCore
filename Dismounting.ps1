@@ -14,7 +14,7 @@ function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.
     process {       
         if(!$Module) {
             if(!$Name) {
-                Write-Host ("You must specify a module which should be removed, by either passing the name or the environment module object.") -foregroundcolor "Red"
+                Write-Host ("You must specify a module which should be removed, by either passing the name or the environment module object.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
             }
             $Module = (Get-EnvironmentModule $Name)
             if(!$Module) { return; }
@@ -22,7 +22,7 @@ function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.
         
         if(!$loadedEnvironmentModules.ContainsKey($Module.Name))
         {
-            Write-Host ("The Environment-Module $inModule is not loaded.") -foregroundcolor "Red"
+            Write-Host ("The Environment-Module $inModule is not loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
             return
         }
 
