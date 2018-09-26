@@ -41,14 +41,6 @@ function Add-EnvironmentModuleAlias([String] $Name, [String] $Module, [String] $
     }
 }
 
-function Remove-EnvironmentModuleAlias([String] $Name, [String] $Module)
-{
-    $knownAliases = $loadedEnvironmentModuleAliases[$Name]
-    $index = $knownAliases.IndexOf({param ($x) $x.Item2 -eq $Module})
-
-    #if($index )
-}
-
 function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System.Management.Automation.ScriptBlock] $Definition)
 {
     Write-Verbose $Module.ToString()

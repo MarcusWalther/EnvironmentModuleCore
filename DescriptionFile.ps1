@@ -36,7 +36,7 @@ function Split-EnvironmentModuleName([String] $Name)
     }
     else
     {
-        Write-Host ("The environment module name " + $Name + " is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'") -foregroundcolor "Red"
+        Write-Host ("The environment module name " + $Name + " is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
         return $null
     }
 }
