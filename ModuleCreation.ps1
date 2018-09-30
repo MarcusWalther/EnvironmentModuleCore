@@ -272,3 +272,47 @@ function Edit-EnvironmentModule
         Get-ChildItem ($modules[0].ModuleBase) | Where-Object {$_ -like $FileFilter} | Invoke-Item
     }
 }
+
+function Select-ModulePath
+{
+    <#
+    .SYNOPSIS
+    Show a selection dialog for module paths.
+    .DESCRIPTION
+    This function will an input selection for all module paths that are defined.
+    .OUTPUTS
+    The selected module path or $null if no path was selected.
+    #>
+    $pathPossibilities = $env:PSModulePath.Split(";")
+    Write-Host "Select the target directory for the module:"
+    $indexPathMap = @{}
+
+    $i = 1
+    foreach ($path in $pathPossibilities) {
+        if(-not (Test-Path $path)) {
+            continue
+        }
+        $path = $(Resolve-Path $path)
+        Write-Host "[$i] $path"
+        $indexPathMap[$i] = $path
+        $i++
+    }
+        
+    $selectedIndex = Read-Host -Prompt " "
+    Write-Verbose "Got selected index $selectedIndex and path possibilities $($pathPossibilities.Count)"
+    if(-not($selectedIndex -match '^[0-9]+$')) {
+        Write-Error "Invalid index specified"
+        return $null
+    }
+
+    $selectedIndex = [int]($selectedIndex)
+    if(($selectedIndex -lt 1) -or ($selectedIndex -gt $pathPossibilities.Count)) {
+        Write-Error "Invalid index specified"
+        return $null
+    }
+
+    Write-Verbose "The selected path is $($indexPathMap[$selectedIndex])"
+    Write-Verbose "Calculated selected index $selectedIndex - for possibilities $pathPossibilities"
+
+    return $indexPathMap[$selectedIndex]
+}

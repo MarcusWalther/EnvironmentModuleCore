@@ -524,14 +524,14 @@ function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System
     Write-Verbose $Module.ToString()
     $newTupleValue = [System.Tuple]::Create($Definition, $Module)
     # Check if the function was already used
-    if($loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    if($script:loadedEnvironmentModuleFunctions.ContainsKey($Name))
     {
-        $knownFunctions = $loadedEnvironmentModuleFunctions[$Name]
+        $knownFunctions = $script:loadedEnvironmentModuleFunctions[$Name]
         $knownFunctions.Add($newTupleValue)
     }
     else {
         $newValue = New-Object "System.Collections.Generic.List[System.Tuple[System.Management.Automation.ScriptBlock, String]]"
         $newValue.Add($newTupleValue)
-        $loadedEnvironmentModuleFunctions.Add($Name, $newValue)
+        $script:loadedEnvironmentModuleFunctions.Add($Name, $newValue)
     }
 }

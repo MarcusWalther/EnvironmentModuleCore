@@ -204,10 +204,9 @@ Describe 'TestGet' {
 }
 
 Describe 'TestFunctionStack' {
-    Import-EnvironmentModule 'Cmd'
     Import-EnvironmentModule 'Project-ProgramA'
 
-    $knownFunctions = Get-EnvironmentModuleFunctions "Start-Cmd"
+    $knownFunctions = Get-EnvironmentModuleFunctionModules "Start-Cmd"
 
     It 'Function Stack has correct structure' {
         $knownFunctions | Should -HaveCount 2
@@ -223,10 +222,9 @@ Describe 'TestFunctionStack' {
         $result = Start-Cmd "42"
         $result | Should -Be 42     
         
-        $result = Invoke-EnvironmentModuleFunction "Start-Cmd" "Cmd" -ArgumentList "/C echo 45"
-        $result | Should -Not -BeNullOrEmpty $result.Id  
+        $result = Invoke-EnvironmentModuleFunction "Start-Cmd" "Cmd" -ArgumentList '/C "echo 45"'
+        $result | Should -Be 45 
     }
 
-    Remove-EnvironmentModule 'Cmd'
     Remove-EnvironmentModule 'Project-ProgramA'
 }
