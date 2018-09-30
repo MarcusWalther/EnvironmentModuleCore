@@ -1,3 +1,101 @@
+
+function Remove-EnvironmentModule
+{
+    <#
+    .SYNOPSIS
+    Remove the environment module that was previously imported
+    .DESCRIPTION
+    This function will remove the environment module from the scope of the console.
+    .PARAMETER Name
+    The name of the environment module.
+    .OUTPUTS
+    No outputs are returned.
+    #>
+    [CmdletBinding()]
+    Param(
+        [switch] $Force
+    )
+    DynamicParam {
+        # Set the dynamic parameters' name
+        $ParameterName = 'Name'
+        
+        # Create the dictionary 
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+    
+        # Create the collection of attributes
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        
+        # Create and set the parameters' attributes
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 0
+    
+        # Add the attributes to the attributes collection
+        $AttributeCollection.Add($ParameterAttribute)
+    
+        # Generate and set the ValidateSet 
+        $arrSet = $script:loadedEnvironmentModules.Values | % {Get-EnvironmentModuleDetailedString $_}
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+    
+        # Add the ValidateSet to the attributes collection
+        $AttributeCollection.Add($ValidateSetAttribute)
+    
+        # Create and return the dynamic parameter
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+        return $RuntimeParameterDictionary
+    }
+    
+    begin {
+        # Bind the parameter to a friendly variable
+        $Name = $PsBoundParameters[$ParameterName]
+    }
+
+    process {   
+        Remove-RequiredModulesRecursive -FullName $Name -UnloadedDirectly $True -Force $Force
+    }
+}
+
+function Remove-RequiredModulesRecursive([String] $FullName, [Bool] $UnloadedDirectly, [switch] $Force)
+{
+    <#
+    .SYNOPSIS
+    Remove the environment module with the given name from the environment.
+    .DESCRIPTION
+    This function will remove the environment module from the scope of the console and will later iterate over all required modules to remove them as well.
+    .PARAMETER FullName
+    The name of the environment module to remove.
+    .OUTPUTS
+    No outputs are returned.
+    #>
+    $moduleInfos = Split-EnvironmentModuleName $FullName
+    $name = $moduleInfos[0]
+    
+    if(!$script:loadedEnvironmentModules.ContainsKey($name)) {
+        Write-Host "Module $name not found"
+        return;
+    }
+    
+    $module = $script:loadedEnvironmentModules.Get_Item($name)
+    
+    if(!$Force -and $UnloadedDirectly -and !$module.IsLoadedDirectly) {
+        Write-Error "Unable to remove module $Name because it was imported as dependency"
+        return;
+    }
+
+    $module.ReferenceCounter--
+    
+    Write-Verbose "The module $($module.Name) has now a reference counter of $($module.ReferenceCounter)"
+    
+    foreach ($refModule in $module.RequiredEnvironmentModules) {
+        Remove-RequiredModulesRecursive $refModule $False
+    }   
+    
+    if($module.ReferenceCounter -le 0) {
+        Write-Verbose "Removing Module $($module.Name)" 
+        Dismount-EnvironmentModule -Module $module
+    }   
+}
 function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.EnvironmentModule] $Module = $null)
 {
     <#
@@ -68,4 +166,26 @@ function Dismount-EnvironmentModule([String] $Name = $null, [EnvironmentModules.
         
         return
     }
+}
+
+function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
+{
+    <#
+    .SYNOPSIS
+    Remove the given value from the desired environment variable.
+    .DESCRIPTION
+    This function will remove the given value from the environment variable with the given name. If the value is not part 
+    of the environment variable, no changes are performed.
+    .PARAMETER Variable
+    The name of the environment variable that should be extended.
+    .PARAMETER Value
+    The new value that should be removed from the environment variable.
+    .OUTPUTS
+    No output is returned.
+    #>
+    $oldValue = [environment]::GetEnvironmentVariable($Variable,"Process")
+    $allPathValues = $oldValue.Split(";")
+    $allPathValues = ($allPathValues | Where {$_.ToString() -ne $Value.ToString()})
+    $newValue = ($allPathValues -join ";")
+    [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
 }
