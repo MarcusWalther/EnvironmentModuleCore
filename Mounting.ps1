@@ -1,4 +1,4 @@
-function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
+function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $SubFolderPath) {
     <#
     .SYNOPSIS
     Check if the given folder contains all files given as second parameter.
@@ -8,6 +8,8 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
     The folder to check.
     .PARAMETER Files
     The files to check.    
+    .PARAMETER SubFolderPath
+    The subfolder path that should be appended to the folder path.      
     .OUTPUTS
     True if the folder does exist and if it contains all files, false otherwise.
     #>
@@ -16,14 +18,19 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files) {
         return $false
     }
 
-    if (-not (Test-Path "$FolderPath")) {
-        Write-Verbose "The folder $FolderPath does not exist"
+    if (-not $SubFolderPath) {
+        $SubFolderPath = ""
+    }    
+
+    $completePath = Join-Path "$FolderPath" "$SubFolderPath"
+    if (-not (Test-Path $completePath)) {
+        Write-Verbose "The folder $completePath does not exist"
         return $false
     }
 
     foreach($file in $Files) {
-        if (-not (Test-Path (Join-Path "$FolderPath" "$file"))) {
-            Write-Verbose "The file $file does not exist in folder $FolderPath"
+        if (-not (Test-Path (Join-Path "$completePath" "$file"))) {
+            Write-Verbose "The file $file does not exist in folder $completePath"
             return $false
         }
     }
@@ -95,7 +102,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
                 Write-Verbose "Checking the folder $folder"
 
-                if (Test-FileExistence $folder $Module.RequiredFiles) {
+                if (Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder) {
                     Write-Verbose "The folder $folder contains the required files"
                     return $folder
                 }
@@ -108,8 +115,8 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         }
 
         if($searchPath.GetType() -eq [EnvironmentModules.DirectorySearchPath]) {
-            Write-Verbose "Checking directory seach path $($searchPath.Directory)"
-            if (Test-FileExistence $searchPath.Directory $Module.RequiredFiles) {
+            Write-Verbose "Checking directory search path $($searchPath.Directory)"
+            if (Test-FileExistence $searchPath.Directory $Module.RequiredFiles $searchPath.SubFolder) {
                 return $searchPath.Directory
             }
 
@@ -117,9 +124,9 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         }
 
         if($searchPath.GetType() -eq [EnvironmentModules.EnvironmentSearchPath]) {
-            Write-Verbose "Checking environment search path $($searchPath.Variable)"
             $directory = $([environment]::GetEnvironmentVariable($searchPath.Variable))
-            if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles)) {
+            Write-Verbose "Checking environment search path $($searchPath.Variable) -> $directory"
+            if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)) {
                 return $directory
             }
 

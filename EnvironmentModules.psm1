@@ -1,20 +1,37 @@
-﻿# Creata a empty collection of known and loaded environment modules first
-[HashTable] $loadedEnvironmentModules = @{}
-[HashTable] $loadedEnvironmentModuleAliases = @{} # AliasName -> (String, ModuleName)[]
-[HashTable] $loadedEnvironmentModuleFunctions = @{} # FunctionName -> (String, ModuleName)[]
-
+﻿# Read the temp folder location
 $moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $script:tmpEnvironmentRootPath = ([IO.Path]::Combine($moduleFileLocation, "..\Tmp\"))
-$tmpEnvironmentModulePath = ([IO.Path]::Combine($script:tmpEnvironmentRootPath, "Modules"))
+
+if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
+    $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
+}
+
+Write-Verbose "Using environment module temp path $($script:tmpEnvironmentRootPath)"
+$script:tmpEnvironmentModulePath = ([IO.Path]::Combine($script:tmpEnvironmentRootPath, "Modules"))
 
 mkdir $script:tmpEnvironmentRootPath -Force
-mkdir $tmpEnvironmentModulePath -Force
+mkdir $script:tmpEnvironmentModulePath -Force
+$env:PSModulePath = "$env:PSModulePath;$script:tmpEnvironmentModulePath"
 
-$env:PSModulePath = "$env:PSModulePath;$tmpEnvironmentModulePath"
+# Read the config folder location
+$script:configEnvironmentRootPath = ([IO.Path]::Combine($moduleFileLocation, "..\Config\"))
+
+if($null -ne $env:ENVIRONMENT_MODULES_CONFIG) {
+    $script:configEnvironmentRootPath = $env:ENVIRONMENT_MODULES_CONFIG
+}
+
+mkdir $script:configEnvironmentRootPath -Force
+
+# Setup the variables
+$script:loadedEnvironmentModules = @{}
+$script:loadedEnvironmentModuleAliases = @{} # AliasName -> (String, ModuleName)[]
+$script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> (String, ModuleName)[]
+
 $script:environmentModules = @()
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
 $script:silentUnload = $false
 
+# Define the functions
 function Get-AllEnvironmentModules()
 {
     return $script:environmentModules

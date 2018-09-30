@@ -1,5 +1,5 @@
 $script:moduleCacheFileLocation = [IO.Path]::Combine($script:tmpEnvironmentRootPath, "ModuleCache.xml")
-$script:searchPathsFileLocation = [IO.Path]::Combine($script:tmpEnvironmentRootPath, "CustomSearchPaths.xml")
+$script:searchPathsFileLocation = [IO.Path]::Combine($script:configEnvironmentRootPath, "CustomSearchPaths.xml")
 
 function Initialize-EnvironmentModuleCache()
 {
@@ -82,7 +82,7 @@ function Update-EnvironmentModuleCache()
     $allModuleNames = New-Object 'System.Collections.Generic.HashSet[String]'
     
     # Delete all temporary modules created previously
-    Remove-Item $tmpEnvironmentModulePath\* -Force -Recurse    
+    Remove-Item $script:tmpEnvironmentModulePath\* -Force -Recurse    
     
     foreach ($module in (Get-Module -ListAvailable)) {
         Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
@@ -154,7 +154,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
@@ -171,7 +171,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }    
@@ -192,7 +192,9 @@ function Add-EnvironmentModuleSearchPath
         [ValidateSet("Directory", "Registry", "Environment")]
         [string] $Type,
         [Parameter(Mandatory=$true)]
-        [string] $Value
+        [string] $Value,
+        [Parameter(Mandatory=$false)]
+        [string] $SubFolder = ""
     )
     DynamicParam {
         # Set the dynamic parameters' name
@@ -236,14 +238,14 @@ function Add-EnvironmentModuleSearchPath
         $oldSearchPaths = $script:customSearchPaths[$Module]
         $newSearchPath
         if($Type -eq "Directory") {
-            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($Value, 30)
+            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($Value, $SubFolder, 30)
         }
         else {
             if($Type -eq "Registry") {
-                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($Value, 30)
+                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($Value, $SubFolder, 30)
             }
             else {
-                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($Value, 30)
+                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($Value, $SubFolder, 30)
             }
         }
 

@@ -2,6 +2,13 @@
 
 $global:VerbosePreference = "Continue"
 $env:PSModulePath = "$PSScriptRoot;$(Resolve-Path (Join-Path $PSScriptRoot '..\Tmp\Modules'));$(Resolve-Path (Join-Path $PSScriptRoot '..\Test'))"
-#$env:PSModulePath = "$env:PSModulePath;$(Resolve-Path (Join-Path $PSScriptRoot '..\..\'))"
+$env:ENVIRONMENT_MODULES_TMP = "$(Join-Path $PSScriptRoot 'Env\Tmp')"
+$env:ENVIRONMENT_MODULES_CONFIG = "$(Join-Path $PSScriptRoot 'Env\Config')"
+
+if($null -ne (Get-Module 'EnvironmentModules')) {
+    Remove-Module EnvironmentModules
+}
+Import-Module "$(Resolve-Path (Join-Path $PSScriptRoot '..\EnvironmentModules.psm1'))"
+
 Update-EnvironmentModuleCache
 Clear-EnvironmentModuleSearchPaths -Force
