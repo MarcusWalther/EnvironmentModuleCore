@@ -1,10 +1,4 @@
-if(Get-Module "EnvironmentModules") {
-    Remove-Module "EnvironmentModules"
-}
-
-Import-Module "$PSScriptRoot\..\EnvironmentModules.psd1"
-
-if((Get-Module -Name "Pester") -eq $null) {
+if($null -eq (Get-Module -Name "Pester")) {
     Import-Module Pester
 }
 
@@ -89,6 +83,25 @@ Describe 'TestLoading_CustomPath_Environment' {
     }
 
     Remove-EnvironmentModule 'Project-ProgramB'
+
+    It 'Module can be removed with dependencies' {
+        $module = Get-EnvironmentModule
+        $module | Should -BeNullOrEmpty   
+    }       
+}
+
+Describe 'TestLoading_Environment_Subpath' {
+    Clear-EnvironmentModuleSearchPaths -Force
+    $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramC"
+    $env:PROJECT_PROGRAM_C_ROOT = "$customDirectory"
+
+    Import-EnvironmentModule "Project-ProgramC"
+    It 'Module is loaded correctly with sub-path' {
+        $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Project-ProgramC"
+        $module | Should -Not -BeNullOrEmpty
+    }
+
+    Remove-EnvironmentModule 'Project-ProgramC'
 
     It 'Module can be removed with dependencies' {
         $module = Get-EnvironmentModule
@@ -217,5 +230,3 @@ Describe 'TestFunctionStack' {
     Remove-EnvironmentModule 'Cmd'
     Remove-EnvironmentModule 'Project-ProgramA'
 }
-
-#Get-EnvironmentModuleFunction -Name "Start-Cmd" -OverwrittenBy $MODULE_NAME

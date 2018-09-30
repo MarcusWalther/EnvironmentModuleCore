@@ -10,11 +10,15 @@
     public abstract class SearchPath : IComparable
     {
         [DataMember]
-        protected int Priority { get; private set; }
+        public int Priority { get; set; }
 
-        public SearchPath(int priority)
+        [DataMember]
+        public string SubFolder { get; set; }
+
+        public SearchPath(int priority, string subFolder)
         {
             Priority = priority;
+            SubFolder = subFolder;
         }
 
         public int CompareTo(object obj)
@@ -39,7 +43,7 @@
 
         }
 
-        public DirectorySearchPath(string directory, int priority = 10) : base(priority)
+        public DirectorySearchPath(string directory, string subFolder = "", int priority = 10) : base(priority, subFolder)
         {
             Directory = directory;
         }
@@ -56,7 +60,7 @@
 
         }
 
-        public RegistrySearchPath(string key, int priority = 20) : base(priority)
+        public RegistrySearchPath(string key, string subFolder = "", int priority = 20) : base(priority, subFolder)
         {
             Key = key;
         }
@@ -73,7 +77,7 @@
 
         }
 
-        public EnvironmentSearchPath(string variable, int priority = 9) : base(priority)
+        public EnvironmentSearchPath(string variable, string subFolder = "", int priority = 9) : base(priority, subFolder)
         {
             Variable = variable;
         }
