@@ -441,3 +441,97 @@ function Switch-EnvironmentModule
         [void] (New-Event -SourceIdentifier "EnvironmentModuleSwitched" -EventArguments $moduleName, $newModuleName)
     }
 }
+
+function Add-EnvironmentVariableValue([String] $Variable, [String] $Value, [Bool] $Append = $true)
+{
+    <#
+    .SYNOPSIS
+    Add the given value to the desired environment variable.
+    .DESCRIPTION
+    This function will append or prepend the new value to the environment variable with the given name.
+    .PARAMETER Variable
+    The name of the environment variable that should be extended.
+    .PARAMETER Value
+    The new value that should be added to the environment variable.
+    .PARAMETER Append
+    Set this value to $true if the new value should be appended to the environment variable. Otherwise the value is prepended. 
+    .OUTPUTS
+    No output is returned.
+    #>
+    $tmpValue = [environment]::GetEnvironmentVariable($Variable,"Process")
+    if(!$tmpValue)
+    {
+        $tmpValue = $Value
+    }
+    else
+    {
+        if($Append) {
+            $tmpValue = "${tmpValue};${Value}"
+        }
+        else {
+            $tmpValue = "${Value};${tmpValue}"
+        }
+    }
+    [Environment]::SetEnvironmentVariable($Variable, $tmpValue, "Process")
+}
+
+function Add-EnvironmentModuleAlias([String] $Name, [String] $Module, [String] $Definition)
+{
+    <#
+    .SYNOPSIS
+    Add a new alias to the active environment.
+    .DESCRIPTION
+    This function will extend the active environment with a new alias definition. The alias is added to the loaded aliases collection.
+    .PARAMETER Name
+    The name of the alias.
+    .PARAMETER Module
+    The module that has defined the alias.
+    .PARAMETER Definition
+    The alias definition.
+    .OUTPUTS
+    No output is returned.
+    #>    
+    $newTupleValue = [System.Tuple]::Create($Definition, $Module)
+    # Check if the alias was already used
+    if($script:loadedEnvironmentModuleAliases.ContainsKey($Name))
+    {
+        $knownAliases = $script:loadedEnvironmentModuleAliases[$Name]
+        $knownAliases.Add($newTupleValue)
+    }
+    else {
+        $newValue = New-Object "System.Collections.Generic.List[System.Tuple[String, String]]"
+        $newValue.Add($newTupleValue)
+        $script:loadedEnvironmentModuleAliases.Add($Name, $newValue)
+    }
+}
+
+function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System.Management.Automation.ScriptBlock] $Definition)
+{
+    <#
+    .SYNOPSIS
+    Add a new function to the active environment.
+    .DESCRIPTION
+    This function will extend the active environment with a new function definition. The function is added to the loaded functions stack.
+    .PARAMETER Name
+    The name of the function.
+    .PARAMETER Module
+    The module that has defined the function.
+    .PARAMETER Definition
+    The function definition.
+    .OUTPUTS
+    No output is returned.
+    #>  
+    Write-Verbose $Module.ToString()
+    $newTupleValue = [System.Tuple]::Create($Definition, $Module)
+    # Check if the function was already used
+    if($loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    {
+        $knownFunctions = $loadedEnvironmentModuleFunctions[$Name]
+        $knownFunctions.Add($newTupleValue)
+    }
+    else {
+        $newValue = New-Object "System.Collections.Generic.List[System.Tuple[System.Management.Automation.ScriptBlock, String]]"
+        $newValue.Add($newTupleValue)
+        $loadedEnvironmentModuleFunctions.Add($Name, $newValue)
+    }
+}
