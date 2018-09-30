@@ -6,8 +6,15 @@ param(
 
 $Module.AddPrependPath("PATH", $Module.ModuleRoot)
 $Module.AddFunction("Start-Cmd", {
-	return (Start-Process -PassThru -FilePath "$Module.ModuleRoot\cmd.exe" @args)
+	$pinfo = New-Object System.Diagnostics.ProcessStartInfo
+	$pinfo.FileName = "cmd.exe"
+	$pinfo.RedirectStandardError = $true
+	$pinfo.RedirectStandardOutput = $true
+	$pinfo.UseShellExecute = $false
+	$pinfo.Arguments = $args
+	$p = New-Object System.Diagnostics.Process
+	$p.StartInfo = $pinfo
+	$p.Start() | Out-Null
+	$p.WaitForExit()
+	return $p.StandardOutput.ReadToEnd()
 })
-
-[String] $cmd = "Start-Process -FilePath '$($Module.ModuleRoot)\cmd.exe' @args"
-$Module.AddFunction("Start-Cmd", [ScriptBlock]::Create($cmd))

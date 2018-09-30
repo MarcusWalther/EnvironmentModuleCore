@@ -70,19 +70,6 @@ function Get-EnvironmentModuleDetailedString([EnvironmentModules.EnvironmentModu
     return $resultString
 }
 
-function Get-LoadedEnvironmentModules()
-{
-    <#
-    .SYNOPSIS
-    Get all loaded environment module names.
-    .DESCRIPTION
-    This function will return a String list, containing the names of all loaded environment modules.
-    .OUTPUTS
-    The String list containing the names of all environment modules.
-    #>
-    return $script:loadedEnvironmentModules.getEnumerator() | % { $_.Value }
-}
-
 function Get-LoadedEnvironmentModulesFullName()
 {
     <#
@@ -117,43 +104,6 @@ function Test-IsEnvironmentModuleLoaded([String] $Name)
     return $true
 }
 
-function Select-ModulePath
-{
-    $pathPossibilities = $env:PSModulePath.Split(";")
-    Write-Host "Select the target directory for the module:"
-    $indexPathMap = @{}
-
-    $i = 1
-    foreach ($path in $pathPossibilities) {
-        if(-not (Test-Path $path)) {
-            continue
-        }
-        $path = $(Resolve-Path $path)
-        Write-Host "[$i] $path"
-        $indexPathMap[$i] = $path
-        $i++
-    }
-        
-    $selectedIndex = Read-Host -Prompt " "
-    Write-Verbose "Got selected index $selectedIndex and path possibilities $($pathPossibilities.Count)"
-    if(-not($selectedIndex -match '^[0-9]+$')) {
-        Write-Error "Invalid index specified"
-        return $null
-    }
-
-    $selectedIndex = [int]($selectedIndex)
-    if(($selectedIndex -lt 1) -or ($selectedIndex -gt $pathPossibilities.Count)) {
-        Write-Error "Invalid index specified"
-        return $null
-    }
-
-    Write-Verbose "The selected path is $($indexPathMap[$selectedIndex])"
-    Write-Verbose "Calculated selected index $selectedIndex - for possibilities $pathPossibilities"
-
-    return $indexPathMap[$selectedIndex]
-}
-
-
 function Get-AllEnvironmentModules()
 {
     return $script:environmentModules
@@ -164,15 +114,25 @@ function Get-ConcreteEnvironmentModules()
     return $script:environmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract} | Select-Object -ExpandProperty "FullName"
 }
 
-function Get-EnvironmentModuleFunctions([String] $Name)
+function Get-EnvironmentModuleFunctionModules([String] $Name)
 {
+    <#
+    .SYNOPSIS
+    Get all loaded modules that define a function with the given name.
+    .DESCRIPTION
+    This function will search the function stack for functions defined with the passed name.
+    .PARAMETER Name
+    The name of the function.
+    .OUTPUTS
+    The list of modules defining the function. The last function in the list is the executed one.
+    #>
     $result = New-Object "System.Collections.Generic.List[string]"
-    if(-not $loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    if(-not $script:loadedEnvironmentModuleFunctions.ContainsKey($Name))
     {
         return $result
     }
 
-    foreach($knownFunction in $loadedEnvironmentModuleFunctions[$Name]) {
+    foreach($knownFunction in $script:loadedEnvironmentModuleFunctions[$Name]) {
         $result.Add($knownFunction.Item2)
     }
 
@@ -181,12 +141,12 @@ function Get-EnvironmentModuleFunctions([String] $Name)
 
 function Invoke-EnvironmentModuleFunction([String] $Name, [String] $Module, [Object[]] $ArgumentList)
 {
-    if(-not $loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    if(-not $script:loadedEnvironmentModuleFunctions.ContainsKey($Name))
     {
         throw "The function $Name is not registered"
     }
 
-    $knownFunctionPairs = $loadedEnvironmentModuleFunctions[$Name]
+    $knownFunctionPairs = $script:loadedEnvironmentModuleFunctions[$Name]
 
     foreach($functionPair in $knownFunctionPairs) {
         if($functionPair.Item2 -eq $Module) {
