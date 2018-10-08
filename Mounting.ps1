@@ -79,7 +79,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
     foreach($searchPath in $Module.SearchPaths)
     {
-        if($searchPath.GetType() -eq [EnvironmentModules.RegistrySearchPath]) {
+        if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::REGISTRY) {
             $pathSegments = $searchPath.Key.Split('\')
             $propertyName = $pathSegments[-1]
             $propertyPath = [string]::Join('\', $pathSegments[0..($pathSegments.Length - 2)])
@@ -114,18 +114,18 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
             continue
         }
 
-        if($searchPath.GetType() -eq [EnvironmentModules.DirectorySearchPath]) {
-            Write-Verbose "Checking directory search path $($searchPath.Directory)"
-            if (Test-FileExistence $searchPath.Directory $Module.RequiredFiles $searchPath.SubFolder) {
-                return $searchPath.Directory
+        if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::Directory) {
+            Write-Verbose "Checking directory search path $($searchPath.Key)"
+            if (Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder) {
+                return $searchPath.Key
             }
 
             continue
         }
 
-        if($searchPath.GetType() -eq [EnvironmentModules.EnvironmentSearchPath]) {
-            $directory = $([environment]::GetEnvironmentVariable($searchPath.Variable))
-            Write-Verbose "Checking environment search path $($searchPath.Variable) -> $directory"
+        if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::ENVIRONMENT_VARIABLE) {
+            $directory = $([environment]::GetEnvironmentVariable($searchPath.Key))
+            Write-Verbose "Checking environment search path $($searchPath.Key) -> $directory"
             if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)) {
                 return $directory
             }
@@ -192,25 +192,25 @@ function Import-EnvironmentModule
     }
 
     process {   
-        $_ = Import-RequiredModulesRecursive -FullName $Name -LoadedDirectly $True
+        $_ = Import-RequiredModulesRecursive -ModuleFullName $Name -LoadedDirectly $True
     }
 }
 
-function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirectly)
+function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly)
 {
     <#
     .SYNOPSIS
     Import the environment module with the given name and all required environment modules.
     .DESCRIPTION
     This function will import the environment module into the scope of the console and will later iterate over all required modules to import them as well.
-    .PARAMETER FullName
-    The name of the environment module to import.
+    .PARAMETER ModuleFullName
+    The full name of the environment module to import.
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
     Write-Verbose "Importing the module $Name recursive"
     
-    $moduleInfos = Split-EnvironmentModuleName $FullName
+    $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
     $name = $moduleInfos[0]
     
     if($script:loadedEnvironmentModules.ContainsKey($name)) {
@@ -226,10 +226,10 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
     }
 
     # Load the dependencies first
-    $module = New-EnvironmentModuleInfo -Name $FullName
+    $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName
 
     if ($null -eq $module) {
-        Write-Error "Unable to read environment module description file of module $FullName"
+        Write-Error "Unable to read environment module description file of module $ModuleFullName"
         return $false
     }
 
@@ -258,27 +258,27 @@ function Import-RequiredModulesRecursive([String] $FullName, [Bool] $LoadedDirec
 
     # Load the module itself
     $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
-    Write-Verbose "Importing the module $FullName into the Powershell environment"
-    Import-Module $FullName -Scope Global -Force -ArgumentList $module
+    Write-Verbose "Importing the module $ModuleFullName into the Powershell environment"
+    Import-Module $ModuleFullName -Scope Global -Force -ArgumentList $module
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"
     if($Module.DirectUnload -eq $false) {
         Mount-EnvironmentModuleInternal $module
-        Write-Verbose "Importing of module $FullName done"
+        Write-Verbose "Importing of module $ModuleFullName done"
         
-        $isLoaded = Test-IsEnvironmentModuleLoaded $FullName
+        $isLoaded = Test-IsEnvironmentModuleLoaded $ModuleFullName
         
         if(!$isLoaded) {
-            Write-Error "The module $FullName was not loaded successfully"
+            Write-Error "The module $ModuleFullName was not loaded successfully"
             $script:silentUnload = $true
-            Remove-Module $FullName -Force
+            Remove-Module $ModuleFullName -Force
             $script:silentUnload = $false
             return $false
         }
     }
     else {
         [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
-        Remove-Module $FullName -Force
+        Remove-Module $ModuleFullName -Force
         return $true
     }    
 
@@ -306,11 +306,11 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         {
             Write-Verbose "The module name '$($Module.Name)' was found in the list of already loaded modules"
             if($loadedEnvironmentModules.Get_Item($Module.Name).Equals($Module)) {
-                Write-Host ("The Environment-Module '" + (Get-EnvironmentModuleDetailedString $Module) + "' is already loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+                Write-Host ("The Environment-Module '$($Module.FullName)' is already loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
                 return $false
             }
             else {
-                Write-Host ("The module '" + (Get-EnvironmentModuleDetailedString $Module) + " conflicts with the already loaded module '" + (Get-EnvironmentModuleDetailedString $loadedEnvironmentModules.($Module.Name)) + "'") -ForeGroundcolor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+                Write-Host ("The module '$($Module.FullName)' conflicts with the already loaded module '$($loadedEnvironmentModules.Get_Item($Module.Name).FullName)'") -ForeGroundcolor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
                 return $false
             }
         }
@@ -367,7 +367,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
-        Write-Host ((Get-EnvironmentModuleDetailedString $Module) + " loaded") -ForegroundColor $Host.PrivateData.DebugForegroundColor -BackgroundColor $Host.PrivateData.DebugBackgroundColor
+        Write-Host ("$($Module.FullName) loaded") -ForegroundColor $Host.PrivateData.DebugForegroundColor -BackgroundColor $Host.PrivateData.DebugBackgroundColor
         return $true
     }
 }
@@ -379,9 +379,9 @@ function Switch-EnvironmentModule
     Switch a already loaded environment module with a different one.
     .DESCRIPTION
     This function will unmount the giben enivronment module and will load the new one instead.
-    .PARAMETER ModuleName
+    .PARAMETER ModuleFullName
     The name of the environment module to unload.
-    .PARAMETER NewModuleName
+    .PARAMETER NewModuleFullName
     The name of the new environment module to load.
     .OUTPUTS
     No output is returned.
@@ -390,55 +390,36 @@ function Switch-EnvironmentModule
     Param(
     )
     DynamicParam {
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        
-        $ModuleNameParameterName = 'ModuleName'
-        $ModuleNameAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ModuleNameParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ModuleNameParameterAttribute.Mandatory = $true
-        $ModuleNameParameterAttribute.Position = 0
-        $ModuleNameAttributeCollection.Add($ModuleNameParameterAttribute)
-        $ModuleNameArrSet = Get-LoadedEnvironmentModulesFullName
-        $ModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($ModuleNameArrSet)
-        $ModuleNameAttributeCollection.Add($ModuleNameValidateSetAttribute)
-        $ModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ModuleNameParameterName, [string], $ModuleNameAttributeCollection)
-        $RuntimeParameterDictionary.Add($ModuleNameParameterName, $ModuleNameRuntimeParameter)
+        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $NewModuleNameParameterName = 'NewModuleName'       
-        $NewModuleNameAttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]      
-        $NewModuleNameParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $NewModuleNameParameterAttribute.Mandatory = $true
-        $NewModuleNameParameterAttribute.Position = 1
-        $NewModuleNameAttributeCollection.Add($NewModuleNameParameterAttribute)     
-        $NewModuleNameArrSet = Get-ConcreteEnvironmentModules
-        $NewModuleNameValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($NewModuleNameArrSet)     
-        $NewModuleNameAttributeCollection.Add($NewModuleNameValidateSetAttribute)
-        $NewModuleNameRuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($NewModuleNameParameterName, [string], $NewModuleNameAttributeCollection)
-        $RuntimeParameterDictionary.Add($NewModuleNameParameterName, $NewModuleNameRuntimeParameter)
-        
-        return $RuntimeParameterDictionary
+        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+
+        #TODO: Show only modules with the same name for switching
+        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName | Where-Object {(Test-IsEnvironmentModuleLoaded $_) -eq $false}
+        Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $moduleSet
+        return $runtimeParameterDictionary
     }
     
     begin {
         # Bind the parameter to a friendly variable
-        $moduleName = $PsBoundParameters[$ModuleNameParameterName]
-        $newModuleName = $PsBoundParameters[$NewModuleNameParameterName]
+        $moduleFullName = $PsBoundParameters['ModuleFullName']
+        $newModuleFullName = $PsBoundParameters['NewModuleFullName']
     }
 
     process {
-        $module = Get-EnvironmentModule($moduleName)
+        $module = Get-EnvironmentModule($moduleFullName)
         
         if (!$module) {
-            Write-Error ("No loaded environment module named $moduleName")
+            Write-Error ("No loaded environment module named $moduleFullName")
             return
         }
-        
-        $moduleName = Get-EnvironmentModuleDetailedString($module)
-        Remove-EnvironmentModule $moduleName -Force
-        
-        Import-EnvironmentModule $newModuleName
 
-        [void] (New-Event -SourceIdentifier "EnvironmentModuleSwitched" -EventArguments $moduleName, $newModuleName)
+        Remove-EnvironmentModule $moduleFullName -Force
+        
+        Import-EnvironmentModule $newModuleFullName
+
+        [void] (New-Event -SourceIdentifier "EnvironmentModuleSwitched" -EventArguments $moduleFullName, $newModuleFullName)
     }
 }
 

@@ -89,19 +89,19 @@ function Update-EnvironmentModuleCache()
         $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
         if($isEnvironmentModule) {
             Write-Verbose "Environment module $($module.Name) found"
-            $script:environmentModules = $script:environmentModules + (New-EnvironmentModuleInfoBase -Name $module.Name)
+            $script:environmentModules = $script:environmentModules + (New-EnvironmentModuleInfoBase -ModuleFullName $module.Name)
             $moduleNameParts = Split-EnvironmentModuleName $module.Name
             
-            if($moduleNameParts[1] -eq $null) {
+            if($null -eq $moduleNameParts[1]) {
               $moduleNameParts[1] = ""
             }
             
-            if($moduleNameParts[2] -eq $null) {
+            if($null -eq $moduleNameParts[2]) {
               $moduleNameParts[2] = ""
             }
             
             # Read the environment module properties from the pse1 file
-            $info = New-EnvironmentModuleInfoBase $module
+            $info = New-EnvironmentModuleInfoBase -Module $module
 
             if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
                 continue; #Ignore meta and abstract modules
@@ -116,7 +116,7 @@ function Update-EnvironmentModuleCache()
                 $dictionaryValue = [System.Tuple]::Create($moduleNameParts[1], $module)
                 $oldItem = $modulesByArchitecture.Get_Item($dictionaryKey)
                 
-                if($oldItem -eq $null) {
+                if($null -eq $oldItem) {
                     $modulesByArchitecture.Add($dictionaryKey, $dictionaryValue)
                 }
                 else {
@@ -131,7 +131,7 @@ function Update-EnvironmentModuleCache()
             $dictionaryValue = [System.Tuple]::Create($moduleNameParts[1], $module)
             $oldItem = $modulesByVersion.Get_Item($dictionaryKey)
             
-            if($oldItem -eq $null) {
+            if($null -eq $oldItem) {
                 $modulesByVersion.Add($dictionaryKey, $dictionaryValue)
                 continue
             }
@@ -176,94 +176,238 @@ function Update-EnvironmentModuleCache()
       $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }    
     
-    Write-Host "By Architecture"
-    $modulesByArchitecture.GetEnumerator()
-    Write-Host "By Version"
-    $modulesByVersion.GetEnumerator()
+    Write-Verbose "By Architecture"
+    Write-Verbose $modulesByArchitecture.GetEnumerator()
+    Write-Verbose "By Version"
+    Write-Verbose $modulesByVersion.GetEnumerator()
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
 }
 
 function Add-EnvironmentModuleSearchPath
 {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [ValidateSet("Directory", "Registry", "Environment")]
-        [string] $Type,
-        [Parameter(Mandatory=$true)]
-        [string] $Value,
-        [Parameter(Mandatory=$false)]
-        [string] $SubFolder = ""
-    )
+    <#
+    .SYNOPSIS
+    Add a new custom search path for an environment module.
+    .DESCRIPTION
+    This function will register a new custom search path for a module.
+    .PARAMETER Type
+    The type of the search path.
+    .PARAMETER Key
+    The key to set - the key of the class EnvironmentModules.SearchPath.
+    .PARAMETER Module
+    The module that should be extended with a new search path.
+    .PARAMETER SubFolder
+    The sub folder for the search.
+    .OUTPUTS
+    List of all search paths.
+    #>
+    [cmdletbinding()]
+    Param()
     DynamicParam {
-        # Set the dynamic parameters' name
-        $ParameterName = 'Module'
+        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        # Create the dictionary 
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-    
-        # Create the collection of attributes
-        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        
-        # Create and set the parameters' attributes
-        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttribute.Mandatory = $true
-        $ParameterAttribute.Position = 0
-    
-        # Add the attributes to the attributes collection
-        $AttributeCollection.Add($ParameterAttribute)
-    
-        $arrSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty "FullName"
-        if($arrSet.Length -gt 0) {
-            # Generate and set the ValidateSet 
-            $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
-        
-            # Add the ValidateSet to the attributes collection
-            $AttributeCollection.Add($ValidateSetAttribute)
-        }
-    
-        # Create and return the dynamic parameter
-        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
-        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
-        return $RuntimeParameterDictionary
+        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+
+        Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet @("Directory", "Registry", "Environment")
+        Add-DynamicParameter 'Key' String $runtimeParameterDictionary -Mandatory $True -Position 2
+        Add-DynamicParameter 'SubFolder' String $runtimeParameterDictionary -Mandatory $False -Position 3
+
+        return $runtimeParameterDictionary
     }
 
     begin {
-        # Bind the parameter to a friendly variable
-        $Module = $PsBoundParameters[$ParameterName]
+        $ModuleFullName = $PsBoundParameters['ModuleFullName']
+        $Type = $PsBoundParameters['Type']
+        $Key = $PsBoundParameters['Key']
+        $SubFolder = $PsBoundParameters['SubFolder']
+
+        if(-not $SubFolder) {
+            $SubFolder = ""
+        }
     }
 
     process {   
-        $oldSearchPaths = $script:customSearchPaths[$Module]
+        $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
         $newSearchPath
         if($Type -eq "Directory") {
-            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($Value, $SubFolder, 30)
+            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($Key, $SubFolder, 40, $false)
         }
         else {
             if($Type -eq "Registry") {
-                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($Value, $SubFolder, 30)
+                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($Key, $SubFolder, 40, $false)
             }
             else {
-                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($Value, $SubFolder, 30)
+                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($Key, $SubFolder, 40, $false)
             }
         }
 
         if($oldSearchPaths) {
-            $script:customSearchPaths[$Module] = $oldSearchPaths.Add($newSearchPath)
+            $oldSearchPaths.Add($newSearchPath)
+            $script:customSearchPaths[$ModuleFullName] = $oldSearchPaths
         }
         else {
             $searchPaths = New-Object "System.Collections.Generic.List[EnvironmentModules.SearchPath]"
             $searchPaths.Add($newSearchPath)
-            $script:customSearchPaths[$Module] = $searchPaths
+            $script:customSearchPaths[$ModuleFullName] = $searchPaths
         }
 
         Write-CustomSearchPaths
     }
 }
 
+function Remove-EnvironmentModuleSearchPath
+{
+    <#
+    .SYNOPSIS
+    Remove a previously defined custom search path from the given module.
+    .DESCRIPTION
+    This function will remove a new custom search path from the module. If multiple search paths are found, an additional select dialogue is displayed.
+    .PARAMETER ModuleFullName
+    The module that should be checked.    
+    .PARAMETER Type
+    The type of the search path to remove.
+    .PARAMETER Key
+    The key of the search path to remove.
+    .PARAMETER SubFolder
+    The sub folder of the search path to remove.
+    .OUTPUTS
+    List of all search paths.
+    #>    
+    [CmdletBinding()]
+    Param()
+    DynamicParam {
+        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+
+        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+
+        Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $False -Position 1 -ValidateSet @("*", "Directory", "Registry", "Environment")
+        Add-DynamicParameter 'Key' String $runtimeParameterDictionary -Mandatory $False -Position 2
+        Add-DynamicParameter 'SubFolder' String $runtimeParameterDictionary -Mandatory $False -Position 3
+
+        return $runtimeParameterDictionary
+    }
+
+    begin {
+        $ModuleFullName = $PsBoundParameters['ModuleFullName']
+        $Type = $PsBoundParameters['Type']
+        $Key = $PsBoundParameters['Key']
+        $SubFolder = $PsBoundParameters['SubFolder']
+
+        if(-not $Type) {
+            $Type = "*"
+        }
+        if(-not $Key) {
+            $Key = "*"
+        }        
+        if(-not $SubFolder) {
+            $SubFolder = ""
+        } 
+    }
+
+    process {
+        $customSearchPaths = Get-EnvironmentModuleSearchPath -ModuleName $ModuleFullName -Type $Type -Key $Key -SubFolder $SubFolder -Custom
+        if($null -eq $customSearchPaths) {
+            return
+        }
+
+        $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
+        if($customSearchPaths -is [array]) {
+            $searchPaths = @{}
+            $searchPathOptions = @()
+            foreach($customSearchPath in $customSearchPaths) {
+                $searchPathKey = $customSearchPath.ToString()
+                $searchPaths[$searchPathKey] = $customSearchPath
+                $searchPathOptions = $searchPathOptions + $searchPathKey
+            }
+
+            $customSearchPath = Show-SelectDialogue $searchPathOptions "Select the custom search path to remove"
+            $customSearchPath = $searchPaths[$customSearchPath]
+        }
+        else {
+            $customSearchPath = $customSearchPaths    # Just one search path matches the filter
+        }
+
+        if(-not $customSearchPath) {
+            return
+        }
+
+        $_ = $oldSearchPaths.Remove($customSearchPath)
+        $script:customSearchPaths[$ModuleFullName] = $oldSearchPaths
+        Write-CustomSearchPaths
+    }
+}
+
+function Get-EnvironmentModuleSearchPath
+{
+    <#
+    .SYNOPSIS
+    Get the search paths defined for the module(s).
+    .DESCRIPTION
+    This function will list all search paths for environment modules matching the given name filter.
+    .PARAMETER ModuleName
+    The module name filter to consider.
+    .PARAMETER Type
+    The search path type to use as filter.    
+    .PARAMETER Key
+    The key value to use as filter.
+    .PARAMETER SubFolder
+    The sub folder to use as filter.    
+    .PARAMETER Custom
+    True if only custom search paths should be returned.        
+    .OUTPUTS
+    List of all search paths.
+    #>
+    Param(
+        [String] $ModuleName = "*",
+        [ValidateSet("*", "Directory", "Registry", "Environment")]
+        [string] $Type = "*",
+        [Parameter(Mandatory=$false)]
+        [string] $Key = "*",
+        [Parameter(Mandatory=$false)]
+        [string] $SubFolder = "*",
+        [switch] $Custom
+    )
+
+    $modules = Get-EnvironmentModule -ListAvailable $ModuleName
+
+    foreach($module in $modules) {
+        foreach($searchPath in $module.SearchPaths) {
+            if($Custom -and $searchPath.IsDefault) {
+                continue
+            }
+
+            if(-not ($searchPath.Type.ToString() -like $Type)) {
+                continue
+            }      
+            
+            if(-not ($searchPath.Key -like $Key)) {
+                continue
+            }      
+            
+            if(-not ($searchPath.SubFolder -like $SubFolder)) {
+                continue
+            }             
+            
+            $searchPath.ToInfo($module.FullName)
+        }
+    }
+}
+
 function Clear-EnvironmentModuleSearchPaths
 {
+    <#
+    .SYNOPSIS
+    Deletes all custom search paths.
+    .DESCRIPTION
+    This function will delete all custom search paths that are defined by the user.
+    .PARAMETER Force
+    Do not ask for deletion.   
+    .OUTPUTS
+    No output is returned.
+    #>    
     Param(
         [Switch] $Force
     )
@@ -283,6 +427,14 @@ function Clear-EnvironmentModuleSearchPaths
 
 function Write-CustomSearchPaths
 {
+    <#
+    .SYNOPSIS
+    Write the defined custom search paths to the configuration file.
+    .DESCRIPTION
+    This function will write all added custom search paths to the configuration file.
+    .OUTPUTS
+    No output is returned.
+    #>      
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModules.SearchPath])
 

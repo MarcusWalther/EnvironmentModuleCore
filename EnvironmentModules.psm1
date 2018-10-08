@@ -11,6 +11,7 @@ $script:tmpEnvironmentModulePath = ([IO.Path]::Combine($script:tmpEnvironmentRoo
 
 mkdir $script:tmpEnvironmentRootPath -Force
 mkdir $script:tmpEnvironmentModulePath -Force
+# TODO: Check if path is already part of PSModulePath -> only add if not the case
 $env:PSModulePath = "$env:PSModulePath;$script:tmpEnvironmentModulePath"
 
 # Read the config folder location
@@ -30,6 +31,9 @@ $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> (String, Module
 $script:environmentModules = @()
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
 $script:silentUnload = $false
+
+# Include the util functions
+. "${PSScriptRoot}\Utils.ps1"
 
 # Include the file handling functions
 . "${PSScriptRoot}\DescriptionFile.ps1"

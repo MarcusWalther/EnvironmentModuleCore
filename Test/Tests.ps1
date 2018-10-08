@@ -12,13 +12,13 @@ Describe 'TestLoading' {
     }
 
     It 'Default Modules were created' {
-        $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand FullName
-        'NotepadPlusPlus' | Should -BeIn $availableModules
+        $availableModules = Get-EnvironmentModule -ListAvailable -ModuleFullName "NotepadPlusPlus"
+        $availableModules.Length | Should -Be 1
     }
 
     It 'Abstract Default Module was not created' {
-        $availableModules = Get-EnvironmentModule -ListAvailable | Select-Object -Expand FullName
-        'Abstract' | Should -Not -BeIn $availableModules
+        $availableModules = Get-EnvironmentModule -ListAvailable -ModuleFullName "Abstract"
+        $availableModules | Should -Be $null
     }    
 
     It 'Meta Default Module was not created' {
@@ -54,7 +54,7 @@ Describe 'TestLoading' {
 Describe 'TestLoading_CustomPath_Directory' {
     Clear-EnvironmentModuleSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
-    Add-EnvironmentModuleSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+    Add-EnvironmentModuleSearchPath "Project-ProgramB" "Directory" $customDirectory
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module is loaded correctly' {
@@ -74,13 +74,28 @@ Describe 'TestLoading_CustomPath_Environment' {
     Clear-EnvironmentModuleSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\Samples\Project-ProgramB"
     $env:TESTLADOING_PATH = "$customDirectory"
-    Add-EnvironmentModuleSearchPath -Module "Project-ProgramB" -Type "Environment" -Value "TESTLADOING_PATH"
+    Add-EnvironmentModuleSearchPath -ModuleFullName "Project-ProgramB" -Type "Environment" -Key "TESTLADOING_PATH"
+    Add-EnvironmentModuleSearchPath -ModuleFullName "Project-ProgramB" -Type "Environment" -Key "UNDEFINED_VARIABLE"
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module is loaded correctly' {
         $module = Get-EnvironmentModule | Where-Object -Property "FullName" -eq "Project-ProgramB"
         $module | Should -Not -BeNullOrEmpty
     }
+
+    $searchPaths = Get-EnvironmentModuleSearchPath "Project-ProgramB"
+
+    It 'SearchPath correctly returned' {
+        $searchPaths.Count | Should -Be 2
+        $searchPaths[0].Key | Should -Be "TESTLADOING_PATH"
+    } 
+
+    It 'Remove Search Path works correctly' {
+        # Remove-EnvironmentModuleSearchPath -ModuleFullName "Project-ProgramB" #For Manual Testing
+        Remove-EnvironmentModuleSearchPath -ModuleFullName "Project-ProgramB" -Key "UNDEFINED_VARIABLE"
+        $searchPaths = Get-EnvironmentModuleSearchPath "Project-ProgramB"
+        $searchPaths.Count | Should -Be 1
+    }     
 
     Remove-EnvironmentModule 'Project-ProgramB'
 
@@ -112,7 +127,7 @@ Describe 'TestLoading_Environment_Subpath' {
 Describe 'TestLoading_InvalidCustomPath' {
     Clear-EnvironmentModuleSearchPaths -Force
     $customDirectory = Join-Path $PSScriptRoot "..\..\Samples\Project-ProgramB"
-    Add-EnvironmentModuleSearchPath -Module "Project-ProgramB" -Type "Directory" -Value $customDirectory
+    Add-EnvironmentModuleSearchPath -ModuleFullName "Project-ProgramB" -Type "Directory" -Key $customDirectory
 
     Import-EnvironmentModule "Project-ProgramB"
     It 'Module should not be loaded because of invalid root path' {

@@ -138,8 +138,12 @@ function Copy-EnvironmentModule
 
     process {
         $matchingModules = (Get-Module -ListAvailable $ModuleName)
-        if($matchingModules.Length -ne 1) {
-            Write-Error "Found multiple modules matching the name '$ModuleName'"
+        if($matchingModules.Length -lt 1) {
+            Write-Error "Unable to find module matching name '$ModuleName'"
+            return
+        }
+        if($matchingModules.Length -gt 1) {
+            Write-Warning "Found multiple modules matching the name '$ModuleName'"
         }
         
         $moduleFolder = ($matchingModules[0]).ModuleBase
@@ -283,36 +287,6 @@ function Select-ModulePath
     .OUTPUTS
     The selected module path or $null if no path was selected.
     #>
-    $pathPossibilities = $env:PSModulePath.Split(";")
-    Write-Host "Select the target directory for the module:"
-    $indexPathMap = @{}
-
-    $i = 1
-    foreach ($path in $pathPossibilities) {
-        if(-not (Test-Path $path)) {
-            continue
-        }
-        $path = $(Resolve-Path $path)
-        Write-Host "[$i] $path"
-        $indexPathMap[$i] = $path
-        $i++
-    }
-        
-    $selectedIndex = Read-Host -Prompt " "
-    Write-Verbose "Got selected index $selectedIndex and path possibilities $($pathPossibilities.Count)"
-    if(-not($selectedIndex -match '^[0-9]+$')) {
-        Write-Error "Invalid index specified"
-        return $null
-    }
-
-    $selectedIndex = [int]($selectedIndex)
-    if(($selectedIndex -lt 1) -or ($selectedIndex -gt $pathPossibilities.Count)) {
-        Write-Error "Invalid index specified"
-        return $null
-    }
-
-    Write-Verbose "The selected path is $($indexPathMap[$selectedIndex])"
-    Write-Verbose "Calculated selected index $selectedIndex - for possibilities $pathPossibilities"
-
-    return $indexPathMap[$selectedIndex]
+    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {Test-Path $_} | Select-Object -Unique {Resolve-Path $_}
+    return Show-SelectDialogue $pathPossibilities "Select the target directory for the module"
 }
