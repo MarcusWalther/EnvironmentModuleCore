@@ -1,5 +1,5 @@
 
-function Split-EnvironmentModuleName([String] $Name)
+function Split-EnvironmentModuleName([String] $ModuleFullName)
 {
     <#
     .SYNOPSIS
@@ -8,12 +8,12 @@ function Split-EnvironmentModuleName([String] $Name)
     Split a name string that either has the format 'Name-Version-Architecture' or just 'Name'. The output is 
     an array with the 4 parts (name, version, architecture, additionalOptions). If a value was not specified, 
     $null is returned at the according array index.
-    .PARAMETER Name
-    The name-string that should be splitted.
+    .PARAMETER ModuleFullName
+    The full name of the module that should be splitted.
     .OUTPUTS
     A string array with 4 parts (name, version, architecture, additionalOptions) 
     #>
-    $doesMatch = $Name -match '^(?<name>[0-9A-Za-z_]+)((-(?<version>([0-9]+(|_[0-9]+)(|_[0-9]+))|(DEF|DEV|NIGHTLY)))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
+    $doesMatch = $ModuleFullName -match '^(?<name>[0-9A-Za-z_]+)((-(?<version>([0-9]+(|_[0-9]+)(|_[0-9]+))|(DEF|DEV|NIGHTLY)))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
     if($doesMatch) 
     {
         if($matches.version -eq "") {
@@ -39,22 +39,6 @@ function Split-EnvironmentModuleName([String] $Name)
         Write-Host ("The environment module name " + $Name + " is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
         return $null
     }
-}
-
-function Split-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Module)
-{
-    <#
-    .SYNOPSIS
-    Converts the given environment module into an array with 4 parts (name, version, architecture, additionalOptions).
-    .DESCRIPTION
-    Converts an environment module into an array with 4 parts (name, version, architecture, additionalOptions), to make 
-    it comparable to the output of the Split-EnvironmentModuleName function.
-    .PARAMETER Module
-    The module object that should be transformed.
-    .OUTPUTS
-    A string array with 4 parts (name, version, architecture, additionalOptions) 
-    #>
-    return $Module.Name, $Module.Version, $Module.Architecture, $Module.AdditionalOptions
 }
 
 function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
@@ -91,15 +75,31 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
     return @{}
 }
 
-function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module, [String] $Name)
+function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module, [String] $ModuleFullName)
 {
-    if($Module -eq $null) {
-        $matchingModules = Get-Module -ListAvailable $Name
+    <#
+    .SYNOPSIS
+    Create a new EnvironmentModuleInfoBase object from the given parameters.
+    .PARAMETER Module 
+    The module info that contains the base information.
+    .PARAMETER ModuleFullName
+    The full name of the module. Only used if the module parameter is not set.
+    .OUTPUTS
+    The created object of type EnvironmentModuleInfoBase or $null.
+    .NOTES
+    The given module name must match exactly one module, otherwise $null is returned.
+    #>    
+    if($null -eq $Module) {
+        $matchingModules = Get-Module -ListAvailable $ModuleFullName
 
-        if($matchingModules.Length -eq 0) {
-            Write-Verbose "Unable to find the module $Name in the list of all modules"
+        if($matchingModules.Length -lt 1) {
+            Write-Verbose "Unable to find the module $ModuleFullName in the list of all modules"
             return $null
         }
+
+        if($matchingModules.Length -gt 1) {
+            Write-Warning "More than one module matches the given full name '$ModuleFullName'"
+        }        
         
         $Module = $matchingModules[0]
     }
@@ -118,28 +118,44 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module, [String] $Name)
 
 function Set-EnvironmentModuleInfoBaseParameter([EnvironmentModules.EnvironmentModuleInfoBase][ref] $Module, [hashtable] $Parameters)
 {
+    <#
+    .SYNOPSIS
+    Assign the given parameters to the passed module object.
+    .PARAMETER Module
+    The module to modify.
+    .PARAMETER Parameters
+    The parameters to set.
+    #>
     if($Parameters.Contains("ModuleType")) {
         $Module.ModuleType = [Enum]::Parse([EnvironmentModules.EnvironmentModuleType], $descriptionContent.Item("ModuleType"))
         Write-Verbose "Read module type $($Module.ModuleType)"
     }
 }
 
-function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
+function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullName)
 {
     <#
     .SYNOPSIS
-    Read the PS Module Info of the given module info.
-    .DESCRIPTION
-    This function will read the environment module info of the given module. If the module does not depend on the environment module, $null is returned.
+    Create a new EnvironmentModuleInfo object from the given parameters.
+    .PARAMETER Module 
+    The module info that contains the base information.
+    .PARAMETER ModuleFullName
+    The full name of the module. Only used if the module parameter is not set.
     .OUTPUTS
-    The environment module info or $null.
-    #>
+    The created object of type EnvironmentModuleInfo or $null.
+    .NOTES
+    The given module name must match exactly one module, otherwise $null is returned.
+    #>  
     if($Module -eq $null) {
-        $matchingModules = Get-Module -ListAvailable $Name
+        $matchingModules = Get-Module -ListAvailable $ModuleFullName
 
-        if($matchingModules.Length -eq 0) {
-            Write-Verbose "Unable to find the module $Name in the list of all modules"
+        if($matchingModules.Length -lt 1) {
+            Write-Verbose "Unable to find the module $ModuleFullName in the list of all modules"
             return $null
+        }
+
+        if($matchingModules.Length -gt 1) {
+            Write-Warning "More than one module matches the given full name '$ModuleFullName'"
         }
         
         $Module = $matchingModules[0]
@@ -158,7 +174,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     $result.DirectUnload = $false
-    $customSearchPaths = $script:customSearchPaths[$Name]
+    $customSearchPaths = $script:customSearchPaths[$Module.Name]
     if ($customSearchPaths) {
         $result.SearchPaths = $result.SearchPaths + $customSearchPaths
     }    
@@ -183,7 +199,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
 
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
             $parts = $_.Split(";") + @("")
-            New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($parts[0], $parts[1])
+            New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($parts[0], $parts[1], $true)
         }))
         Write-Verbose "Read default registry paths $($result.DefaultRegistryPaths)"
     }     
@@ -192,7 +208,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
         $pathValues = $descriptionContent.Item("DefaultFolderPaths")
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
             $parts = $_.Split(";") + @("")
-            New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($parts[0], $parts[1])
+            New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($parts[0], $parts[1], $true)
         }))
         Write-Verbose "Read default folder paths $($result.DefaultFolderPaths)"
     }      
@@ -201,7 +217,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $Name)
         $pathValues = $descriptionContent.Item("DefaultEnvironmentPaths")
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
             $parts = $_.Split(";") + @("")
-            New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($parts[0], $parts[1])
+            New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($parts[0], $parts[1], $true)
         }))
         Write-Verbose "Read default environment paths $($result.DefaultEnvironmentPaths)"
     }       
