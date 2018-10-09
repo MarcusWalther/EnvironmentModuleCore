@@ -140,3 +140,18 @@ function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $Modu
 
     throw "The module $Module has no function registered named $Name"
 }
+
+function Get-EnvironmentModuleAlias
+{
+    $modules = $script:loadedEnvironmentModules.Values
+    $aliases = @()
+
+    foreach($module in $modules) {
+        $aliases = $module.Aliases
+        Write-Verbose "Handling module '$module' with $($aliases.Count) aliases"
+        foreach($alias in $aliases.Keys) {
+            $definition = $aliases[$alias]
+            New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Item1, $definition.Item2)
+        }
+    }
+}

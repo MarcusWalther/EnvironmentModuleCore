@@ -95,59 +95,40 @@ function Copy-EnvironmentModule
     #>
     [CmdletBinding()]
     Param(
-        [Parameter(Mandatory=$true)]
-        [String] $NewName,
-        [String] $Path,
-        [Switch] $Force
+        [Switch] $Force,
+        [Switch] $SkipCacheUpdate
     )
     DynamicParam {
-        # Set the dynamic parameters' name
-        $ParameterName = 'Name'
-        
-        # Create the dictionary 
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-    
-        # Create the collection of attributes
-        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        
-        # Create and set the parameters' attributes
-        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttribute.Mandatory = $true
-        $ParameterAttribute.Position = 0
-    
-        # Add the attributes to the attributes collection
-        $AttributeCollection.Add($ParameterAttribute)
-    
-        # Generate and set the ValidateSet 
-        $arrSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty "FullName"
-        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
-    
-        # Add the ValidateSet to the attributes collection
-        $AttributeCollection.Add($ValidateSetAttribute)
-    
-        # Create and return the dynamic parameter
-        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
-        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
-        return $RuntimeParameterDictionary
+        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+
+        $moduleSet = $script:environmentModules | Select-Object -ExpandProperty FullName
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+
+        Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1
+        Add-DynamicParameter 'Path' String $runtimeParameterDictionary -Mandatory $False -Position 2
+
+        return $runtimeParameterDictionary
     }
     
     begin {
         # Bind the parameter to a friendly variable
-        $ModuleName = $PsBoundParameters[$ParameterName]
+        $ModuleFullName = $PsBoundParameters['ModuleFullName']
+        $NewModuleFullName = $PsBoundParameters['NewModuleFullName']
+        $Path = $PsBoundParameters['Path']
     }
 
     process {
-        $matchingModules = (Get-Module -ListAvailable $ModuleName)
+        $matchingModules = (Get-Module -ListAvailable $ModuleFullName)
         if($matchingModules.Length -lt 1) {
-            Write-Error "Unable to find module matching name '$ModuleName'"
+            Write-Error "Unable to find module matching name '$ModuleFullName'"
             return
         }
         if($matchingModules.Length -gt 1) {
-            Write-Warning "Found multiple modules matching the name '$ModuleName'"
+            Write-Warning "Found multiple modules matching the name '$ModuleFullName'"
         }
         
         $moduleFolder = ($matchingModules[0]).ModuleBase
-        $destination = Resolve-Path(Join-Path $moduleFolder '..\')
+        $destination = Resolve-Path (Join-Path $moduleFolder '..\')
         
         if($Path) {
             $destination = $Path
@@ -162,7 +143,7 @@ function Copy-EnvironmentModule
             $destination = $selectedPath
         }
 
-        $destination = Join-Path $destination $NewName
+        $destination = Join-Path $destination $NewModuleFullName
 
         if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath)) {
             return
@@ -175,19 +156,21 @@ function Copy-EnvironmentModule
         
         mkdir $destination -Force
         
-        Write-Host "Cloning module $Name to $destination"
+        Write-Host "Cloning module $ModuleFullName to $destination"
         
         $filesToCopy = Get-ChildItem $moduleFolder
         
         Write-Verbose "Found $($filesToCopy.Length) files to copy"
 
         foreach($file in $filesToCopy) {
+            Write-Verbose "Handling file $file"
             $length = $file.Name.Length - $file.Extension.Length
             $shortName = $file.Name.Substring(0, $length)
             $newFileName = $file.Name
 
-            if("$shortName" -match "$Name") {
-                $newFileName = "$($NewName)$($file.Extension)"
+            Write-Verbose "Checking if `"$shortName`" matches `"$ModuleFullName`""
+            if("$shortName" -match "$ModuleFullName") {
+                $newFileName = "$($NewModuleFullName)$($file.Extension)"
             }
 
             $newFullName = Join-Path $destination $newFileName
@@ -204,10 +187,12 @@ function Copy-EnvironmentModule
                 Default {}
             }
 
-            ($fileContent.Replace("$ModuleName", "$NewName")) > "$newFullName"
+            ($fileContent.Replace("$ModuleFullName", "$NewModuleFullName")) > "$newFullName"
         }
         
-        Update-EnvironmentModuleCache
+        if(-not $SkipCacheUpdate) {
+            Update-EnvironmentModuleCache
+        }
     }
 }
 
@@ -224,49 +209,29 @@ function Edit-EnvironmentModule
     No outputs are returned.
     #>
     [CmdletBinding()]
-    Param(
-        # Any other parameters can go here
-        [String] $FileFilter = '*.*'
-    )
+    Param()
     DynamicParam {
-        # Set the dynamic parameters' name
-        $ParameterName = 'Name'
-        
-        # Create the dictionary 
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-    
-        # Create the collection of attributes
-        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        
-        # Create and set the parameters' attributes
-        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttribute.Mandatory = $true
-        $ParameterAttribute.Position = 0
-    
-        # Add the attributes to the attributes collection
-        $AttributeCollection.Add($ParameterAttribute)
-    
-        # Generate and set the ValidateSet 
-        $arrSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty "FullName"
-        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
-    
-        # Add the ValidateSet to the attributes collection
-        $AttributeCollection.Add($ValidateSetAttribute)
-    
-        # Create and return the dynamic parameter
-        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
-        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        return $RuntimeParameterDictionary
+        $moduleSet = $script:environmentModules | Select-Object -ExpandProperty FullName
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+
+        Add-DynamicParameter 'FileFilter' String $runtimeParameterDictionary -Mandatory $False -Position 1
+        return $runtimeParameterDictionary
     }
     
     begin {
         # Bind the parameter to a friendly variable
-        $Name = $PsBoundParameters[$ParameterName]
+        $ModuleFullName = $PsBoundParameters['ModuleFullName']
+        $FileFilter = $PsBoundParameters['FileFilter']
+
+        if(-not $FileFilter) {
+            $FileFilter = '*'
+        }
     }
 
     process {   
-        $modules = Get-Module -ListAvailable $Name
+        $modules = Get-Module -ListAvailable $ModuleFullName
         
         if(($null -eq $modules) -or ($modules.Count -eq 0)) {
             Write-Error "The module was not found"
@@ -287,6 +252,6 @@ function Select-ModulePath
     .OUTPUTS
     The selected module path or $null if no path was selected.
     #>
-    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {Test-Path $_} | Select-Object -Unique {Resolve-Path $_}
+    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {Test-Path $_} | Select-Object -Unique
     return Show-SelectDialogue $pathPossibilities "Select the target directory for the module"
 }

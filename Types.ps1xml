@@ -38,4 +38,22 @@
         </MemberSet>
       </Members>
     </Type>    
+    <Type>
+    <Name>EnvironmentModules.AliasInfo</Name>
+      <Members>
+        <MemberSet>
+          <Name>PSStandardMembers</Name>
+          <Members>
+            <PropertySet>
+               <Name>DefaultDisplayPropertySet</Name>
+               <ReferencedProperties>
+                <Name>Name</Name>
+                <Name>ModuleFullName</Name>
+                <Name>Description</Name>                
+              </ReferencedProperties>
+            </PropertySet>
+          </Members>
+        </MemberSet>
+      </Members>
+    </Type>      
 </Types>

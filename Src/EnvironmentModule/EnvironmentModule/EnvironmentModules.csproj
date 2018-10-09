@@ -51,6 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EnvironmentModule.cs" />
+    <Compile Include="EnvironmentModuleAliasInfo.cs" />
     <Compile Include="EnvironmentModuleInfo.cs" />
     <Compile Include="EnvironmentModuleException.cs" />
     <Compile Include="EnvironmentModuleInfoBase.cs" />
