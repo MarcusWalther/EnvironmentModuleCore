@@ -104,7 +104,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
                 if (Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder) {
                     Write-Verbose "The folder $folder contains the required files"
-                    return $folder
+                    return Join-Path $folder $searchPath.SubFolder
                 }
             }
             catch {
@@ -117,7 +117,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::Directory) {
             Write-Verbose "Checking directory search path $($searchPath.Key)"
             if (Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder) {
-                return $searchPath.Key
+                return Join-Path $searchPath.Key $searchPath.SubFolder
             }
 
             continue
@@ -127,7 +127,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
             $directory = $([environment]::GetEnvironmentVariable($searchPath.Key))
             Write-Verbose "Checking environment search path $($searchPath.Key) -> $directory"
             if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)) {
-                return $directory
+                return Join-Path $directory $searchPath.SubFolder
             }
 
             continue
@@ -396,7 +396,7 @@ function Switch-EnvironmentModule
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
         #TODO: Show only modules with the same name for switching
-        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName | Where-Object {(Test-IsEnvironmentModuleLoaded $_) -eq $false}
+        $moduleSet = $script:environmentModules | Select-Object -ExpandProperty FullName | Where-Object {(Test-IsEnvironmentModuleLoaded $_) -eq $false}
         Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $moduleSet
         return $runtimeParameterDictionary
     }

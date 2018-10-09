@@ -207,7 +207,7 @@ function Add-EnvironmentModuleSearchPath
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        $moduleSet = $script:environmentModules | Select-Object -ExpandProperty FullName
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
         Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet @("Directory", "Registry", "Environment")
@@ -280,7 +280,7 @@ function Remove-EnvironmentModuleSearchPath
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        $moduleSet = $script:environmentModules | Select-Object -ExpandProperty FullName
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
         Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $False -Position 1 -ValidateSet @("*", "Directory", "Registry", "Environment")
