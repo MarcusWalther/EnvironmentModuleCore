@@ -395,8 +395,7 @@ function Switch-EnvironmentModule
         $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
-        #TODO: Show only modules with the same name for switching
-        $moduleSet = $script:environmentModules | Select-Object -ExpandProperty FullName | Where-Object {(Test-IsEnvironmentModuleLoaded $_) -eq $false}
+        $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName | Where-Object {(Test-IsEnvironmentModuleLoaded $_) -eq $false}
         Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $moduleSet
         return $runtimeParameterDictionary
     }

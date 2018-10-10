@@ -83,7 +83,7 @@ function Get-ConcreteEnvironmentModules()
     .OUTPUTS
     All concrete environment modules.
     #>    
-    return $script:environmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract} | Select-Object -ExpandProperty "FullName"
+    return Get-AllEnvironmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract} | Select-Object -ExpandProperty "FullName"
 }
 
 function Get-EnvironmentModuleFunctionModules([String] $FunctionName)
