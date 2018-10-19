@@ -9,19 +9,24 @@ function Remove-EnvironmentModule
     .PARAMETER ModuleFullName
     The name of the environment module to remove.
     .PARAMETER Force
-    If this value is set, the module is unloaded even if other modules depend on it.
+    If this value is set, the module is unloaded even if other modules depend on it. If the delete flag is specified, no conformation
+    is required if the Force flag is set.
+    .PARAMETER Delete
+    If this value is set, the module is deleted from the file system.   
+    .PARAMETER SkipCacheUpdate
+    Only relevant if the delete flag is specified. If SkipCacheUpdate is passed, the Update-EnvironmentModule function is not called.    
     .OUTPUTS
     No outputs are returned.
     #>
     [CmdletBinding()]
     Param(
-        [switch] $Force
+        [switch] $Force,
+        [switch] $Delete,
+        [Switch] $SkipCacheUpdate
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-
-        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
-        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0
         return $runtimeParameterDictionary
     }
     
@@ -30,8 +35,43 @@ function Remove-EnvironmentModule
         $ModuleFullName = $PsBoundParameters['ModuleFullName']
     }
 
-    process {   
-        Remove-RequiredModulesRecursive -ModuleFullName $ModuleFullName -UnloadedDirectly $True -Force $Force
+    process {
+        if(Test-IsEnvironmentModuleLoaded $ModuleFullName) {
+            Remove-RequiredModulesRecursive -ModuleFullName $ModuleFullName -UnloadedDirectly $True -Force $Force
+        }
+
+        if($Delete) {
+            if(-not $Force) {
+                $result = Show-ConfirmDialogue "Would you really like to delete the environment module '$ModuleFullName' from the file system?"
+                if(-not $result) {
+                    return
+                }
+            }
+
+            $module = Get-EnvironmentModule -ListAvailable $ModuleFullName
+
+            if(-not $module) {
+                return
+            }
+
+            Remove-Item -Recurse -Force $module.ModuleBase
+
+            if(-not $SkipCacheUpdate) {
+                Update-EnvironmentModuleCache
+            }
+        }
+    }
+}
+
+# This argument completer is used by Remove-EnvironmentModule for the environment module filter
+Register-ArgumentCompleter -CommandName Remove-EnvironmentModule -ParameterName ModuleFullName -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
+
+    if($fakeBoundParameter["Delete"]) {
+        $script:environmentModules.Values | Select-Object -ExpandProperty FullName
+    }
+    else {
+        $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
     }
 }
 

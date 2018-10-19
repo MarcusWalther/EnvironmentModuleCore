@@ -174,6 +174,24 @@ Describe 'TestLoading_AbstractModule' {
 
 }
 
+Describe 'TestCopy' {
+    It 'Modules was correctly copied and deleted afterwards' {   
+        $module = Get-EnvironmentModule -ListAvailable "Project-ProgramA"
+        $module | Should -Not -BeNullOrEmpty 
+        Copy-EnvironmentModule Project-ProgramA "Project-ProgramACopy" (Resolve-Path (Join-Path $module.ModuleBase '..\'))
+        $newModule = Get-EnvironmentModule -ListAvailable "Project-ProgramACopy"
+        $newModule | Should -Not -BeNullOrEmpty
+
+        $files = Get-ChildItem "$($newModule.ModuleBase)" | Select-Object -ExpandProperty "Name"
+        $files | Should -Contain "ProjectRelevantFile.txt"
+        
+        Remove-EnvironmentModule -Delete -Force "Project-ProgramACopy"
+
+        $newModule = Get-EnvironmentModule -ListAvailable "Project-ProgramACopy"
+        $newModule | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'TestSwitch' {
     Import-EnvironmentModule 'Project-ProgramA'
 
