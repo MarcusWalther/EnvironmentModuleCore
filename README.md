@@ -1,4 +1,4 @@
-# PS_EnvironmentModules
+# EnvironmentModules
 A powershell extension to load and remove modules that affect the environment (variables, aliases and functions) of the running session. These features will make the Powershell more powerful when used interactively or in automatic processes.
 
 Overview
@@ -46,23 +46,25 @@ Import the module to get access to the functions
 Import an environment module with the function
 - **Import-EnvironmentModule [ModuleName]**
 
-Removing an evnironment module
+Remove a previously loaded evnironment module
 - **Remove-EnvironmentModule [ModuleName]**
 
-List all loaded mounted environment modules
-- **Get-EnvironmentModule**
+List all loaded mounted environment modules or display all available environment modules
+- **Get-EnvironmentModule [-ListAvailable]**
 
-Creating a new environment module
+Create a new environment module from skretch or from an existing module
 - **New-EnvironmentModule [params]**
+- **Copy-EnvironmentModule [params]**
 
-Editing environment module files
+Edit environment module file(s)
 - **Edit-EnvironmentModule [ModuleName] [FileFilter]**
 
-Updating the cache
+Update the cache
 - **Update-EnvironmentModuleCache**
 
 Environment-Module-Description-File (*.pse)
 -------------------------------------------
+Each environment module should contain a pse file in its module directory. The syntax of such a file is similar to the syntax of the psd files.
 
 ```powershell
 @{
@@ -77,6 +79,9 @@ Environment-Module-Description-File (*.pse)
         
     # Default search paths on the file system
     DefaultFolderPaths = @("C:\Program Files (x86)\Notepad++")
+    
+    # Default environment variable search paths
+    DefaultEnvironmentPaths = @("NOTEPAD_PLUS_PLUS_ROOT")
         
     # Required files that must be part of the folder candidate
     RequiredFiles = @("notepad++.exe")
@@ -88,6 +93,8 @@ Environment-Module-Description-File (*.pse)
 
 Environment-Module-Files (*.psm)
 --------------------------------
+The psm file of an environment module has a special module parameter as argument. This parameter can be used to manipulate the environment.
+
 ```powershell
 param(
     [parameter(Position=0, Mandatory=$true)]
