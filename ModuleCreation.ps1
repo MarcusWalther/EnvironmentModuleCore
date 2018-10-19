@@ -1,4 +1,4 @@
-function Test-IsPartOfTmpDirectory([string] $Destination)
+function Test-IsPartOfTmpDirectory([string] $Destination, [switch] $ShowError)
 {
     <#
     .SYNOPSIS
@@ -8,10 +8,12 @@ function Test-IsPartOfTmpDirectory([string] $Destination)
     .OUTPUTS
     True if the folder is part of the temporary directory.
     #>    
-    $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" ($script:tmpEnvironmentRootPath)
+    $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" (Resolve-Path $script:tmpEnvironmentRootPath)
 
     if($Destination.StartsWith($tmpDirectory.FullName)) {
-        Write-Error "The target destination is part of the temporary directory. Please specify another directory or set the force parameter."
+        if($ShowError) {
+            Write-Error "The target destination is part of the temporary directory. Please specify another directory or set the force parameter."
+        }
         return $true
     }
 
@@ -70,7 +72,7 @@ function New-EnvironmentModule
             return
         }
 
-        if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath)) {
+        if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath -ShowError)) {
             return
         }        
 
@@ -86,10 +88,16 @@ function Copy-EnvironmentModule
     Copy the given environment module under the given name and generate a new GUID.
     .DESCRIPTION
     This function will clone the given module and will specify a new GUID for it. If required, the module search path is adapted.
-    .PARAMETER Name
+    .PARAMETER ModuleFullName
     The module to copy.
-    .PARAMETER NewName
+    .PARAMETER NewModuleFullName
     The new name of the module.
+    .PARAMETER Path
+    The target directory for the created module files. If this parameter is empty, a selection dialogue is displayed.
+    .PARAMETER Force
+    If this flag is set, the module can be created in a temp file location as well.
+    .PARAMETER SkipCacheUpdate
+    If this flag is set, the Update-EnvironmentModule function is not called.
     .OUTPUTS
     No outputs are returned.
     #>
@@ -145,7 +153,7 @@ function Copy-EnvironmentModule
 
         $destination = Join-Path $destination $NewModuleFullName
 
-        if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath)) {
+        if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath -ShowError)) {
             return
         }
 
@@ -196,6 +204,13 @@ function Copy-EnvironmentModule
     }
 }
 
+# This argument completer is used by Copy-EnvironmentModule for the file filter
+Register-ArgumentCompleter -CommandName Copy-EnvironmentModule -ParameterName Path -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
+
+    $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-IsPartOfTmpDirectory $_)} | Select-Object -Unique
+}
+
 function Edit-EnvironmentModule
 {
     <#
@@ -242,6 +257,17 @@ function Edit-EnvironmentModule
     }
 }
 
+# This argument completer is used by Edit-EnvironmentModule for the file filter
+Register-ArgumentCompleter -CommandName Edit-EnvironmentModule -ParameterName FileFilter -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
+
+    $module = Get-EnvironmentModule -ListAvailable $fakeBoundParameter["ModuleFullName"]
+
+    if($module) {
+        Get-ChildItem $module.ModuleBase
+    }
+}
+
 function Select-ModulePath
 {
     <#
@@ -252,6 +278,6 @@ function Select-ModulePath
     .OUTPUTS
     The selected module path or $null if no path was selected.
     #>
-    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {Test-Path $_} | Select-Object -Unique
+    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-IsPartOfTmpDirectory $_)} | Select-Object -Unique
     return Show-SelectDialogue $pathPossibilities "Select the target directory for the module"
 }

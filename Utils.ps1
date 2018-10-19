@@ -98,3 +98,13 @@ function Show-SelectDialogue([array] $Options, [string] $Header)
 
     return $indexPathMap[$selectedIndex]
 }
+
+function Show-ConfirmDialogue([string] $Message) {
+    $result = Read-Host "$Message [y/n]"
+
+    if($result.ToLower() -ne "y") {
+        return $false
+    }
+
+    return $true
+}
