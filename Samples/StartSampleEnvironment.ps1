@@ -1,7 +1,7 @@
 # You can start an experimental shell with the following command line: powershell.exe -NoProfile -NoExit -File "<PathToStartSampleEnvironment.ps1>"
 
 $global:VerbosePreference = "Continue"
-$env:PSModulePath = "$PSScriptRoot;$(Resolve-Path (Join-Path $PSScriptRoot '..\Tmp\Modules'));$(Resolve-Path (Join-Path $PSScriptRoot '..\Test'))"
+$env:PSModulePath = "$PSScriptRoot;$(Resolve-Path (Join-Path $PSScriptRoot '..\Tmp\Modules'))"
 $env:ENVIRONMENT_MODULES_TMP = "$(Join-Path $PSScriptRoot 'Env\Tmp')"
 $env:ENVIRONMENT_MODULES_CONFIG = "$(Join-Path $PSScriptRoot 'Env\Config')"
 
