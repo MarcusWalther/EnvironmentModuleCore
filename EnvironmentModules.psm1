@@ -24,11 +24,11 @@ if($null -ne $env:ENVIRONMENT_MODULES_CONFIG) {
 mkdir $script:configEnvironmentRootPath -Force
 
 # Setup the variables
-$script:loadedEnvironmentModules = @{}
+$script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = @{} # AliasName -> (String, ModuleName)[]
 $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> (String, ModuleName)[]
 
-$script:environmentModules = @()
+$script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
 $script:silentUnload = $false
 

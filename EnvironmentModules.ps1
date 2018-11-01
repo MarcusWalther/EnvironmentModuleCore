@@ -30,8 +30,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
                 continue
             }            
 
-            $result = New-EnvironmentModuleInfo -ModuleFullName $module.FullName     
-            $result
+            New-EnvironmentModuleInfo -ModuleFullName $module.FullName
         }
     }
     else {
@@ -72,7 +71,7 @@ function Get-AllEnvironmentModules()
     .OUTPUTS
     All environment modules.
     #>
-    return $script:environmentModules
+    return $script:environmentModules.Values
 }
 
 function Get-ConcreteEnvironmentModules()

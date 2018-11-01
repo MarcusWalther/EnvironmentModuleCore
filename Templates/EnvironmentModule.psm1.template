@@ -4,7 +4,7 @@ param(
     $Module
 )
 
-$moduleCandidates = Get-EnvironmentModule -ListAvailable "$($Module.Name)*" -Architecture "$($Module.Architecture)" -Version "$($Module.Version)"
+$moduleCandidates = Get-EnvironmentModule -ListAvailable "$($Module.Name)*" -Architecture "$($Module.Architecture)" -Version "$($Module.Version)" | Sort-Object -Property "Architecture"
 $found = $false
 foreach($moduleCandidate in $moduleCandidates) {
     if($moduleCandidate.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) {
