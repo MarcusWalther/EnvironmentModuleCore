@@ -192,11 +192,11 @@ function Import-EnvironmentModule
     }
 
     process {   
-        $_ = Import-RequiredModulesRecursive -ModuleFullName $Name -LoadedDirectly $True
+        $_ = Import-RequiredModulesRecursive $Name $True (New-Object "System.Collections.Generic.HashSet[string]")
     }
 }
 
-function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly)
+function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules)
 {
     <#
     .SYNOPSIS
@@ -205,9 +205,19 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     This function will import the environment module into the scope of the console and will later iterate over all required modules to import them as well.
     .PARAMETER ModuleFullName
     The full name of the environment module to import.
+    .PARAMETER LoadedDirectly
+    True if the module was loaded directly by the user. False if it was loaded as dependency. 
+    .PARAMETER KnownModules
+    A collection of known modules, used to detect circular dependencies.    
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
+    if($KnownModules.Contains($ModuleFullName)) {
+        Write-Error "A circular dependency between the modules was detected"
+        return $false
+    }
+    $_ = $KnownModules.Add($ModuleFullName)
+
     Write-Verbose "Importing the module $Name recursive"
     
     $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
@@ -249,10 +259,18 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
+    $loadedDependencies = New-Object "System.Collections.Stack"
     foreach ($dependency in $module.RequiredEnvironmentModules) {
         Write-Verbose "Importing dependency $dependency"
-        if (-not (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly)) {
+        $loadingResult = (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly $KnownModules)
+        if (-not $loadingResult) {
+            while ($loadedDependencies.Count -gt 0) {
+                Remove-EnvironmentModule ($loadedDependencies.Pop())
+            }
             return $false
+        }
+        else {
+            $loadedDependencies.Push($dependency)
         }
     }
 
@@ -263,10 +281,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"
     if($Module.DirectUnload -eq $false) {
-        Mount-EnvironmentModuleInternal $module
+        $isLoaded = Mount-EnvironmentModuleInternal $module
         Write-Verbose "Importing of module $ModuleFullName done"
-        
-        $isLoaded = Test-IsEnvironmentModuleLoaded $ModuleFullName
         
         if(!$isLoaded) {
             Write-Error "The module $ModuleFullName was not loaded successfully"

@@ -75,35 +75,18 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
     return @{}
 }
 
-function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module, [String] $ModuleFullName)
+function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
 {
     <#
     .SYNOPSIS
     Create a new EnvironmentModuleInfoBase object from the given parameters.
     .PARAMETER Module 
     The module info that contains the base information.
-    .PARAMETER ModuleFullName
-    The full name of the module. Only used if the module parameter is not set.
     .OUTPUTS
     The created object of type EnvironmentModuleInfoBase or $null.
     .NOTES
     The given module name must match exactly one module, otherwise $null is returned.
-    #>    
-    if($null -eq $Module) {
-        $matchingModules = Get-Module -ListAvailable $ModuleFullName
-
-        if($matchingModules.Length -lt 1) {
-            Write-Verbose "Unable to find the module $ModuleFullName in the list of all modules"
-            return $null
-        }
-
-        if($matchingModules.Length -gt 1) {
-            Write-Warning "More than one module matches the given full name '$ModuleFullName'"
-        }        
-        
-        $Module = $matchingModules[0]
-    }
-
+    #>
     $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module
 
     if(-not $descriptionContent) {

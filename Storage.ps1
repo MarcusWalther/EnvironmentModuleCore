@@ -11,7 +11,7 @@ function Initialize-EnvironmentModuleCache()
     .OUTPUTS
     No output is returned.
     #>
-    $script:environmentModules = @()
+    $script:environmentModules = @{}
     if(-not (test-path $moduleCacheFileLocation))
     {
         return
@@ -76,7 +76,7 @@ function Update-EnvironmentModuleCache()
     .OUTPUTS
     No output is returned.
     #>
-    $script:environmentModules = @()
+    $script:environmentModules = @{}
     $modulesByArchitecture = @{}
     $modulesByVersion = @{}
     $allModuleNames = New-Object 'System.Collections.Generic.HashSet[String]'
@@ -89,7 +89,7 @@ function Update-EnvironmentModuleCache()
         $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
         if($isEnvironmentModule) {
             Write-Verbose "Environment module $($module.Name) found"
-            $script:environmentModules = $script:environmentModules + (New-EnvironmentModuleInfoBase -ModuleFullName $module.Name)
+            Add-EnvironmentModuleInternal(New-EnvironmentModuleInfoBase $module)
             $moduleNameParts = Split-EnvironmentModuleName $module.Name
             
             if($null -eq $moduleNameParts[1]) {
@@ -101,7 +101,7 @@ function Update-EnvironmentModuleCache()
             }
             
             # Read the environment module properties from the pse1 file
-            $info = New-EnvironmentModuleInfoBase -Module $module
+            $info = New-EnvironmentModuleInfoBase $module
 
             if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
                 continue; #Ignore meta and abstract modules
@@ -156,7 +156,7 @@ function Update-EnvironmentModuleCache()
       
       [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
-      $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
+      Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
     
     foreach($module in $modulesByVersion.GetEnumerator()) {
@@ -173,7 +173,7 @@ function Update-EnvironmentModuleCache()
       
       [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
-      $script:environmentModules = $script:environmentModules + (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
+      Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }    
     
     Write-Verbose "By Architecture"
@@ -182,6 +182,25 @@ function Update-EnvironmentModuleCache()
     Write-Verbose $modulesByVersion.GetEnumerator()
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
+}
+
+function Add-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModuleInfoBase] $Module)
+{
+    <#
+    .SYNOPSIS
+    Add the given module to the internal collection of environment modules.
+    .DESCRIPTION
+    This function will add the passed module to the environment modules collection. If a module with the same name is already part of the collection,
+    no action is performed.
+    .OUTPUTS
+    No output is returned.
+    #>    
+    if($script:environmentModules.Contains($Module.FullName)) {
+        Write-Warning "The module '$($Module.FullName)' was detected multiple times"
+        return
+    }
+
+    $script:environmentModules[$Module.FullName] = $Module
 }
 
 function Add-EnvironmentModuleSearchPath

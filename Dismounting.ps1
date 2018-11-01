@@ -68,7 +68,7 @@ Register-ArgumentCompleter -CommandName Remove-EnvironmentModule -ParameterName 
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
     if($fakeBoundParameter["Delete"]) {
-        $script:environmentModules.Values | Select-Object -ExpandProperty FullName
+        $script:environmentModules.Keys
     }
     else {
         $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
