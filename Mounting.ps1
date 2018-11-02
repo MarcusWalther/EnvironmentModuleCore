@@ -20,7 +20,9 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $S
 
     if (-not $SubFolderPath) {
         $SubFolderPath = ""
-    }    
+    }
+
+    Write-Verbose "Testing file exisiting '$Files' in folder '$Folder' and subfolder '$SubFolderPath'"
 
     $completePath = Join-Path "$FolderPath" "$SubFolderPath"
     if (-not (Test-Path $completePath)) {
