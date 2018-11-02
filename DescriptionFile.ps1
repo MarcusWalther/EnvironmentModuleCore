@@ -13,7 +13,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
     .OUTPUTS
     A string array with 4 parts (name, version, architecture, additionalOptions) 
     #>
-    $doesMatch = $ModuleFullName -match '^(?<name>[0-9A-Za-z_]+)((-(?<version>([0-9]+(|_[0-9]+)(|_[0-9]+))|(DEF|DEV|NIGHTLY)))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
+    $doesMatch = $ModuleFullName -match '^(?<name>[0-9A-Za-z_]+)(-(?<version>([^-]+))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
     if($doesMatch) 
     {
         if($matches.version -eq "") {
@@ -26,7 +26,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
             $matches.additionalOptions = $null
         }
         
-        Write-Verbose "Splitted $Name into parts:"
+        Write-Verbose "Splitted $ModuleFullName into parts:"
         Write-Verbose ("Name: " + $matches.name)
         Write-Verbose ("Version: " + $matches.version)
         Write-Verbose ("Architecture: " + $matches.architecture)
@@ -36,7 +36,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
     }
     else
     {
-        Write-Host ("The environment module name " + $Name + " is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+        Write-Host ("The environment module name '$ModuleFullName' is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
         return $null
     }
 }
