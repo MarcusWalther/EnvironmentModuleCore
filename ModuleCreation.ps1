@@ -1,4 +1,4 @@
-function Test-IsPartOfTmpDirectory([string] $Destination, [switch] $ShowError)
+function Test-PartOfTmpDirectory([string] $Destination, [switch] $ShowError)
 {
     <#
     .SYNOPSIS
@@ -64,7 +64,7 @@ function New-EnvironmentModule
             return
         }       
         
-        $environmentModulePath = Resolve-Path (Join-Path $moduleFileLocation "..\")
+        $environmentModulePath = Resolve-Path (Join-Path $moduleFileLocation "..")
 
         $selectedPath = Select-ModulePath
 
@@ -72,7 +72,7 @@ function New-EnvironmentModule
             return
         }
 
-        if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath -ShowError)) {
+        if((-not $Force) -and (Test-PartOfTmpDirectory $selectedPath -ShowError)) {
             return
         }        
 
@@ -136,7 +136,7 @@ function Copy-EnvironmentModule
         }
         
         $moduleFolder = ($matchingModules[0]).ModuleBase
-        $destination = Resolve-Path (Join-Path $moduleFolder '..\')
+        $destination = Resolve-Path (Join-Path $moduleFolder '..')
         
         if($Path) {
             $destination = $Path
@@ -153,7 +153,7 @@ function Copy-EnvironmentModule
 
         $destination = Join-Path $destination $NewModuleFullName
 
-        if((-not $Force) -and (Test-IsPartOfTmpDirectory $selectedPath -ShowError)) {
+        if((-not $Force) -and (Test-PartOfTmpDirectory $selectedPath -ShowError)) {
             return
         }
 
@@ -208,7 +208,7 @@ function Copy-EnvironmentModule
 Register-ArgumentCompleter -CommandName Copy-EnvironmentModule -ParameterName Path -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-    $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-IsPartOfTmpDirectory $_)} | Select-Object -Unique
+    $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
 }
 
 function Edit-EnvironmentModule
@@ -278,6 +278,6 @@ function Select-ModulePath
     .OUTPUTS
     The selected module path or $null if no path was selected.
     #>
-    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-IsPartOfTmpDirectory $_)} | Select-Object -Unique
+    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
     return Show-SelectDialogue $pathPossibilities "Select the target directory for the module"
 }

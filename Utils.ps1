@@ -66,6 +66,10 @@ function Show-SelectDialogue([array] $Options, [string] $Header)
     Show a selection dialog for the given values.
     .DESCRIPTION
     This function will show an input selection for all values that are defined.
+    .PARAMETER Options
+    The options to display.
+    .PARAMETER Header
+    The question to display.
     .OUTPUTS
     The selected value or $null if no element was selected.
     #>
@@ -100,6 +104,16 @@ function Show-SelectDialogue([array] $Options, [string] $Header)
 }
 
 function Show-ConfirmDialogue([string] $Message) {
+    <#
+    .SYNOPSIS
+    Show a dialogue that asks for confirmation.
+    .DESCRIPTION
+    This function will show the displayed message and requires a yes/no response from the user.
+    .PARAMETER Header
+    The question to display.
+    .OUTPUTS
+    $True if the user has answered "yes".
+    #>    
     $result = Read-Host "$Message [y/n]"
 
     if($result.ToLower() -ne "y") {
@@ -107,4 +121,34 @@ function Show-ConfirmDialogue([string] $Message) {
     }
 
     return $true
+}
+
+function Test-PathPartOfEnvironmentVariable([String] $Path, [String] $Variable) {
+    <#
+    .SYNOPSIS
+    Check if a path is part of an environment variable.
+    .DESCRIPTION
+    The function will check if the given path is part of the specified environment variable.
+    .PARAMETER Path
+    The path to check.
+    .PARAMETER Variable
+    The environment variable to consider. 
+    .OUTPUTS
+    $True if the path was identified in the variable.
+    #> 
+
+    $variableValue = [System.Environment]::GetEnvironmentVariable($Variable)
+    if(-not $variableValue) {
+        return $false
+    }
+
+    $Path = [System.IO.Path]::GetFullPath($Path) # We normalize the path
+    foreach($part in $variableValue.Split(";")) {
+        $part = [System.IO.Path]::GetFullPath($part)
+        if($part.Equals($Path, [System.StringComparison]::InvariantCultureIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
 }
