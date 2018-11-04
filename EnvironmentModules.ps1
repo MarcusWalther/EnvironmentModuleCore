@@ -41,7 +41,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
     }
 }
 
-function Test-IsEnvironmentModuleLoaded([String] $ModuleFullName)
+function Test-EnvironmentModuleLoaded([String] $ModuleFullName)
 {
     <#
     .SYNOPSIS
@@ -61,7 +61,16 @@ function Test-IsEnvironmentModuleLoaded([String] $ModuleFullName)
     return $true
 }
 
-#TODO: Create a function Get-LoadedEnvironmentModules replacing '$script:loadedEnvironmentModules.Values...'
+function Get-LoadedEnvironmentModules()
+{
+    <#
+    .SYNOPSIS
+    Get all loaded environment modules.
+    .OUTPUTS
+    All loaded environment modules.
+    #>
+    return $script:loadedEnvironmentModules.Values
+}
 
 function Get-AllEnvironmentModules()
 {
@@ -82,10 +91,10 @@ function Get-ConcreteEnvironmentModules()
     .OUTPUTS
     All concrete environment modules.
     #>    
-    return Get-AllEnvironmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract} | Select-Object -ExpandProperty "FullName"
+    return Get-AllEnvironmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract}
 }
 
-function Get-EnvironmentModuleFunctionModules([String] $FunctionName)
+function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $ModuleFullName = "*")
 {
     <#
     .SYNOPSIS
@@ -97,17 +106,11 @@ function Get-EnvironmentModuleFunctionModules([String] $FunctionName)
     .OUTPUTS
     The list of modules defining the function. The last function in the list is the executed one.
     #>
-    $result = New-Object "System.Collections.Generic.List[string]"
-    if(-not $script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionName))
-    {
-        return $result
+    foreach($info in $script:loadedEnvironmentModuleFunctions.Values) {
+        if(($info.ModuleFullName -like $ModuleFullName) -and ($info.Name -like $FunctionName)) {
+            $info
+        }
     }
-
-    foreach($knownFunction in $script:loadedEnvironmentModuleFunctions[$FunctionName]) {
-        $result.Add($knownFunction.Item2)
-    }
-
-    return $result  
 }
 
 function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $ModuleFullName, [Object[]] $ArgumentList)
@@ -129,26 +132,42 @@ function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $Modu
         throw "The function $FunctionName is not registered"
     }
 
-    $knownFunctionPairs = $script:loadedEnvironmentModuleFunctions[$FunctionName]
+    $knownFunctions = $script:loadedEnvironmentModuleFunctions[$FunctionName]
 
-    foreach($functionPair in $knownFunctionPairs) {
-        if($functionPair.Item2 -eq $ModuleFullName) {
-            return Invoke-Command -ScriptBlock $functionPair.Item1 -ArgumentList $ArgumentList
+    foreach($functionInfo in $knownFunctions) {
+        if($functionInfo.ModuleFullName -eq $ModuleFullName) {
+            return Invoke-Command -ScriptBlock $functionInfo.Definition -ArgumentList $ArgumentList
         }
     }
 
     throw "The module $Module has no function registered named $Name"
 }
 
-function Get-EnvironmentModuleAlias
+function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $AliasName = "*")
 {
-    $modules = $script:loadedEnvironmentModules.Values
+    <#
+    .SYNOPSIS
+    Get all aliases that are loaded in the current environment.
+    .PARAMETER ModuleFullName
+    The name of the modules that should be investigated. Wildcards are allowed.
+    .PARAMETER AliasName
+    The name of the aliases to investigate. Wildcards are allowed.
+    .OUTPUTS
+    An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
+    #>      
+    $modules = Get-LoadedEnvironmentModules
     $aliases = @()
 
     foreach($module in $modules) {
+        if(-not ($module.FullName -like $ModuleFullName)) {
+            continue
+        }
         $aliases = $module.Aliases
         Write-Verbose "Handling module '$module' with $($aliases.Count) aliases"
         foreach($alias in $aliases.Keys) {
+            if(-not ($alias -like $AliasName)) {
+                continue
+            }            
             $definition = $aliases[$alias]
             New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Item1, $definition.Item2)
         }

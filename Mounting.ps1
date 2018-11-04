@@ -40,7 +40,20 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $S
     return $true
 }
 
-function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module, [switch] $IncludeDependencies) {
+function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module, [switch] $IncludeDependencies)
+{
+    <#
+    .SYNOPSIS
+    Check if the given module has a valid root directory (containing all required files).
+    .DESCRIPTION
+    This function will check all defined root directory seach paths of the given module. If at least one of these directories contains all required files, $true is returned.
+    .PARAMETER Module
+    The module to handle.
+    .PARAMETER IncludeDependencies
+    Set this value to $true, if all dependencies should be checked as well. The result is only $true, if the module and all dependencies have a valid root directory. 
+    .OUTPUTS
+    True if a valid root directory was found.
+    #>    
     if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Get-EnvironmentModuleRootDirectory $Module))) {
         return $false
     }
@@ -62,7 +75,8 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     return $true
 }
 
-function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module) {
+function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module)
+{
     <#
     .SYNOPSIS
     Find the root directory of the module, that is either specified by a registry entry or by a path.
@@ -146,55 +160,28 @@ function Import-EnvironmentModule
     Import the environment module.
     .DESCRIPTION
     This function will import the environment module into the scope of the console.
-    .PARAMETER Name
-    The name of the environment module.
+    .PARAMETER ModuleFullName
+    The full name of the environment module.
     .OUTPUTS
     No outputs are returned.
     #>
     [CmdletBinding()]
     Param(
-        # Any other parameters can go here
     )
     DynamicParam {
-        # Set the dynamic parameters' name
-        $ParameterName = 'Name'
-        
-        # Create the dictionary 
-        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-    
-        # Create the collection of attributes
-        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        
-        # Create and set the parameters' attributes
-        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttribute.Mandatory = $true
-        $ParameterAttribute.Position = 0
-    
-        # Add the attributes to the attributes collection
-        $AttributeCollection.Add($ParameterAttribute)
-    
-        $arrSet = Get-ConcreteEnvironmentModules
-        if($arrSet.Length -gt 0) {
-            # Generate and set the ValidateSet 
-            $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
-        
-            # Add the ValidateSet to the attributes collection
-            $AttributeCollection.Add($ValidateSetAttribute)
-        }
-    
-        # Create and return the dynamic parameter
-        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
-        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
-        return $RuntimeParameterDictionary
+        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $moduleSet = Get-ConcreteEnvironmentModules | Select-Object -ExpandProperty "FullName"
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+        return $runtimeParameterDictionary
     }
     
     begin {
         # Bind the parameter to a friendly variable
-        $Name = $PsBoundParameters[$ParameterName]
+        $ModuleFullName = $PsBoundParameters["ModuleFullName"]
     }
 
     process {   
-        $_ = Import-RequiredModulesRecursive $Name $True (New-Object "System.Collections.Generic.HashSet[string]")
+        $_ = Import-RequiredModulesRecursive $ModuleFullName $True (New-Object "System.Collections.Generic.HashSet[string]")
     }
 }
 
@@ -362,22 +349,19 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
             [Environment]::SetEnvironmentVariable($pathKey, $joinedValue, "Process")
         }
         
-        foreach ($alias in $Module.Aliases.Keys) {
-            $aliasValue = $Module.Aliases[$alias]
+        foreach ($aliasInfo in $Module.Aliases.Values) {
+            Add-EnvironmentModuleAlias $aliasInfo
 
-            Add-EnvironmentModuleAlias $alias $Module.FullName $aliasValue.Item1
-
-            Set-Alias -name $alias -value $aliasValue.Item1 -scope "Global"
-            if($aliasValue.Item2 -ne "") {
-                Write-Host $aliasValue.Item2 -foregroundcolor "Green"
+            Set-Alias -name $aliasInfo.Name -value $aliasInfo.Definition -scope "Global"
+            if($aliasInfo.Description -ne "") {
+                Write-Host $aliasInfo.Description -foregroundcolor "Green"
             }
         }
 
-        foreach ($function in $Module.Functions.Keys) {
-            $value = $Module.Functions[$function]
-            Add-EnvironmentModuleFunction $function $Module.FullName $value
+        foreach ($functionInfo in $Module.Functions.Values) {
+            Add-EnvironmentModuleFunction $functionInfo
 
-            new-item -path function:\ -name "global:$function" -value $value -Force
+            new-item -path function:\ -name "global:$($functionInfo.Name)" -value $functionInfo.Definition -Force
         }
         
         Write-Verbose ("Register environment module with name " + $Module.Name + " and object " + $Module)
@@ -410,10 +394,10 @@ function Switch-EnvironmentModule
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $moduleSet = $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        $moduleSet = Get-LoadedEnvironmentModules | Select-Object -ExpandProperty FullName
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
-        $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName | Where-Object {(Test-IsEnvironmentModuleLoaded $_) -eq $false}
+        $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName | Where-Object {(Test-EnvironmentModuleLoaded $_) -eq $false}
         Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $moduleSet
         return $runtimeParameterDictionary
     }
@@ -473,63 +457,54 @@ function Add-EnvironmentVariableValue([String] $Variable, [String] $Value, [Bool
     [Environment]::SetEnvironmentVariable($Variable, $tmpValue, "Process")
 }
 
-function Add-EnvironmentModuleAlias([String] $Name, [String] $Module, [String] $Definition)
+function Add-EnvironmentModuleAlias([EnvironmentModules.EnvironmentModuleAliasInfo] $AliasInfo)
 {
     <#
     .SYNOPSIS
     Add a new alias to the active environment.
     .DESCRIPTION
     This function will extend the active environment with a new alias definition. The alias is added to the loaded aliases collection.
-    .PARAMETER Name
-    The name of the alias.
-    .PARAMETER Module
-    The module that has defined the alias.
-    .PARAMETER Definition
-    The alias definition.
+    .PARAMETER AliasInfo
+    The definition of the alias.
     .OUTPUTS
     No output is returned.
-    #>    
-    $newTupleValue = [System.Tuple]::Create($Definition, $Module)
+    #>  
+
     # Check if the alias was already used
-    if($script:loadedEnvironmentModuleAliases.ContainsKey($Name))
+    if($script:loadedEnvironmentModuleAliases.ContainsKey($AliasInfo.Name))
     {
-        $knownAliases = $script:loadedEnvironmentModuleAliases[$Name]
-        $knownAliases.Add($newTupleValue)
+        $knownAliases = $script:loadedEnvironmentModuleAliases[$AliasInfo.Name]
+        $knownAliases.Add($AliasInfo)
     }
     else {
-        $newValue = New-Object "System.Collections.Generic.List[System.Tuple[String, String]]"
-        $newValue.Add($newTupleValue)
-        $script:loadedEnvironmentModuleAliases.Add($Name, $newValue)
+        $newValue = New-Object "System.Collections.Generic.List[EnvironmentModules.EnvironmentModuleAliasInfo]"
+        $newValue.Add($AliasInfo)
+        $script:loadedEnvironmentModuleAliases.Add($AliasInfo.Name, $newValue)
     }
 }
 
-function Add-EnvironmentModuleFunction([String] $Name, [String] $Module, [System.Management.Automation.ScriptBlock] $Definition)
+function Add-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleFunctionInfo] $FunctionDefinition)
 {
     <#
     .SYNOPSIS
     Add a new function to the active environment.
     .DESCRIPTION
     This function will extend the active environment with a new function definition. The function is added to the loaded functions stack.
-    .PARAMETER Name
-    The name of the function.
-    .PARAMETER Module
-    The module that has defined the function.
-    .PARAMETER Definition
-    The function definition.
+    .PARAMETER FunctionDefinition
+    The definition of the function.
     .OUTPUTS
     No output is returned.
-    #>  
-    Write-Verbose $Module.ToString()
-    $newTupleValue = [System.Tuple]::Create($Definition, $Module)
+    #>
+
     # Check if the function was already used
-    if($script:loadedEnvironmentModuleFunctions.ContainsKey($Name))
+    if($script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionDefinition.Name))
     {
-        $knownFunctions = $script:loadedEnvironmentModuleFunctions[$Name]
-        $knownFunctions.Add($newTupleValue)
+        $knownFunctions = $script:loadedEnvironmentModuleFunctions[$FunctionDefinition.Name]
+        $knownFunctions.Add($FunctionDefinition)
     }
     else {
-        $newValue = New-Object "System.Collections.Generic.List[System.Tuple[System.Management.Automation.ScriptBlock, String]]"
-        $newValue.Add($newTupleValue)
-        $script:loadedEnvironmentModuleFunctions.Add($Name, $newValue)
+        $newValue = New-Object "System.Collections.Generic.List[EnvironmentModules.EnvironmentModuleFunctionInfo]"
+        $newValue.Add($FunctionDefinition)
+        $script:loadedEnvironmentModuleFunctions.Add($FunctionDefinition.Name, $newValue)
     }
 }

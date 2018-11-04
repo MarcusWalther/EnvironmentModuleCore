@@ -22,7 +22,7 @@ function Remove-EnvironmentModule
     Param(
         [switch] $Force,
         [switch] $Delete,
-        [Switch] $SkipCacheUpdate
+        [switch] $SkipCacheUpdate
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -36,7 +36,7 @@ function Remove-EnvironmentModule
     }
 
     process {
-        if(Test-IsEnvironmentModuleLoaded $ModuleFullName) {
+        if(Test-EnvironmentModuleLoaded $ModuleFullName) {
             Remove-RequiredModulesRecursive -ModuleFullName $ModuleFullName -UnloadedDirectly $True -Force $Force
         }
 
@@ -71,7 +71,7 @@ Register-ArgumentCompleter -CommandName Remove-EnvironmentModule -ParameterName 
         $script:environmentModules.Keys
     }
     else {
-        $script:loadedEnvironmentModules.Values | Select-Object -ExpandProperty FullName
+        Get-LoadedEnvironmentModules | Select-Object -ExpandProperty FullName
     }
 }
 
@@ -202,4 +202,33 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     $allPathValues = ($allPathValues | Where-Object {$_.ToString() -ne $Value.ToString()})
     $newValue = ($allPathValues -join ";")
     [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
+}
+
+function Clear-EnvironmentModules([Switch] $Force)
+{
+    <#
+    .SYNOPSIS
+    Remove all loaded environment modules from the environment.
+    .DESCRIPTION
+    This function will remove all loaded environment modules, so that a clean environment module remains.
+    .PARAMETER Force
+    If this value is set, the user is not asked for module unload.
+    .OUTPUTS
+    No output is returned.
+    #>
+
+    $modules = Get-EnvironmentModule
+
+    if($modules -and (-not $Force)) {
+        $result = Show-ConfirmDialogue "Do you really want to remove all loaded environment modules?"
+        if(-not $result) {
+            return
+        }
+    }
+
+    foreach($module in $modules) {
+        if($module.IsLoadedDirectly) {
+            Remove-EnvironmentModule $module.FullName -Force
+        }
+    }
 }

@@ -6,7 +6,7 @@ param(
 )
 
 
-$global:VerbosePreference = "Continue"
+# $global:VerbosePreference = "Continue"
 $env:PSModulePath = "$PSScriptRoot;" + [System.String]::Join(";", $AdditionalModulePaths)
 $env:ENVIRONMENT_MODULES_TMP = "$TempDirectory"
 $env:ENVIRONMENT_MODULES_CONFIG = "$ConfigDirectory"

@@ -1,39 +1,50 @@
 ﻿# Read the temp folder location
 $moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
-$script:tmpEnvironmentRootPath = ([IO.Path]::Combine($moduleFileLocation, "..\Tmp\"))
+$env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, ".."))
+
+# Include the util functions
+. "${PSScriptRoot}\Utils.ps1"
+
+$script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, "..", "Tmp"))
 
 if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
     $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
 }
+else {
+    $env:ENVIRONMENT_MODULES_TMP = $script:tmpEnvironmentRootPath
+}
 
+# Configure the tmp directory and append it to the PSModulePath
 Write-Verbose "Using environment module temp path $($script:tmpEnvironmentRootPath)"
-$script:tmpEnvironmentModulePath = ([IO.Path]::Combine($script:tmpEnvironmentRootPath, "Modules"))
+$script:tmpEnvironmentModulePath = ([System.IO.Path]::Combine($script:tmpEnvironmentRootPath, "Modules"))
 
 mkdir $script:tmpEnvironmentRootPath -Force
 mkdir $script:tmpEnvironmentModulePath -Force
-# TODO: Check if path is already part of PSModulePath -> only add if not the case
-$env:PSModulePath = "$env:PSModulePath;$script:tmpEnvironmentModulePath"
+
+if(-not (Test-PathPartOfEnvironmentVariable $script:tmpEnvironmentModulePath "PSModulePath")) {
+    $env:PSModulePath = "$env:PSModulePath;$script:tmpEnvironmentModulePath"
+}
 
 # Read the config folder location
-$script:configEnvironmentRootPath = ([IO.Path]::Combine($moduleFileLocation, "..\Config\"))
+$script:configEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, "..", "Config"))
 
 if($null -ne $env:ENVIRONMENT_MODULES_CONFIG) {
     $script:configEnvironmentRootPath = $env:ENVIRONMENT_MODULES_CONFIG
+}
+else {
+    $env:ENVIRONMENT_MODULES_CONFIG = $script:configEnvironmentRootPath
 }
 
 mkdir $script:configEnvironmentRootPath -Force
 
 # Setup the variables
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
-$script:loadedEnvironmentModuleAliases = @{} # AliasName -> (String, ModuleName)[]
-$script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> (String, ModuleName)[]
+$script:loadedEnvironmentModuleAliases = @{} # AliasName -> EnvironmentModuleAliasInfo[]
+$script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModuleFunctionInfo[]
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
 $script:silentUnload = $false
-
-# Include the util functions
-. "${PSScriptRoot}\Utils.ps1"
 
 # Include the file handling functions
 . "${PSScriptRoot}\DescriptionFile.ps1"

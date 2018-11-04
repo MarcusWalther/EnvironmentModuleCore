@@ -1,5 +1,5 @@
-$script:moduleCacheFileLocation = [IO.Path]::Combine($script:tmpEnvironmentRootPath, "ModuleCache.xml")
-$script:searchPathsFileLocation = [IO.Path]::Combine($script:configEnvironmentRootPath, "CustomSearchPaths.xml")
+$script:moduleCacheFileLocation = [System.IO.Path]::Combine($script:tmpEnvironmentRootPath, "ModuleCache.xml")
+$script:searchPathsFileLocation = [System.IO.Path]::Combine($script:configEnvironmentRootPath, "CustomSearchPaths.xml")
 
 function Initialize-EnvironmentModuleCache()
 {
@@ -154,7 +154,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($moduleFileLocation, "..")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
@@ -171,7 +171,7 @@ function Update-EnvironmentModuleCache()
       }
       
       
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([IO.Path]::Combine($moduleFileLocation, "..\")), $true, "", $null)
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($moduleFileLocation, "..")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
       Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }    
