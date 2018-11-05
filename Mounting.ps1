@@ -320,33 +320,33 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
             }
         }
         
-        foreach ($pathKey in $Module.PrependPaths.Keys)
+        foreach ($pathInfo in $Module.PrependPaths)
         {
-            [String] $joinedValue = $Module.PrependPaths[$pathKey] -join ';'
+            [String] $joinedValue = $pathInfo.Value -join ';'
             if($joinedValue -eq "") 
             {
                 continue
             }
-            Write-Verbose "Joined Prepend-Path: $pathKey = $joinedValue"
-            Add-EnvironmentVariableValue -Variable "$pathKey" -Value "$joinedValue" -Append $false          
+            Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
+            Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $false          
         }
         
-        foreach ($pathKey in $Module.AppendPaths.Keys)
+        foreach ($pathInfo in $Module.AppendPaths)
         {
-            [String] $joinedValue = $Module.AppendPaths[$pathKey] -join ';'
+            [String] $joinedValue = $pathInfo.Values -join ';'
             if($joinedValue -eq "") 
             {
                 continue
             }
-            Write-Verbose "Joined Append-Path: $pathKey = $joinedValue"
-            Add-EnvironmentVariableValue -Variable "$pathKey" -Value "$joinedValue" -Append $true           
+            Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
+            Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $true           
         }
         
-        foreach ($pathKey in $Module.SetPaths.Keys)
+        foreach ($pathInfo in $Module.SetPaths)
         {
-            [String] $joinedValue = $Module.SetPaths[$pathKey] -join ';'
-            Write-Verbose "Joined Set-Path: $pathKey = $joinedValue"
-            [Environment]::SetEnvironmentVariable($pathKey, $joinedValue, "Process")
+            [String] $joinedValue = $pathInfo.Values -join ';'
+            Write-Verbose "Joined Set-Path: $($pathInfo.Variable) = $joinedValue"
+            [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
         }
         
         foreach ($aliasInfo in $Module.Aliases.Values) {
