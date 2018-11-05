@@ -156,7 +156,6 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
     An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
     #>      
     $modules = Get-LoadedEnvironmentModules
-    $aliases = @()
 
     foreach($module in $modules) {
         if(-not ($module.FullName -like $ModuleFullName)) {
@@ -170,6 +169,41 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
             }            
             $definition = $aliases[$alias]
             New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Item1, $definition.Item2)
+        }
+    }
+}
+
+function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModules.EnvironmentModulePathType] $PathType = [EnvironmentModules.EnvironmentModulePathType]::UNKNOWN)
+{
+    <#
+    .SYNOPSIS
+    Get all paths that are loaded in the current environment.
+    .PARAMETER ModuleFullName
+    The name of the modules that should be investigated. Wildcards are allowed.
+    .PARAMETER PathName
+    The name of the environment variables to investigate. Wildcards are allowed.
+    .PARAMETER PathType
+    The type of the paths to investigate. UNKNOWN if all types should be considered.
+    .OUTPUTS
+    An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
+    #>     
+    $modules = Get-LoadedEnvironmentModules
+
+    foreach($module in $modules) {
+        if(-not ($module.FullName -like $ModuleFullName)) {
+            continue
+        }
+        $paths = $module.Paths
+        Write-Verbose "Handling module '$module' with $($paths.Count) paths"
+        foreach($pathInfo in $paths) {
+            if(-not ($pathInfo.Variable -like $PathName)) {
+                continue
+            }
+            if(([EnvironmentModules.EnvironmentModulePathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
+                continue
+            }
+            
+            $pathInfo
         }
     }
 }

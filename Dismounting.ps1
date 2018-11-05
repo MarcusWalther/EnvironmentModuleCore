@@ -138,31 +138,31 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
             return
         }
 
-        foreach ($pathKey in $Module.PrependPaths.Keys)
+        foreach ($pathInfo in $Module.PrependPaths)
         {
-            [String] $joinedValue = $Module.PrependPaths[$pathKey] -join ';'
+            [String] $joinedValue = $pathInfo.Values -join ';'
             if($joinedValue -eq "") 
             {
                 continue
             }
-            Write-Verbose "Joined Prepend-Path: $pathKey = $joinedValue"
-            Remove-EnvironmentVariableValue -Variable "$pathKey" -Value "$joinedValue"      
+            Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
+            Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue  
         }
         
-        foreach ($pathKey in $Module.AppendPaths.Keys)
+        foreach ($pathInfo in $Module.AppendPaths)
         {
-            [String] $joinedValue = $Module.AppendPaths[$pathKey] -join ';'
+            [String] $joinedValue = $pathInfo.Values -join ';'
             if($joinedValue -eq "") 
             {
                 continue
             }
-            Write-Verbose "Joined Append-Path: $pathKey = $joinedValue"
-            Remove-EnvironmentVariableValue -Variable "$pathKey" -Value "$joinedValue"      
+            Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
+            Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
         }
         
-        foreach ($pathKey in $Module.SetPaths.Keys)
+        foreach ($pathInfo in $Module.SetPaths)
         {
-            [Environment]::SetEnvironmentVariable($pathKey, $null, "Process")
+            [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
         }
 
         foreach ($alias in $Module.Aliases.Keys) {
