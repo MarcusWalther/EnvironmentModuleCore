@@ -138,31 +138,26 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
             return
         }
 
-        foreach ($pathInfo in $Module.PrependPaths)
+        Write-Verbose "Identified $($Module.Paths.Length) paths"
+        foreach ($pathInfo in $Module.Paths)
         {
             [String] $joinedValue = $pathInfo.Values -join ';'
-            if($joinedValue -eq "") 
-            {
+            Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
+            if($joinedValue -eq "")  {
                 continue
             }
-            Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
-            Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue  
-        }
-        
-        foreach ($pathInfo in $Module.AppendPaths)
-        {
-            [String] $joinedValue = $pathInfo.Values -join ';'
-            if($joinedValue -eq "") 
-            {
-                continue
+
+            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::PREPEND) {
+                Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
+                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue  
             }
-            Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
-            Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
-        }
-        
-        foreach ($pathInfo in $Module.SetPaths)
-        {
-            [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
+            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::APPEND) {
+                Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
+                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
+            }   
+            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::SET) {
+                [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
+            }            
         }
 
         foreach ($alias in $Module.Aliases.Keys) {
