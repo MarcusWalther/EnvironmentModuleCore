@@ -26,7 +26,16 @@ function Remove-EnvironmentModule
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0
+        $validationSet = @()
+
+        if($Delete) {
+            $validationSet = $script:environmentModules.Keys
+        }
+        else {
+            $validationSet = Get-LoadedEnvironmentModules | Select-Object -ExpandProperty FullName
+        }
+
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $validationSet
         return $runtimeParameterDictionary
     }
     
@@ -60,18 +69,6 @@ function Remove-EnvironmentModule
                 Update-EnvironmentModuleCache
             }
         }
-    }
-}
-
-# This argument completer is used by Remove-EnvironmentModule for the environment module filter
-Register-ArgumentCompleter -CommandName Remove-EnvironmentModule -ParameterName ModuleFullName -ScriptBlock {
-    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
-
-    if($fakeBoundParameter["Delete"]) {
-        $script:environmentModules.Keys
-    }
-    else {
-        Get-LoadedEnvironmentModules | Select-Object -ExpandProperty FullName
     }
 }
 
