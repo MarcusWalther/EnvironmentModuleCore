@@ -161,6 +161,10 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
             Remove-Item alias:$alias
         }
 
+        foreach ($functionInfo in $Module.Functions.Values) {
+            Remove-EnvironmentModuleFunction $functionInfo
+        }
+
         $loadedEnvironmentModules.Remove($Module.Name)
         Write-Verbose ("Removing " + $Module.Name + " from list of loaded environment variables")
 
@@ -194,6 +198,30 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     $allPathValues = ($allPathValues | Where-Object {$_.ToString() -ne $Value.ToString()})
     $newValue = ($allPathValues -join ";")
     [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
+}
+
+function Remove-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleFunctionInfo] $FunctionDefinition)
+{
+    <#
+    .SYNOPSIS
+    Remove a function from the active environment stack.
+    .DESCRIPTION
+    This function will remove the given function from the active environment. The function is removed from the loaded functions stack.
+    .PARAMETER FunctionDefinition
+    The definition of the function.
+    .OUTPUTS
+    No output is returned.
+    #>
+
+    # Check if the function was already used
+    if($script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionDefinition.Name))
+    {
+        $knownFunctions = $script:loadedEnvironmentModuleFunctions[$FunctionDefinition.Name]
+        $knownFunctions.Remove($FunctionDefinition)
+        if($knownFunctions.Count -eq 0) {
+            $script:loadedEnvironmentModuleFunctions.Remove($FunctionDefinition.Name)
+        }
+    }
 }
 
 function Clear-EnvironmentModules([Switch] $Force)
