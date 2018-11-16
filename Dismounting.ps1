@@ -194,6 +194,9 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     No output is returned.
     #>
     $oldValue = [environment]::GetEnvironmentVariable($Variable,"Process")
+    if($null -eq $oldValue) {
+        return
+    }
     $allPathValues = $oldValue.Split(";")
     $allPathValues = ($allPathValues | Where-Object {$_.ToString() -ne $Value.ToString()})
     $newValue = ($allPathValues -join ";")

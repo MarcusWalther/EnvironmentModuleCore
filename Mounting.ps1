@@ -201,7 +201,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
-    if($KnownModules.Contains($ModuleFullName)) {
+    if($KnownModules.Contains($ModuleFullName) -and (0 -eq (Get-Module $ModuleFullName).Count)) {
         Write-Error "A circular dependency between the modules was detected"
         return $false
     }
