@@ -161,11 +161,14 @@ function Import-EnvironmentModule
     This function will import the environment module into the scope of the console.
     .PARAMETER ModuleFullName
     The full name of the environment module.
+    .PARAMETER Silent
+    Do not print output to the console.
     .OUTPUTS
     No outputs are returned.
     #>
     [CmdletBinding()]
     Param(
+        [switch] $Silent
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -180,11 +183,16 @@ function Import-EnvironmentModule
     }
 
     process {
-        $_ = Import-RequiredModulesRecursive $ModuleFullName $True (New-Object "System.Collections.Generic.HashSet[string]")
+        $silentMode = $false
+        if($silent) {
+            $silentMode = $true
+        }
+
+        $_ = Import-RequiredModulesRecursive $ModuleFullName $True (New-Object "System.Collections.Generic.HashSet[string]") $silentMode
     }
 }
 
-function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules)
+function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules, [Bool] $SilentMode)
 {
     <#
     .SYNOPSIS
@@ -197,6 +205,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     True if the module was loaded directly by the user. False if it was loaded as dependency.
     .PARAMETER KnownModules
     A collection of known modules, used to detect circular dependencies.
+    .PARAMETER SilentMode
+    True if no outputs should be printed.
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
@@ -272,7 +282,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"
     if($Module.DirectUnload -eq $false) {
-        $isLoaded = Mount-EnvironmentModuleInternal $module
+        $isLoaded = Mount-EnvironmentModuleInternal $module $SilentMode
         Write-Verbose "Importing of module $ModuleFullName done"
 
         if(!$isLoaded) {
@@ -296,7 +306,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     return $true
 }
 
-function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] $Module)
+function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] $Module, [Bool] $SilentMode)
 {
     <#
     .SYNOPSIS
@@ -306,6 +316,8 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     is written if the module conflicts with another module that is already loaded.
     .PARAMETER Module
     The module that should be deployed.
+    .PARAMETER SilentMode
+    True if no outputs should be printed.
     .OUTPUTS
     A boolean value that is $true if the module was loaded successfully. Otherwise the value is $false.
     #>
@@ -316,7 +328,9 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         {
             Write-Verbose "The module name '$($Module.Name)' was found in the list of already loaded modules"
             if($loadedEnvironmentModules.Get_Item($Module.Name).Equals($Module)) {
-                Write-Host ("The Environment-Module '$($Module.FullName)' is already loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+                if(-not $SilentMode) {
+                    Write-Host ("The Environment-Module '$($Module.FullName)' is already loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+                }
                 return $false
             }
             else {
@@ -352,7 +366,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
             Add-EnvironmentModuleAlias $aliasInfo
 
             Set-Alias -name $aliasInfo.Name -value $aliasInfo.Definition -scope "Global"
-            if($aliasInfo.Description -ne "") {
+            if(($aliasInfo.Description -ne "") -and (-not $SilentMode)) {
                 Write-Host $aliasInfo.Description -foregroundcolor "Green"
             }
         }
@@ -368,7 +382,9 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
-        Write-Host ("$($Module.FullName) loaded") -ForegroundColor $Host.PrivateData.DebugForegroundColor -BackgroundColor $Host.PrivateData.DebugBackgroundColor
+        if(-not $SilentMode) {
+            Write-Host ("$($Module.FullName) loaded") -ForegroundColor $Host.PrivateData.DebugForegroundColor -BackgroundColor $Host.PrivateData.DebugBackgroundColor
+        }
         return $true
     }
 }
