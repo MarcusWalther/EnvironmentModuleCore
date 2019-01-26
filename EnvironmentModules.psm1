@@ -7,6 +7,18 @@ $storageFileLocation = "$env:APPDATA\PowerShell\EnvironmentModules"
 . (Join-Path $PSScriptRoot "Utils.ps1")
 
 $script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Tmp"))
+$script:tmpEnvironmentRootSessionPath = (Join-Path $script:tmpEnvironmentRootPath "Environment_$PID")
+
+foreach($directory in (Get-ChildItem (Join-Path $script:tmpEnvironmentRootPath "Environment_*"))) {
+    if($directory.Name -Match "Environment_(?<PID>[0-9]+)") {
+        $processInfo = (Get-Process -Id $Matches["PID"] -ErrorAction SilentlyContinue)
+        if($null -eq $processInfo) {
+            Remove-Item -Recurse -Force $directory
+        }
+    }
+}
+
+mkdir $script:tmpEnvironmentRootSessionPath -Force
 
 if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
     $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
@@ -43,6 +55,7 @@ $script:configuration = @{} # Configuration parameters
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = @{} # AliasName -> EnvironmentModuleAliasInfo[]
 $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModuleFunctionInfo[]
+$script:environmentModuleParameters = @{} # VariableName -> VariableValue
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
@@ -52,6 +65,9 @@ $script:silentUnload = $false
 . (Join-Path $PSScriptRoot "Configuration.ps1")
 $script:configurationFilePath = (Join-Path $script:configEnvironmentRootPath "Configuration.xml")
 Import-EnvironmentModulesConfiguration $script:configurationFilePath
+
+# Include the module parameter functions
+. (Join-Path $PSScriptRoot "ModuleParameters.ps1")
 
 # Include the file handling functions
 . (Join-Path $PSScriptRoot "DescriptionFile.ps1")

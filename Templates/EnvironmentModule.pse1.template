@@ -26,4 +26,10 @@
 
     # The category (default storage path) of the module (for instance "Project", "Abstract", "Program", "Development")
     Category = "{{Category}}"
+
+    # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
+    Parameters = @{
+      {% for parameterKey in Parameters %}"{{parameterKey}}"="{{Parameters[parameterKey]}}"
+      {% endfor %}
+	}
 }

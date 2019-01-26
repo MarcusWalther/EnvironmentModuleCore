@@ -7,9 +7,9 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $S
     .PARAMETER FolderPath
     The folder to check.
     .PARAMETER Files
-    The files to check.    
+    The files to check.
     .PARAMETER SubFolderPath
-    The subfolder path that should be appended to the folder path.      
+    The subfolder path that should be appended to the folder path.
     .OUTPUTS
     True if the folder does exist and if it contains all files, false otherwise.
     #>
@@ -50,10 +50,10 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     .PARAMETER Module
     The module to handle.
     .PARAMETER IncludeDependencies
-    Set this value to $true, if all dependencies should be checked as well. The result is only $true, if the module and all dependencies have a valid root directory. 
+    Set this value to $true, if all dependencies should be checked as well. The result is only $true, if the module and all dependencies have a valid root directory.
     .OUTPUTS
     True if a valid root directory was found.
-    #>    
+    #>
     if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Get-EnvironmentModuleRootDirectory $Module))) {
         return $false
     }
@@ -98,11 +98,11 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::REGISTRY) {
             $propertyName = Split-Path -Leaf $searchPath
             $propertyPath = Split-Path $searchPath
-            
+
             Write-Verbose "Checking registry search path $($searchPath.Key)"
 
             try {
-                $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"   
+                $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"
                 if ($null -eq $registryValue) {
                     Write-Verbose "Unable to find the registry value $($searchPath.Key)"
                     continue
@@ -173,13 +173,13 @@ function Import-EnvironmentModule
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
         return $runtimeParameterDictionary
     }
-    
+
     begin {
         # Bind the parameter to a friendly variable
         $ModuleFullName = $PsBoundParameters["ModuleFullName"]
     }
 
-    process {   
+    process {
         $_ = Import-RequiredModulesRecursive $ModuleFullName $True (New-Object "System.Collections.Generic.HashSet[string]")
     }
 }
@@ -194,9 +194,9 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     .PARAMETER ModuleFullName
     The full name of the environment module to import.
     .PARAMETER LoadedDirectly
-    True if the module was loaded directly by the user. False if it was loaded as dependency. 
+    True if the module was loaded directly by the user. False if it was loaded as dependency.
     .PARAMETER KnownModules
-    A collection of known modules, used to detect circular dependencies.    
+    A collection of known modules, used to detect circular dependencies.
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
@@ -207,10 +207,10 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $_ = $KnownModules.Add($ModuleFullName)
 
     Write-Verbose "Importing the module $Name recursive"
-    
+
     $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
     $name = $moduleInfos[0]
-    
+
     if($script:loadedEnvironmentModules.ContainsKey($name)) {
         $module = $script:loadedEnvironmentModules.Get_Item($name)
         Write-Verbose "The module $name has loaded directly state $($module.IsLoadedDirectly) and should be loaded with state $LoadedDirectly"
@@ -262,6 +262,9 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         }
     }
 
+    # Create the temp directory
+    mkdir -Force $module.TmpDirectory
+
     # Load the module itself
     $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
     Write-Verbose "Importing the module $ModuleFullName into the Powershell environment"
@@ -271,7 +274,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     if($Module.DirectUnload -eq $false) {
         $isLoaded = Mount-EnvironmentModuleInternal $module
         Write-Verbose "Importing of module $ModuleFullName done"
-        
+
         if(!$isLoaded) {
             Write-Error "The module $ModuleFullName was not loaded successfully"
             $script:silentUnload = $true
@@ -281,12 +284,15 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         }
     }
     else {
-        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
+        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)
         Remove-Module $ModuleFullName -Force
         return $true
-    }    
+    }
 
-    [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)   
+    # Set the parameter defaults
+    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] }
+
+    [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)
     return $true
 }
 
@@ -296,7 +302,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     .SYNOPSIS
     Deploy all the aliases, environment variables and functions that are stored in the given module object to the environment.
     .DESCRIPTION
-    This function will export all aliases and environment variables that are defined in the given EnvironmentModule-object. An error 
+    This function will export all aliases and environment variables that are defined in the given EnvironmentModule-object. An error
     is written if the module conflicts with another module that is already loaded.
     .PARAMETER Module
     The module that should be deployed.
@@ -305,7 +311,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     #>
     process {
         Write-Verbose "Try to load module '$($Module.Name)' with architecture '$($Module.Architecture)', Version '$($Module.Version)' and type '$($Module.ModuleType)'"
-        
+
         if($loadedEnvironmentModules.ContainsKey($Module.Name))
         {
             Write-Verbose "The module name '$($Module.Name)' was found in the list of already loaded modules"
@@ -318,7 +324,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
                 return $false
             }
         }
-        
+
         Write-Verbose "Identified $($Module.Paths.Length) paths"
         foreach ($pathInfo in $Module.Paths)
         {
@@ -334,14 +340,14 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
             }
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::APPEND) {
                 Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
-                Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $true  
-            }   
+                Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $true
+            }
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::SET) {
                 Write-Verbose "Joined Set-Path: $($pathInfo.Variable) = $joinedValue"
                 [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
             }
         }
-        
+
         foreach ($aliasInfo in $Module.Aliases.Values) {
             Add-EnvironmentModuleAlias $aliasInfo
 
@@ -356,9 +362,9 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
 
             new-item -path function:\ -name "global:$($functionInfo.Name)" -value $functionInfo.Definition -Force
         }
-        
+
         Write-Verbose ("Register environment module with name " + $Module.Name + " and object " + $Module)
-        
+
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
@@ -368,7 +374,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
 }
 
 function Switch-EnvironmentModule
-{   
+{
     <#
     .SYNOPSIS
     Switch a already loaded environment module with a different one.
@@ -394,7 +400,7 @@ function Switch-EnvironmentModule
         Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $moduleSet
         return $runtimeParameterDictionary
     }
-    
+
     begin {
         # Bind the parameter to a friendly variable
         $moduleFullName = $PsBoundParameters['ModuleFullName']
@@ -403,14 +409,14 @@ function Switch-EnvironmentModule
 
     process {
         $module = Get-EnvironmentModule($moduleFullName)
-        
+
         if (!$module) {
             Write-Error ("No loaded environment module named $moduleFullName")
             return
         }
 
         Remove-EnvironmentModule $moduleFullName -Force
-        
+
         Import-EnvironmentModule $newModuleFullName
 
         [void] (New-Event -SourceIdentifier "EnvironmentModuleSwitched" -EventArguments $moduleFullName, $newModuleFullName)
@@ -429,7 +435,7 @@ function Add-EnvironmentVariableValue([String] $Variable, [String] $Value, [Bool
     .PARAMETER Value
     The new value that should be added to the environment variable.
     .PARAMETER Append
-    Set this value to $true if the new value should be appended to the environment variable. Otherwise the value is prepended. 
+    Set this value to $true if the new value should be appended to the environment variable. Otherwise the value is prepended.
     .OUTPUTS
     No output is returned.
     #>
@@ -461,7 +467,7 @@ function Add-EnvironmentModuleAlias([EnvironmentModules.EnvironmentModuleAliasIn
     The definition of the alias.
     .OUTPUTS
     No output is returned.
-    #>  
+    #>
 
     # Check if the alias was already used
     if($script:loadedEnvironmentModuleAliases.ContainsKey($AliasInfo.Name))

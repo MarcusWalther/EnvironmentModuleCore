@@ -160,7 +160,8 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
         return $null
     }
 
-    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList $Module.ModuleBase)) + (Split-EnvironmentModuleName $Module.Name)
+    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList $Module.ModuleBase),
+                            (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))) + (Split-EnvironmentModuleName $Module.Name)
 
     $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
 
@@ -223,6 +224,11 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
     if($descriptionContent.Contains("Category")) {
         $result.Category = $descriptionContent.Item("Category")
         Write-Verbose "Read module category $($result.Category)"
+    }
+
+    if($descriptionContent.Contains("Parameters")) {
+        $descriptionContent.Item("Parameters").Keys | Foreach-Object { $result.Parameters[$_] = $descriptionContent.Item("Parameters")[$_] }
+        Write-Verbose "Read module parameters $($result.Parameters)"
     }
 
     return $result
