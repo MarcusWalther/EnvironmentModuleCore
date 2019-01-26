@@ -1,11 +1,12 @@
 ﻿# Read the temp folder location
-$moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
-$env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, ".."))
+$script:moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
+$env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:moduleFileLocation, ".."))
+$storageFileLocation = "$env:APPDATA\PowerShell\EnvironmentModules"
 
 # Include the util functions
 . (Join-Path $PSScriptRoot "Utils.ps1")
 
-$script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, "..", "Tmp"))
+$script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Tmp"))
 
 if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
     $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
@@ -26,7 +27,7 @@ if(-not (Test-PathPartOfEnvironmentVariable $script:tmpEnvironmentModulePath "PS
 }
 
 # Read the config folder location
-$script:configEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, "..", "Config"))
+$script:configEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Config"))
 
 if($null -ne $env:ENVIRONMENT_MODULES_CONFIG) {
     $script:configEnvironmentRootPath = $env:ENVIRONMENT_MODULES_CONFIG
@@ -38,6 +39,7 @@ else {
 mkdir $script:configEnvironmentRootPath -Force
 
 # Setup the variables
+$script:configuration = @{} # Configuration parameters
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = @{} # AliasName -> EnvironmentModuleAliasInfo[]
 $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModuleFunctionInfo[]
@@ -45,6 +47,11 @@ $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModu
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
 $script:silentUnload = $false
+
+# Initialialize the configuration
+. (Join-Path $PSScriptRoot "Configuration.ps1")
+$script:configurationFilePath = (Join-Path $script:configEnvironmentRootPath "Configuration.xml")
+Import-EnvironmentModulesConfiguration $script:configurationFilePath
 
 # Include the file handling functions
 . (Join-Path $PSScriptRoot "DescriptionFile.ps1")

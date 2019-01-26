@@ -7,7 +7,7 @@ function Test-PartOfTmpDirectory([string] $Destination, [switch] $ShowError)
     The folder to check.
     .OUTPUTS
     True if the folder is part of the temporary directory.
-    #>    
+    #>
     $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" (Resolve-Path $script:tmpEnvironmentRootPath)
 
     if($Destination.StartsWith($tmpDirectory.FullName)) {
@@ -46,7 +46,7 @@ function New-EnvironmentModule
         [String[]] $AdditionalEnvironmentModules,
         [Switch] $Force
     )
-    
+
     process {
         if([string]::IsNullOrEmpty($Name)) {
             Write-Error('A module name must be specified')
@@ -57,13 +57,13 @@ function New-EnvironmentModule
         }
         if([string]::IsNullOrEmpty($Description)) {
             $Description = ""
-        }       
+        }
         if([string]::IsNullOrEmpty($Executable)) {
             Write-Error('An executable must be specified')
             return
-        }       
-        
-        $environmentModulePath = Resolve-Path (Join-Path $moduleFileLocation "..")
+        }
+
+        $environmentModulePath = Resolve-Path (Join-Path $script:moduleFileLocation "..")
 
         $selectedPath = Select-ModulePath
 
@@ -73,7 +73,7 @@ function New-EnvironmentModule
 
         if((-not $Force) -and (Test-PartOfTmpDirectory $selectedPath -ShowError)) {
             return
-        }        
+        }
 
         [EnvironmentModules.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
         Update-EnvironmentModuleCache
@@ -103,7 +103,8 @@ function Copy-EnvironmentModule
     [CmdletBinding()]
     Param(
         [Switch] $Force,
-        [Switch] $SkipCacheUpdate
+        [Switch] $SkipCacheUpdate,
+        [Switch] $AskForPathSelection
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -116,7 +117,7 @@ function Copy-EnvironmentModule
 
         return $runtimeParameterDictionary
     }
-    
+
     begin {
         # Bind the parameter to a friendly variable
         $ModuleFullName = $PsBoundParameters['ModuleFullName']
@@ -133,21 +134,23 @@ function Copy-EnvironmentModule
         if($matchingModules.Length -gt 1) {
             Write-Warning "Found multiple modules matching the name '$ModuleFullName'"
         }
-        
+
         $moduleFolder = ($matchingModules[0]).ModuleBase
         $destination = Resolve-Path (Join-Path $moduleFolder '..')
-        
+
         if($Path) {
             $destination = $Path
         }
         else {
-            $selectedPath = Select-ModulePath          
+            if($AskForPathSelection) {
+                $selectedPath = Select-ModulePath
 
-            if($null -eq $selectedPath) {
-                return
+                if($null -eq $selectedPath) {
+                    return
+                }
+
+                $destination = $selectedPath
             }
-
-            $destination = $selectedPath
         }
 
         $destination = Join-Path $destination $NewModuleFullName
@@ -160,14 +163,14 @@ function Copy-EnvironmentModule
             Write-Error "The folder $destination does already exist"
             return
         }
-        
+
         mkdir $destination -Force
-        
+
         Write-Host "Cloning module $ModuleFullName to $destination"
-        
+
         $filesToCopy = Get-ChildItem -File $moduleFolder
         $directoriesToCopy = Get-ChildItem -Directory $moduleFolder
-        
+
         Write-Verbose "Found $($filesToCopy.Length) files to copy"
 
         foreach($file in $filesToCopy) {
@@ -202,7 +205,7 @@ function Copy-EnvironmentModule
             Write-Verbose "Handling directory $directory"
             Copy-Item -Recurse -Force -Path $directory -Destination $destination
         }
-        
+
         if(-not $SkipCacheUpdate) {
             Update-EnvironmentModuleCache
         }
@@ -239,7 +242,7 @@ function Edit-EnvironmentModule
         Add-DynamicParameter 'FileFilter' String $runtimeParameterDictionary -Mandatory $False -Position 1
         return $runtimeParameterDictionary
     }
-    
+
     begin {
         # Bind the parameter to a friendly variable
         $ModuleFullName = $PsBoundParameters['ModuleFullName']
@@ -250,14 +253,14 @@ function Edit-EnvironmentModule
         }
     }
 
-    process {   
+    process {
         $modules = Get-Module -ListAvailable $ModuleFullName
-        
+
         if(($null -eq $modules) -or ($modules.Count -eq 0)) {
             Write-Error "The module was not found"
             return
         }
-        
+
         Get-ChildItem ($modules[0].ModuleBase) | Where-Object {$_ -like $FileFilter} | Invoke-Item
     }
 }

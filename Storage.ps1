@@ -16,7 +16,7 @@ function Initialize-EnvironmentModuleCache()
     {
         return
     }
-    
+
     $script:environmentModules = Import-CliXml -Path $moduleCacheFileLocation
 }
 
@@ -52,10 +52,10 @@ function Initialize-CustomSearchPaths()
         }
         finally {
             if ($null -ne $reader)
-            {            
+            {
                 $reader.Close()
             }
-        }        
+        }
     }
     finally {
         if ($null -ne $fileStream)
@@ -71,7 +71,7 @@ function Update-EnvironmentModuleCache()
     .SYNOPSIS
     Search for all modules that depend on the environment module and add them to the cache file.
     .DESCRIPTION
-    This function will clear the cache file and later iterate over all modules of the system. If the module depends on the environment module, 
+    This function will clear the cache file and later iterate over all modules of the system. If the module depends on the environment module,
     it is added to the cache file.
     .OUTPUTS
     No output is returned.
@@ -80,10 +80,10 @@ function Update-EnvironmentModuleCache()
     $modulesByArchitecture = @{}
     $modulesByVersion = @{}
     $allModuleNames = New-Object 'System.Collections.Generic.HashSet[String]'
-    
+
     # Delete all temporary modules created previously
-    Remove-Item (Join-Path $script:tmpEnvironmentModulePath "*") -Force -Recurse    
-    
+    Remove-Item (Join-Path $script:tmpEnvironmentModulePath "*") -Force -Recurse
+
     foreach ($module in (Get-Module -ListAvailable)) {
         Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
         $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
@@ -91,15 +91,15 @@ function Update-EnvironmentModuleCache()
             Write-Verbose "Environment module $($module.Name) found"
             Add-EnvironmentModuleInternal(New-EnvironmentModuleInfoBase $module)
             $moduleNameParts = Split-EnvironmentModuleName $module.Name
-            
+
             if($null -eq $moduleNameParts[1]) {
               $moduleNameParts[1] = ""
             }
-            
+
             if($null -eq $moduleNameParts[2]) {
               $moduleNameParts[2] = ""
             }
-            
+
             # Read the environment module properties from the pse1 file
             $info = New-EnvironmentModuleInfoBase $module
 
@@ -109,13 +109,13 @@ function Update-EnvironmentModuleCache()
 
             # Add the module to the list of all modules
             $allModuleNames.Add($module.Name) > $null
-            
+
             # Handle the module by architecture (if architecture is specified)
             if($moduleNameParts[2] -ne "") {
                 $dictionaryKey = [System.Tuple]::Create($moduleNameParts[0],$moduleNameParts[2])
                 $dictionaryValue = [System.Tuple]::Create($moduleNameParts[1], $module)
                 $oldItem = $modulesByArchitecture.Get_Item($dictionaryKey)
-                
+
                 if($null -eq $oldItem) {
                     $modulesByArchitecture.Add($dictionaryKey, $dictionaryValue)
                 }
@@ -125,26 +125,27 @@ function Update-EnvironmentModuleCache()
                     }
                 }
             }
-            
+
             # Handle the module by version (if version is specified)
             $dictionaryKey = $moduleNameParts[0]
             $dictionaryValue = [System.Tuple]::Create($moduleNameParts[1], $module)
             $oldItem = $modulesByVersion.Get_Item($dictionaryKey)
-            
+
             if($null -eq $oldItem) {
                 $modulesByVersion.Add($dictionaryKey, $dictionaryValue)
                 continue
             }
-            
+
             if(($oldItem.Item1) -lt $moduleNameParts[1]) {
               $modulesByVersion.Set_Item($dictionaryKey, $dictionaryValue)
             }
         }
     }
- 
+
+    $createdEnvironmentModules = New-Object "System.Collections.Generic.List[string]"
     foreach($module in $modulesByArchitecture.GetEnumerator()) {
       $moduleName = "$($module.Key.Item1)-$($module.Key.Item2)"
-      
+
       Write-Verbose "Creating module with name $moduleName"
 
       #Check if there is no module with the default name
@@ -152,16 +153,15 @@ function Update-EnvironmentModuleCache()
         Write-Verbose "The module $moduleName is not generated, because it does already exist"
         continue
       }
-      
-      
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($moduleFileLocation, "..")), $true, "", $null)
+
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
-      Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
+      $createdEnvironmentModules.Add($moduleName)
     }
-    
+
     foreach($module in $modulesByVersion.GetEnumerator()) {
       $moduleName = $module.Key
-      
+
       Write-Verbose "Creating module with name $moduleName"
 
       #Check if there is no module with the default name
@@ -169,13 +169,22 @@ function Update-EnvironmentModuleCache()
         Write-Verbose "The module $moduleName is not generated, because it does already exist"
         continue
       }
-      
-      
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($moduleFileLocation, "..")), $true, "", $null)
+
+      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
       Write-Verbose "EnvironmentModule $moduleName generated"
-      Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($moduleName, [EnvironmentModules.EnvironmentModuleType]::Meta))
-    }    
-    
+      $createdEnvironmentModules.Add($moduleName)
+    }
+
+    $modules = Get-Module -ListAvailable
+    foreach($moduleName in $createdEnvironmentModules) {
+        $module = $modules | Where-Object {$_.Name -eq $moduleName}
+        if($null -eq $module) {
+            Write-Warning "Unable to find the created module $moduleName in the PS module list"
+            continue
+        }
+        Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, [EnvironmentModules.EnvironmentModuleType]::Meta))
+    }
+
     Write-Verbose "By Architecture"
     Write-Verbose $modulesByArchitecture.GetEnumerator()
     Write-Verbose "By Version"
@@ -194,7 +203,7 @@ function Add-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModuleInfo
     no action is performed.
     .OUTPUTS
     No output is returned.
-    #>    
+    #>
     if($script:environmentModules.Contains($Module.FullName)) {
         Write-Warning "The module '$($Module.FullName)' was detected multiple times"
         return
@@ -247,7 +256,7 @@ function Add-EnvironmentModuleSearchPath
         }
     }
 
-    process {   
+    process {
         $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
         $newSearchPath
         if($Type -eq "Directory") {
@@ -284,7 +293,7 @@ function Remove-EnvironmentModuleSearchPath
     .DESCRIPTION
     This function will remove a new custom search path from the module. If multiple search paths are found, an additional select dialogue is displayed.
     .PARAMETER ModuleFullName
-    The module that should be checked.    
+    The module that should be checked.
     .PARAMETER Type
     The type of the search path to remove.
     .PARAMETER Key
@@ -293,7 +302,7 @@ function Remove-EnvironmentModuleSearchPath
     The sub folder of the search path to remove.
     .OUTPUTS
     List of all search paths.
-    #>    
+    #>
     [CmdletBinding()]
     Param()
     DynamicParam {
@@ -320,10 +329,10 @@ function Remove-EnvironmentModuleSearchPath
         }
         if(-not $Key) {
             $Key = "*"
-        }        
+        }
         if(-not $SubFolder) {
             $SubFolder = ""
-        } 
+        }
     }
 
     process {
@@ -369,13 +378,13 @@ function Get-EnvironmentModuleSearchPath
     .PARAMETER ModuleName
     The module name filter to consider.
     .PARAMETER Type
-    The search path type to use as filter.    
+    The search path type to use as filter.
     .PARAMETER Key
     The key value to use as filter.
     .PARAMETER SubFolder
-    The sub folder to use as filter.    
+    The sub folder to use as filter.
     .PARAMETER Custom
-    True if only custom search paths should be returned.        
+    True if only custom search paths should be returned.
     .OUTPUTS
     List of all search paths.
     #>
@@ -400,16 +409,16 @@ function Get-EnvironmentModuleSearchPath
 
             if(-not ($searchPath.Type.ToString() -like $Type)) {
                 continue
-            }      
-            
+            }
+
             if(-not ($searchPath.Key -like $Key)) {
                 continue
-            }      
-            
+            }
+
             if(-not ($searchPath.SubFolder -like $SubFolder)) {
                 continue
-            }             
-            
+            }
+
             $searchPath.ToInfo($module.FullName)
         }
     }
@@ -423,10 +432,10 @@ function Clear-EnvironmentModuleSearchPaths
     .DESCRIPTION
     This function will delete all custom search paths that are defined by the user.
     .PARAMETER Force
-    Do not ask for deletion.   
+    Do not ask for deletion.
     .OUTPUTS
     No output is returned.
-    #>    
+    #>
     Param(
         [Switch] $Force
     )
@@ -453,7 +462,7 @@ function Write-CustomSearchPaths
     This function will write all added custom search paths to the configuration file.
     .OUTPUTS
     No output is returned.
-    #>      
+    #>
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModules.SearchPath])
 

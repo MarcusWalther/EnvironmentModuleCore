@@ -12,7 +12,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
     .PARAMETER Architecture
     Show only modules matching the given architecture.
     .PARAMETER Version
-    Show only modules matching the given version.    
+    Show only modules matching the given version.
     .OUTPUTS
     The EnvironmentModule-object(s) matching the filter. If no module was found, $null is returned.
     #>
@@ -28,7 +28,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
 
             if(($null -ne $module.Version) -and (-not ($module.Version -like $Version))) {
                 continue
-            }            
+            }
 
             New-EnvironmentModuleInfo -ModuleFullName $module.FullName
         }
@@ -57,7 +57,7 @@ function Test-EnvironmentModuleLoaded([String] $ModuleFullName)
     if(-not $loadedModule) {
         return $false
     }
-        
+
     return $true
 }
 
@@ -83,6 +83,17 @@ function Get-AllEnvironmentModules()
     return $script:environmentModules.Values
 }
 
+function Get-NonTempEnvironmentModules()
+{
+    <#
+    .SYNOPSIS
+    Get all environment modules that are not stored in the temp folder.
+    .OUTPUTS
+    All non temp environment modules.
+    #>
+    return Get-AllEnvironmentModules | Where-Object { -not(Test-PartOfTmpDirectory $_.PSModuleInfo.ModuleBase) }
+}
+
 function Get-ConcreteEnvironmentModules()
 {
     <#
@@ -90,7 +101,7 @@ function Get-ConcreteEnvironmentModules()
     Get all environment modules that are not abstract (that can be loaded by the user).
     .OUTPUTS
     All concrete environment modules.
-    #>    
+    #>
     return Get-AllEnvironmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract}
 }
 
@@ -121,12 +132,12 @@ function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $Modu
     .PARAMETER FunctionName
     The name of the function to execute.
     .PARAMETER ModuleFullName
-    The name of the module that defines the function.    
+    The name of the module that defines the function.
     .PARAMETER ArgumentList
     The arguments that should be passed to the function execution.
     .OUTPUTS
     The result of the function execution. An exception is thrown if the module does not define a function with the given name.
-    #>    
+    #>
     if(-not $script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionName))
     {
         throw "The function $FunctionName is not registered"
@@ -154,7 +165,7 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
     The name of the aliases to investigate. Wildcards are allowed.
     .OUTPUTS
     An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
-    #>      
+    #>
     $modules = Get-LoadedEnvironmentModules
 
     foreach($module in $modules) {
@@ -166,7 +177,7 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
         foreach($alias in $aliases.Keys) {
             if(-not ($alias -like $AliasName)) {
                 continue
-            }            
+            }
             $definition = $aliases[$alias]
             New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Item1, $definition.Item2)
         }
@@ -186,7 +197,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
     The type of the paths to investigate. UNKNOWN if all types should be considered.
     .OUTPUTS
     An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
-    #>     
+    #>
     $modules = Get-LoadedEnvironmentModules
 
     foreach($module in $modules) {
@@ -202,7 +213,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
             if(([EnvironmentModules.EnvironmentModulePathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
                 continue
             }
-            
+
             $pathInfo
         }
     }

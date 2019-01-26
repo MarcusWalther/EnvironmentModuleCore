@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>    
+    <id>{{Name}}</id>
+    <version>{{Version}}</version>
+    <authors>{{Authors}}</authors>
+    <description>{{Description}}</description>
+    <dependencies>
+      <dependency id="EnvironmentModules" />
+      {% for dependency in Dependencies %}<dependency id="{{dependency}}" />
+      {% endfor %}
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="*.psd1" target="" />
+    <file src="*.psm1" target="" />
+    <file src="*.pse1" target="" />
+    <file src="*.ps1" target="" />
+  </files>
+</package>

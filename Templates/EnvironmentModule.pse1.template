@@ -22,5 +22,8 @@
     DirectUnload = {{DirectUnload}}
 
     # The version of the description files
-    StyleVersion = 2.0
+    StyleVersion = 2.1
+
+    # The category (default storage path) of the module (for instance "Project", "Abstract", "Program", "Development")
+    Category = "{{Category}}"
 }
