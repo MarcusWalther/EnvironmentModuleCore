@@ -3,7 +3,7 @@ $moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, ".."))
 
 # Include the util functions
-. "${PSScriptRoot}\Utils.ps1"
+. (Join-Path $PSScriptRoot "Utils.ps1")
 
 $script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($moduleFileLocation, "..", "Tmp"))
 
@@ -22,7 +22,7 @@ mkdir $script:tmpEnvironmentRootPath -Force
 mkdir $script:tmpEnvironmentModulePath -Force
 
 if(-not (Test-PathPartOfEnvironmentVariable $script:tmpEnvironmentModulePath "PSModulePath")) {
-    $env:PSModulePath = "$env:PSModulePath;$script:tmpEnvironmentModulePath"
+    $env:PSModulePath = "$($env:PSModulePath)$([IO.Path]::PathSeparator)$($script:tmpEnvironmentModulePath)"
 }
 
 # Read the config folder location
@@ -47,10 +47,10 @@ $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[St
 $script:silentUnload = $false
 
 # Include the file handling functions
-. "${PSScriptRoot}\DescriptionFile.ps1"
+. (Join-Path $PSScriptRoot "DescriptionFile.ps1")
 
 # Initialize the cache file to speed up the module
-. "${PSScriptRoot}\Storage.ps1"
+. (Join-Path $PSScriptRoot "Storage.ps1")
 if(test-path $script:moduleCacheFileLocation)
 {
     Initialize-EnvironmentModuleCache
@@ -67,13 +67,13 @@ if(test-path $script:searchPathsFileLocation)
 }
 
 # Include the dismounting features
-. "${PSScriptRoot}\Dismounting.ps1"
+. (Join-Path $PSScriptRoot "Dismounting.ps1")
 
 # Include the mounting features
-. "${PSScriptRoot}\Mounting.ps1"
+. (Join-Path $PSScriptRoot "Mounting.ps1")
 
 # Include the create and edit functions for environment modules
-. "${PSScriptRoot}\ModuleCreation.ps1"
+. (Join-Path $PSScriptRoot "ModuleCreation.ps1")
 
 # Include the main code
-. "${PSScriptRoot}\EnvironmentModules.ps1"
+. (Join-Path $PSScriptRoot "EnvironmentModules.ps1")

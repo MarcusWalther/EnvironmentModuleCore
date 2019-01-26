@@ -140,7 +140,7 @@ function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $Modu
         }
     }
 
-    throw "The module $Module has no function registered named $Name"
+    throw "The module $ModuleFullName has no function registered named $FunctionName"
 }
 
 function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $AliasName = "*")

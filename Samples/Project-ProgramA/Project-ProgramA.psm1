@@ -7,5 +7,5 @@ param(
 $Module.AddSetPath("PROJECT_ROOT", "C:\Temp")
 
 $Module.AddFunction("Start-Cmd", {
-	return $args;
+	return $args
 })

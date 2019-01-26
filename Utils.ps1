@@ -77,6 +77,14 @@ function Show-SelectDialogue([array] $Options, [string] $Header)
     Write-Host
     $indexPathMap = @{}
 
+    if($Options.Count -eq 0) {
+        return $null
+    }
+
+    if($Options.Count -eq 1) {
+        return $Options[0]
+    }
+
     $i = 1
     foreach ($option in $Options) {
         Write-Host "[$i] $option"
@@ -143,7 +151,11 @@ function Test-PathPartOfEnvironmentVariable([String] $Path, [String] $Variable) 
     }
 
     $Path = [System.IO.Path]::GetFullPath($Path) # We normalize the path
-    foreach($part in $variableValue.Split(";")) {
+    foreach($part in $variableValue.Split([IO.Path]::PathSeparator)) {
+        if([String]::IsNullOrEmpty($part)) {
+            continue
+        }
+
         $part = [System.IO.Path]::GetFullPath($part)
         if($part.Equals($Path, [System.StringComparison]::InvariantCultureIgnoreCase)) {
             return $true

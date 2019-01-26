@@ -82,7 +82,7 @@ function Update-EnvironmentModuleCache()
     $allModuleNames = New-Object 'System.Collections.Generic.HashSet[String]'
     
     # Delete all temporary modules created previously
-    Remove-Item $script:tmpEnvironmentModulePath\* -Force -Recurse    
+    Remove-Item (Join-Path $script:tmpEnvironmentModulePath "*") -Force -Recurse    
     
     foreach ($module in (Get-Module -ListAvailable)) {
         Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
@@ -104,7 +104,7 @@ function Update-EnvironmentModuleCache()
             $info = New-EnvironmentModuleInfoBase $module
 
             if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
-                continue; #Ignore meta and abstract modules
+                continue #Ignore meta and abstract modules
             }
 
             # Add the module to the list of all modules

@@ -93,14 +93,14 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
     
     if(!$script:loadedEnvironmentModules.ContainsKey($name)) {
         Write-Host "Module $name not found"
-        return;
+        return
     }
     
     $module = $script:loadedEnvironmentModules.Get_Item($name)
     
     if(!$Force -and $UnloadedDirectly -and !$module.IsLoadedDirectly) {
         Write-Error "Unable to remove module $Name because it was imported as dependency"
-        return;
+        return
     }
 
     $module.ReferenceCounter--
@@ -138,7 +138,7 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
         Write-Verbose "Identified $($Module.Paths.Length) paths"
         foreach ($pathInfo in $Module.Paths)
         {
-            [String] $joinedValue = $pathInfo.Values -join ';'
+            [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator
             Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
             if($joinedValue -eq "")  {
                 continue
@@ -197,9 +197,9 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     if($null -eq $oldValue) {
         return
     }
-    $allPathValues = $oldValue.Split(";")
+    $allPathValues = $oldValue.Split([IO.Path]::PathSeparator)
     $allPathValues = ($allPathValues | Where-Object {$_.ToString() -ne $Value.ToString()})
-    $newValue = ($allPathValues -join ";")
+    $newValue = ($allPathValues -join [IO.Path]::PathSeparator)
     [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
 }
 

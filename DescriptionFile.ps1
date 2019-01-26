@@ -13,7 +13,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
     .OUTPUTS
     A string array with 4 parts (name, version, architecture, additionalOptions) 
     #>
-    $doesMatch = $ModuleFullName -match '^(?<name>[0-9A-Za-z_]+)(-(?<version>([^-]+))|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
+    $doesMatch = $ModuleFullName -match '^(?<name>[0-9A-Za-z_]+)(-(?<version>(?!x64|x86)[^-]+)|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
     if($doesMatch) 
     {
         if($matches.version -eq "") {
@@ -54,7 +54,7 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
     #>    
 
     Write-Verbose "Reading environment module description file for $($Module.Name)"
-    $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
+    $isEnvironmentModule = ("$($Module.RequiredModules)" -match "EnvironmentModules")
 
     if(-not $isEnvironmentModule) {
         return $null
@@ -181,7 +181,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
         $pathValues = $descriptionContent.Item("DefaultRegistryPaths")
 
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
-            $parts = $_.Split(";") + @("")
+            $parts = $_.Split([IO.Path]::PathSeparator) + @("")
             New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($parts[0], $parts[1], $true)
         }))
         Write-Verbose "Read default registry paths $($result.DefaultRegistryPaths)"
@@ -190,7 +190,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
     if($descriptionContent.Contains("DefaultFolderPaths")) {
         $pathValues = $descriptionContent.Item("DefaultFolderPaths")
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
-            $parts = $_.Split(";") + @("")
+            $parts = $_.Split([IO.Path]::PathSeparator) + @("")
             New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($parts[0], $parts[1], $true)
         }))
         Write-Verbose "Read default folder paths $($result.DefaultFolderPaths)"
@@ -199,7 +199,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
     if($descriptionContent.Contains("DefaultEnvironmentPaths")) {
         $pathValues = $descriptionContent.Item("DefaultEnvironmentPaths")
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
-            $parts = $_.Split(";") + @("")
+            $parts = $_.Split([IO.Path]::PathSeparator) + @("")
             New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($parts[0], $parts[1], $true)
         }))
         Write-Verbose "Read default environment paths $($result.DefaultEnvironmentPaths)"

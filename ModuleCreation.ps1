@@ -20,7 +20,6 @@ function Test-PartOfTmpDirectory([string] $Destination, [switch] $ShowError)
     return $false
 }
 
-
 function New-EnvironmentModule
 {
     <#
@@ -166,7 +165,8 @@ function Copy-EnvironmentModule
         
         Write-Host "Cloning module $ModuleFullName to $destination"
         
-        $filesToCopy = Get-ChildItem $moduleFolder
+        $filesToCopy = Get-ChildItem -File $moduleFolder
+        $directoriesToCopy = Get-ChildItem -Directory $moduleFolder
         
         Write-Verbose "Found $($filesToCopy.Length) files to copy"
 
@@ -197,6 +197,11 @@ function Copy-EnvironmentModule
 
             ($fileContent.Replace("$ModuleFullName", "$NewModuleFullName")) > "$newFullName"
         }
+
+        foreach($directory in $directoriesToCopy) {
+            Write-Verbose "Handling directory $directory"
+            Copy-Item -Recurse -Force -Path $directory -Destination $destination
+        }
         
         if(-not $SkipCacheUpdate) {
             Update-EnvironmentModuleCache
@@ -208,7 +213,7 @@ function Copy-EnvironmentModule
 Register-ArgumentCompleter -CommandName Copy-EnvironmentModule -ParameterName Path -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
-    $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
+    $env:PSModulePath.Split([IO.Path]::PathSeparator) | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
 }
 
 function Edit-EnvironmentModule
@@ -278,6 +283,6 @@ function Select-ModulePath
     .OUTPUTS
     The selected module path or $null if no path was selected.
     #>
-    $pathPossibilities = $env:PSModulePath.Split(";") | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
+    $pathPossibilities = $env:PSModulePath.Split([IO.Path]::PathSeparator) | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
     return Show-SelectDialogue $pathPossibilities "Select the target directory for the module"
 }

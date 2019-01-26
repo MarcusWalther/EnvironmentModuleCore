@@ -5,5 +5,5 @@ param(
 )
 
 $Module.AddFunction("Get-ProjectRoot", {
-	return $env:PROJECT_ROOT;
+	return $env:PROJECT_ROOT
 })

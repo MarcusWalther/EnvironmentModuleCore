@@ -96,9 +96,8 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
     foreach($searchPath in $Module.SearchPaths)
     {
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::REGISTRY) {
-            $pathSegments = $searchPath.Key.Split('\')
-            $propertyName = $pathSegments[-1]
-            $propertyPath = [string]::Join('\', $pathSegments[0..($pathSegments.Length - 2)])
+            $propertyName = Split-Path -Leaf $searchPath
+            $propertyPath = Split-Path $searchPath
             
             Write-Verbose "Checking registry search path $($searchPath.Key)"
 
@@ -323,7 +322,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         Write-Verbose "Identified $($Module.Paths.Length) paths"
         foreach ($pathInfo in $Module.Paths)
         {
-            [String] $joinedValue = $pathInfo.Values -join ';'
+            [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator
             Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
             if($joinedValue -eq "")  {
                 continue
@@ -442,10 +441,10 @@ function Add-EnvironmentVariableValue([String] $Variable, [String] $Value, [Bool
     else
     {
         if($Append) {
-            $tmpValue = "${tmpValue};${Value}"
+            $tmpValue = "$tmpValue$([IO.Path]::PathSeparator)$Value"
         }
         else {
-            $tmpValue = "${Value};${tmpValue}"
+            $tmpValue = "$Value$([IO.Path]::PathSeparator)$tmpValue"
         }
     }
     [Environment]::SetEnvironmentVariable($Variable, $tmpValue, "Process")
