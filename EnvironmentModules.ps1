@@ -94,7 +94,7 @@ function Get-NonTempEnvironmentModules()
     return Get-AllEnvironmentModules | Where-Object { -not(Test-PartOfTmpDirectory $_.PSModuleInfo.ModuleBase) }
 }
 
-function Get-ConcreteEnvironmentModules()
+function Get-ConcreteEnvironmentModules([switch] $ListAvailable, [switch] $ExcludeMetaModules)
 {
     <#
     .SYNOPSIS
@@ -102,7 +102,21 @@ function Get-ConcreteEnvironmentModules()
     .OUTPUTS
     All concrete environment modules.
     #>
-    return Get-AllEnvironmentModules | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract}
+    $moduleSet = @()
+
+    if($ListAvailable) {
+        $moduleSet = Get-AllEnvironmentModules
+    }
+    else {
+        $moduleSet = Get-EnvironmentModule
+    }
+
+    if($ExcludeMetaModules) {
+        return $moduleSet | Where-Object {($_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract) -and ($_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Meta)}
+    }
+    else {
+        return $moduleSet | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract}
+    }
 }
 
 function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $ModuleFullName = "*")

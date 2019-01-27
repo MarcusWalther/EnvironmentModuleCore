@@ -174,7 +174,7 @@ function Import-EnvironmentModule
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        $moduleSet = Get-ConcreteEnvironmentModules | Select-Object -ExpandProperty "FullName"
+        $moduleSet = Get-ConcreteEnvironmentModules -ListAvailable | Select-Object -ExpandProperty "FullName"
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $true -Position 0 -ValidateSet $moduleSet
         Add-DynamicParameter 'IsLoadedDirectly' Bool $runtimeParameterDictionary -Mandatory $false -Position 1 -ValidateSet @($true, $false)
         return $runtimeParameterDictionary
@@ -417,9 +417,15 @@ function Show-EnvironmentSummary
     $aliases = Get-EnvironmentModuleAlias
     $functions = Get-EnvironmentModuleFunction
     $parameters = Get-EnvironmentModuleParameters
+    $modules = Get-ConcreteEnvironmentModules
 
     Write-Host ""
     Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-Host "Loaded Modules:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    $modules | ForEach-Object {
+        Write-Host "  * $($_.FullName)"
+    }
+
     Write-Host "Available Functions:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $functions | ForEach-Object {
         Write-Host "  * $($_.Name) - " -NoNewline
