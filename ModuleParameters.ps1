@@ -47,3 +47,21 @@ function Get-EnvironmentModuleParameter {
         $script:environmentModuleParameters[$Parameter]
     }
 }
+
+function Get-EnvironmentModuleParameters {
+    [cmdletbinding()]
+    Param(
+        [string] $ParameterName = "*"
+    )
+    process {
+        foreach($parameter in $script:environmentModuleParameters.Keys) {
+            if(-not ($parameter -like $ParameterName)) {
+                continue
+            }
+            $parameterObject = @{}
+            $parameterObject.Parameter = $parameter
+            $parameterObject.Value = $script:environmentModuleParameters[$parameter]
+            $parameterObject
+        }
+    }
+}

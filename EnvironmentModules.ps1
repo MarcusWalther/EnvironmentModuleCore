@@ -179,7 +179,7 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
                 continue
             }
             $definition = $aliases[$alias]
-            New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Item1, $definition.Item2)
+            New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
         }
     }
 }

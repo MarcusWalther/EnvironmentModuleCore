@@ -59,7 +59,8 @@ $script:environmentModuleParameters = @{} # VariableName -> VariableValue
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
-$script:silentUnload = $false
+$script:silentUnload = $false # Indicates if output should be printed on module unload
+$script:silentLoad = $false # Indicates if output should be printed on module load
 
 # Initialialize the configuration
 . (Join-Path $PSScriptRoot "Configuration.ps1")

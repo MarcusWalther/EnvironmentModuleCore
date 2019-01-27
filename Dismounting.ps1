@@ -12,9 +12,9 @@ function Remove-EnvironmentModule
     If this value is set, the module is unloaded even if other modules depend on it. If the delete flag is specified, no conformation
     is required if the Force flag is set.
     .PARAMETER Delete
-    If this value is set, the module is deleted from the file system.   
+    If this value is set, the module is deleted from the file system.
     .PARAMETER SkipCacheUpdate
-    Only relevant if the delete flag is specified. If SkipCacheUpdate is passed, the Update-EnvironmentModule function is not called.    
+    Only relevant if the delete flag is specified. If SkipCacheUpdate is passed, the Update-EnvironmentModule function is not called.
     .OUTPUTS
     No outputs are returned.
     #>
@@ -38,7 +38,7 @@ function Remove-EnvironmentModule
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $validationSet
         return $runtimeParameterDictionary
     }
-    
+
     begin {
         # Bind the parameter to a friendly variable
         $ModuleFullName = $PsBoundParameters['ModuleFullName']
@@ -82,53 +82,53 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
     .PARAMETER ModuleFullName
     The full name of the environment module to remove.
     .PARAMETER UnloadedDirectly
-    This value indicates if the module was unloaded by the user (directly) or if it was a dependency with reference counter decreased to 0 (indirectly).    
+    This value indicates if the module was unloaded by the user (directly) or if it was a dependency with reference counter decreased to 0 (indirectly).
     .PARAMETER Force
-    If this value is set, the module is unloaded even if other modules depend on it.    
+    If this value is set, the module is unloaded even if other modules depend on it.
     .OUTPUTS
     No outputs are returned.
     #>
     $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
     $name = $moduleInfos[0]
-    
+
     if(!$script:loadedEnvironmentModules.ContainsKey($name)) {
         Write-Host "Module $name not found"
         return
     }
-    
+
     $module = $script:loadedEnvironmentModules.Get_Item($name)
-    
+
     if(!$Force -and $UnloadedDirectly -and !$module.IsLoadedDirectly) {
         Write-Error "Unable to remove module $Name because it was imported as dependency"
         return
     }
 
     $module.ReferenceCounter--
-    
+
     Write-Verbose "The module $($module.Name) has now a reference counter of $($module.ReferenceCounter)"
-    
+
     foreach ($refModule in $module.RequiredEnvironmentModules) {
         Remove-RequiredModulesRecursive $refModule $False
-    }   
-    
+    }
+
     if($module.ReferenceCounter -le 0) {
-        Write-Verbose "Removing Module $($module.Name)" 
+        Write-Verbose "Removing Module $($module.Name)"
         Dismount-EnvironmentModule -Module $module
-    }   
+    }
 }
 
-function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Module)
+function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Module, [switch] $SuppressOutput)
 {
     <#
     .SYNOPSIS
     Remove all the aliases and environment variables that are stored in the given module object from the environment.
     .DESCRIPTION
-    This function will remove all aliases and environment variables that are defined in the given EnvironmentModule-object from the environment. An error 
+    This function will remove all aliases and environment variables that are defined in the given EnvironmentModule-object from the environment. An error
     is written if the module was not loaded. Either specify the concrete environment module object or the name of the environment module you want to remove.
     .PARAMETER Module
     The module that should be removed.
     #>
-    process {        
+    process {
         if(!$loadedEnvironmentModules.ContainsKey($Module.Name))
         {
             Write-Host ("The Environment-Module $inModule is not loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
@@ -146,15 +146,15 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
 
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::PREPEND) {
                 Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
-                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue  
+                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
             }
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::APPEND) {
                 Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
                 Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
-            }   
+            }
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::SET) {
                 [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
-            }            
+            }
         }
 
         foreach ($alias in $Module.Aliases.Keys) {
@@ -170,10 +170,11 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
 
         Write-Verbose "Removing module $($Module.FullName)"
         Remove-Module $Module.FullName -Force
-        if(-not $script:silentUnload) {
-            Write-Host ($Module.Name + " unloaded") -foregroundcolor "Yellow"
+
+        if($script:configuration["ShowLoadingMessages"] -and (-not $script:silentUnload)) {
+            Write-Host ($Module.Name + " unloaded") -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
         }
-        
+
         return
     }
 }
@@ -184,7 +185,7 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     .SYNOPSIS
     Remove the given value from the desired environment variable.
     .DESCRIPTION
-    This function will remove the given value from the environment variable with the given name. If the value is not part 
+    This function will remove the given value from the environment variable with the given name. If the value is not part
     of the environment variable, no changes are performed.
     .PARAMETER Variable
     The name of the environment variable that should be extended.
@@ -220,7 +221,7 @@ function Remove-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleF
     if($script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionDefinition.Name))
     {
         $knownFunctions = $script:loadedEnvironmentModuleFunctions[$FunctionDefinition.Name]
-        $knownFunctions.Remove($FunctionDefinition)
+        $knownFunctions.Remove($FunctionDefinition) | out-null
         if($knownFunctions.Count -eq 0) {
             $script:loadedEnvironmentModuleFunctions.Remove($FunctionDefinition.Name)
         }

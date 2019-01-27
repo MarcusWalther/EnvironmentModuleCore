@@ -13,7 +13,7 @@ foreach($moduleCandidate in $moduleCandidates) {
 
     if(Test-EnvironmentModuleRootDirectory $moduleCandidate -IncludeDependencies) {
         $found = $True
-        Import-EnvironmentModule $moduleCandidate.FullName
+        Import-EnvironmentModule $moduleCandidate.FullName-IsLoadedDirectly $Module.IsLoadedDirectly
     }
 }
 

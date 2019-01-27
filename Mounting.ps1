@@ -161,6 +161,8 @@ function Import-EnvironmentModule
     This function will import the environment module into the scope of the console.
     .PARAMETER ModuleFullName
     The full name of the environment module.
+    .PARAMETER IsLoadedDirectly
+    True if the load was triggered by the user. False if triggered by another module. Default: $true
     .PARAMETER Silent
     Do not print output to the console.
     .OUTPUTS
@@ -173,13 +175,15 @@ function Import-EnvironmentModule
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
         $moduleSet = Get-ConcreteEnvironmentModules | Select-Object -ExpandProperty "FullName"
-        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $true -Position 0 -ValidateSet $moduleSet
+        Add-DynamicParameter 'IsLoadedDirectly' Bool $runtimeParameterDictionary -Mandatory $false -Position 1 -ValidateSet @($true, $false)
         return $runtimeParameterDictionary
     }
 
     begin {
         # Bind the parameter to a friendly variable
         $ModuleFullName = $PsBoundParameters["ModuleFullName"]
+        $IsLoadedDirectly = $PsBoundParameters["IsLoadedDirectly"]
     }
 
     process {
@@ -188,7 +192,13 @@ function Import-EnvironmentModule
             $silentMode = $true
         }
 
-        $_ = Import-RequiredModulesRecursive $ModuleFullName $True (New-Object "System.Collections.Generic.HashSet[string]") $silentMode
+        if($null -eq $IsLoadedDirectly) {
+            $IsLoadedDirectly = $true
+        }
+
+        $initialSilentLoadState = $script:silentLoad
+        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $silentMode
+        $script:silentLoad = $initialSilentLoadState
     }
 }
 
@@ -235,6 +245,10 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     # Load the dependencies first
     $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName
+
+    if(($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) -and ($LoadedDirectly)) {
+        $script:silentLoad = $true
+    }
 
     if ($null -eq $module) {
         Write-Error "Unable to read environment module description file of module $ModuleFullName"
@@ -302,6 +316,11 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     # Set the parameter defaults
     $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] }
 
+    # Print the summary
+    if(($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) -and ($LoadedDirectly) -and (-not $SilentMode)) {
+        Show-EnvironmentSummary
+    }
+
     [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)
     return $true
 }
@@ -322,6 +341,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     A boolean value that is $true if the module was loaded successfully. Otherwise the value is $false.
     #>
     process {
+        $SilentMode = $SilentMode -or $script:silentLoad
         Write-Verbose "Try to load module '$($Module.Name)' with architecture '$($Module.Architecture)', Version '$($Module.Version)' and type '$($Module.ModuleType)'"
 
         if($loadedEnvironmentModules.ContainsKey($Module.Name))
@@ -367,7 +387,9 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
 
             Set-Alias -name $aliasInfo.Name -value $aliasInfo.Definition -scope "Global"
             if(($aliasInfo.Description -ne "") -and (-not $SilentMode)) {
-                Write-Host $aliasInfo.Description -foregroundcolor "Green"
+                if(-not $SilentMode) {
+                    Write-Host $aliasInfo.Description -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+                }
             }
         }
 
@@ -382,11 +404,41 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
-        if(-not $SilentMode) {
-            Write-Host ("$($Module.FullName) loaded") -ForegroundColor $Host.PrivateData.DebugForegroundColor -BackgroundColor $Host.PrivateData.DebugBackgroundColor
+        if($script:configuration["ShowLoadingMessages"]) {
+            Write-Host ("$($Module.FullName) loaded")
         }
+
         return $true
     }
+}
+
+function Show-EnvironmentSummary
+{
+    $aliases = Get-EnvironmentModuleAlias
+    $functions = Get-EnvironmentModuleFunction
+    $parameters = Get-EnvironmentModuleParameters
+
+    Write-Host ""
+    Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-Host "Available Functions:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    $functions | ForEach-Object {
+        Write-Host "  * $($_.Name) - " -NoNewline
+        Write-Host $_.ModuleFullName -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+    }
+
+    Write-Host "Available Aliases:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    $aliases | ForEach-Object {
+        Write-Host "  * $($_.Name) - " -NoNewline
+        Write-Host $_.Description -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+    }
+
+    Write-Host "Available Parameters:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    $parameters | ForEach-Object {
+        Write-Host "  * $($_.Parameter) - " -NoNewline
+        Write-Host $_.Value -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+    }
+    Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-Host ""
 }
 
 function Switch-EnvironmentModule

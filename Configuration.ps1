@@ -35,7 +35,7 @@ function Set-EnvironmentModuleConfigurationValue
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        $moduleSet = @("NugetApiKey", "NugetSource", "DefaultModuleStoragePath")
+        $moduleSet = @("NugetApiKey", "NugetSource", "DefaultModuleStoragePath", "ShowLoadingMessages")
         Add-DynamicParameter 'ParameterName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
         Add-DynamicParameter 'Value' String $runtimeParameterDictionary -Mandatory $True -Position 1
 
