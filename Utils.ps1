@@ -48,7 +48,7 @@ function Add-DynamicParameter {
         $attributeCollection.Add($parameterAttribute)
         
         # Add the validation set to the attributes collection
-        if($null -ne $ValidateSet) {
+        if(($null -ne $ValidateSet) -and ($ValidateSet.Count -gt 0)) {
             $validateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($ValidateSet)
             $attributeCollection.Add($validateSetAttribute)            
         }

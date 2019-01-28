@@ -96,10 +96,11 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
     foreach($searchPath in $Module.SearchPaths)
     {
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::REGISTRY) {
-            $propertyName = Split-Path -Leaf $searchPath
-            $propertyPath = Split-Path $searchPath
+            $propertyName = Split-Path -Leaf $searchPath.Key
+            $propertyPath = Split-Path $searchPath.Key
 
             Write-Verbose "Checking registry search path $($searchPath.Key)"
+            Write-Verbose "Splitted registry search path into path '$propertyPath' and name '$propertyName'"
 
             try {
                 $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"
@@ -220,6 +221,9 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
+    $progressName = "$($Module.FullName) Loading"
+    Write-Progress -activity $progressName -status "Analysing name $($Module.FullName)" -percentcomplete 10
+
     if($KnownModules.Contains($ModuleFullName) -and (0 -eq (Get-Module $ModuleFullName).Count)) {
         Write-Error "A circular dependency between the modules was detected"
         return $false
@@ -244,10 +248,13 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Load the dependencies first
+    Write-Progress -activity $progressName -status "Loading module info" -percentcomplete 20
     $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName
 
+    $alreadyLoadedModules = $null
     if(($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) -and ($LoadedDirectly)) {
         $script:silentLoad = $true
+        $alreadyLoadedModules = Get-EnvironmentModule
     }
 
     if ($null -eq $module) {
@@ -272,22 +279,36 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
     $loadedDependencies = New-Object "System.Collections.Stack"
-    foreach ($dependency in $module.RequiredEnvironmentModules) {
-        Write-Verbose "Importing dependency $dependency"
-        $loadingResult = (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly $KnownModules)
-        if (-not $loadingResult) {
-            while ($loadedDependencies.Count -gt 0) {
-                Remove-EnvironmentModule ($loadedDependencies.Pop())
+    Write-Progress -activity $progressName -status "Importing dependencies" -percentcomplete 30
+
+    if($module.RequiredEnvironmentModules.Count -gt 0) {
+        $percentagePerDependency = 50 / $module.RequiredEnvironmentModules.Count
+        $dependencyIndex = 0
+        foreach ($dependency in $module.RequiredEnvironmentModules) {
+            $percentageComplete = 30 + ($percentagePerDependency * $dependencyIndex)
+            Write-Progress -activity $progressName -status "Importing dependency $dependency" -percentcomplete $percentageComplete
+            Write-Verbose "Importing dependency $dependency"
+            $loadingResult = (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly $KnownModules)
+            if (-not $loadingResult) {
+                while ($loadedDependencies.Count -gt 0) {
+                    Remove-EnvironmentModule ($loadedDependencies.Pop())
+                }
+                return $false
             }
-            return $false
-        }
-        else {
-            $loadedDependencies.Push($dependency)
+            else {
+                $loadedDependencies.Push($dependency)
+            }
+
+            $dependencyIndex++
         }
     }
 
     # Create the temp directory
     mkdir -Force $module.TmpDirectory
+    Write-Progress -activity $progressName -status "Importing the module itself" -percentcomplete 85
+
+    # Set the parameter defaults
+    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] }
 
     # Load the module itself
     $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
@@ -313,12 +334,11 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         return $true
     }
 
-    # Set the parameter defaults
-    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] }
+    Write-Progress -activity $progressName -status "Finishing import" -percentcomplete 95
 
     # Print the summary
     if(($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) -and ($LoadedDirectly) -and (-not $SilentMode)) {
-        Show-EnvironmentSummary
+        Show-EnvironmentSummary -ModuleBlacklist $alreadyLoadedModules
     }
 
     [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)
@@ -412,8 +432,16 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     }
 }
 
-function Show-EnvironmentSummary
+function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]] $ModuleBlacklist = $null)
 {
+    <#
+    .SYNOPSIS
+    Print a summary of the environment that is currenctly loaded.
+    .DESCRIPTION
+    This function will print all modules, functions, aliases and parameters of the current environment to the host console.
+    .OUTPUTS
+    No output is returned.
+    #>
     $aliases = Get-EnvironmentModuleAlias
     $functions = Get-EnvironmentModuleFunction
     $parameters = Get-EnvironmentModuleParameters
@@ -422,20 +450,28 @@ function Show-EnvironmentSummary
     Write-Host ""
     Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     Write-Host "Loaded Modules:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+
+    $moduleBlackListNames = $ModuleBlacklist | Select-Object -ExpandProperty "FullName"
     $modules | ForEach-Object {
-        Write-Host "  * $($_.FullName)"
+        if(-not ($moduleBlackListNames -match $_.FullName)) {
+            Write-Host "  * $($_.FullName)"
+        }
     }
 
     Write-Host "Available Functions:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $functions | ForEach-Object {
-        Write-Host "  * $($_.Name) - " -NoNewline
-        Write-Host $_.ModuleFullName -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+        if(-not ($moduleBlackListNames -match $_.ModuleFullName)) {
+            Write-Host "  * $($_.Name) - " -NoNewline
+            Write-Host $_.ModuleFullName -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+        }
     }
 
     Write-Host "Available Aliases:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $aliases | ForEach-Object {
-        Write-Host "  * $($_.Name) - " -NoNewline
-        Write-Host $_.Description -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+        if(-not ($moduleBlackListNames -match $_.ModuleFullName)) {
+            Write-Host "  * $($_.Name) - " -NoNewline
+            Write-Host $_.Description -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+        }
     }
 
     Write-Host "Available Parameters:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor

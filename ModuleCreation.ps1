@@ -228,6 +228,8 @@ function Edit-EnvironmentModule
     This function will open the environment module files with the default editor.
     .PARAMETER Name
     The name of the environment module.
+    .PARAMETER FileFilter
+    The files of the module to edit. Default is "*.pse1".
     .OUTPUTS
     No outputs are returned.
     #>
@@ -249,7 +251,7 @@ function Edit-EnvironmentModule
         $FileFilter = $PsBoundParameters['FileFilter']
 
         if(-not $FileFilter) {
-            $FileFilter = '*'
+            $FileFilter = '*.pse1'
         }
     }
 
