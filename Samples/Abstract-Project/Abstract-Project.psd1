@@ -9,7 +9,7 @@
 @{
 
     # Script module or binary module file associated with this manifest
-    RootModule = 'Abstract-Project.psm1'
+    RootModule = 'Abstract_Project.psm1'
 
     # Version number of this module.
     ModuleVersion = '1.0'
@@ -30,7 +30,7 @@
     RequiredModules = @("EnvironmentModules")
     
     # List of all modules packaged with this module
-    ModuleList = @("Abstract-Project")    
+    ModuleList = @("Abstract_Project")    
 }
     
     
