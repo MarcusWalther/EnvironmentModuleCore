@@ -16,7 +16,7 @@ function Set-EnvironmentModuleParameter {
         $parameterNames = $Script:environmentModuleParameters.Keys
         Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $parameterNames
 
-        Add-DynamicParameter 'Value' String $runtimeParameterDictionary -Mandatory $True -Position 1
+        Add-DynamicParameter 'Value' String $runtimeParameterDictionary -Mandatory $False -Position 1
 
         return $runtimeParameterDictionary
     }
@@ -25,6 +25,10 @@ function Set-EnvironmentModuleParameter {
         $Value = $PsBoundParameters['Value']
     }
     process {
+        if([string]::IsNullOrEmpty($Value)) {
+            $Value = ""
+        }
+
         Set-EnvironmentModuleParameterInternal $Parameter $Value
     }
 }

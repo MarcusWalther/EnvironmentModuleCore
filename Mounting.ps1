@@ -442,10 +442,10 @@ function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]
     .OUTPUTS
     No output is returned.
     #>
-    $aliases = Get-EnvironmentModuleAlias
-    $functions = Get-EnvironmentModuleFunction
-    $parameters = Get-EnvironmentModuleParameters
-    $modules = Get-ConcreteEnvironmentModules
+    $aliases = Get-EnvironmentModuleAlias | Sort-Object -Property "Name"
+    $functions = Get-EnvironmentModuleFunction | Sort-Object -Property "Name"
+    $parameters = Get-EnvironmentModuleParameters | Sort-Object -Property "Parameter"
+    $modules = Get-ConcreteEnvironmentModules | Sort-Object -Property "FullName"
 
     Write-Host ""
     Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
