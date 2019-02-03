@@ -6,9 +6,16 @@ $storageFileLocation = "$env:APPDATA\PowerShell\EnvironmentModules"
 # Include the util functions
 . (Join-Path $PSScriptRoot "Utils.ps1")
 
-$script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Tmp"))
-$script:tmpEnvironmentRootSessionPath = (Join-Path $script:tmpEnvironmentRootPath "Environment_$PID")
+if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
+    $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
+}
+else {
+    $script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Tmp"))
+    $env:ENVIRONMENT_MODULES_TMP = $script:tmpEnvironmentRootPath
+}
 
+$script:tmpEnvironmentRootSessionPath = (Join-Path $script:tmpEnvironmentRootPath "Environment_$PID")
+mkdir $script:tmpEnvironmentRootPath -Force
 foreach($directory in (Get-ChildItem (Join-Path $script:tmpEnvironmentRootPath "Environment_*"))) {
     if($directory.Name -Match "Environment_(?<PID>[0-9]+)") {
         $processInfo = (Get-Process -Id $Matches["PID"] -ErrorAction SilentlyContinue)
@@ -20,18 +27,10 @@ foreach($directory in (Get-ChildItem (Join-Path $script:tmpEnvironmentRootPath "
 
 mkdir $script:tmpEnvironmentRootSessionPath -Force
 
-if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
-    $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
-}
-else {
-    $env:ENVIRONMENT_MODULES_TMP = $script:tmpEnvironmentRootPath
-}
-
 # Configure the tmp directory and append it to the PSModulePath
 Write-Verbose "Using environment module temp path $($script:tmpEnvironmentRootPath)"
 $script:tmpEnvironmentModulePath = ([System.IO.Path]::Combine($script:tmpEnvironmentRootPath, "Modules"))
 
-mkdir $script:tmpEnvironmentRootPath -Force
 mkdir $script:tmpEnvironmentModulePath -Force
 
 if(-not (Test-PathPartOfEnvironmentVariable $script:tmpEnvironmentModulePath "PSModulePath")) {
