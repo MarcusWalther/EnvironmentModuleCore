@@ -230,18 +230,23 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
     $_ = $KnownModules.Add($ModuleFullName)
 
-    Write-Verbose "Importing the module $Name recursive"
+    Write-Verbose "Importing the module $ModuleFullName recursive"
 
-    $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
-    $name = $moduleInfos[0]
+    $conflictTestResult = (Test-ConflictsWithLoadedModules $ModuleFullName)
+    $module = $conflictTestResult.Module
+    $conflict = $conflictTestResult.Conflict
 
-    if($script:loadedEnvironmentModules.ContainsKey($name)) {
-        $module = $script:loadedEnvironmentModules.Get_Item($name)
-        Write-Verbose "The module $name has loaded directly state $($module.IsLoadedDirectly) and should be loaded with state $LoadedDirectly"
+    if($conflict) {
+        Write-Error ("The module '$ModuleFullName' conflicts with the already loaded module '$($module.FullName)'")
+        return $false
+    }
+
+    if($null -ne $module) {
+        Write-Verbose "The module $ModuleFullName has loaded directly state $($module.IsLoadedDirectly) and should be loaded with state $LoadedDirectly"
         if($module.IsLoadedDirectly -and $LoadedDirectly) {
             return $true
         }
-        Write-Verbose "The module $name is already loaded. Increasing reference counter"
+        Write-Verbose "The module $ModuleFullName is already loaded. Increasing reference counter"
         $module.IsLoadedDirectly = $True
         $module.ReferenceCounter++
         return $true
@@ -351,8 +356,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     .SYNOPSIS
     Deploy all the aliases, environment variables and functions that are stored in the given module object to the environment.
     .DESCRIPTION
-    This function will export all aliases and environment variables that are defined in the given EnvironmentModule-object. An error
-    is written if the module conflicts with another module that is already loaded.
+    This function will export all aliases and environment variables that are defined in the given EnvironmentModule-object.
     .PARAMETER Module
     The module that should be deployed.
     .PARAMETER SilentMode
@@ -363,21 +367,6 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
     process {
         $SilentMode = $SilentMode -or $script:silentLoad
         Write-Verbose "Try to load module '$($Module.Name)' with architecture '$($Module.Architecture)', Version '$($Module.Version)' and type '$($Module.ModuleType)'"
-
-        if($loadedEnvironmentModules.ContainsKey($Module.Name))
-        {
-            Write-Verbose "The module name '$($Module.Name)' was found in the list of already loaded modules"
-            if($loadedEnvironmentModules.Get_Item($Module.Name).Equals($Module)) {
-                if(-not $SilentMode) {
-                    Write-Host ("The Environment-Module '$($Module.FullName)' is already loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
-                }
-                return $false
-            }
-            else {
-                Write-Host ("The module '$($Module.FullName)' conflicts with the already loaded module '$($loadedEnvironmentModules.Get_Item($Module.Name).FullName)'") -ForeGroundcolor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
-                return $false
-            }
-        }
 
         Write-Verbose "Identified $($Module.Paths.Length) paths"
         foreach ($pathInfo in $Module.Paths)
@@ -616,4 +605,64 @@ function Add-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleFunc
         $newValue.Add($FunctionDefinition)
         $script:loadedEnvironmentModuleFunctions.Add($FunctionDefinition.Name, $newValue)
     }
+}
+
+function Test-ConflictsWithLoadedModules([string] $ModuleFullName)
+{
+    <#
+    .SYNOPSIS
+    Check if the given module name conflicts with the already loaded modules.
+    .DESCRIPTION
+    This function will compare the given module name with the list of all loaded modules. If the module conflicts in version or architecture,
+    true is returned.
+    .PARAMETER ModuleFullName
+    The name of the module to check.
+    .OUTPUTS
+    A tuple containing a boolean value as first argument. True if the module does conflict with the already loaded modules, false otherwise.
+    And the identified module as second argument.
+    #>
+    $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
+    $name = $moduleInfos[0]
+    $version = $moduleInfos[1]
+    $architecture = $moduleInfos[2]
+
+    $module = $null
+    $conflict = $false
+
+    if($script:loadedEnvironmentModules.ContainsKey($name)) {
+        $module = $script:loadedEnvironmentModules.Get_Item($name)
+        Write-Verbose "A module matching name '$name' was already found - checking for version or architecture conflict"
+
+        if(-not ($module.DirectUnload)) {
+            if(-not ([string]::IsNullOrEmpty($version))) {
+                # A specific version is required
+                if([string]::IsNullOrEmpty($module.Version)) {
+                    Write-Warning "The already loaded module $($module.FullName) has no version specifier. Don't know if it is compatible to version '$version'"
+                }
+                else {
+                    if($version -ne $module.Version) {
+                        $conflict = $true
+                    }
+                }
+            }
+
+            if(-not ([string]::IsNullOrEmpty($architecture))) {
+                # A specific architecture is required
+                if([string]::IsNullOrEmpty($module.Architecture)) {
+                    Write-Warning "The already loaded module $($module.FullName) has no architecture specifier. Don't know if it is compatible to architecture '$architecture'"
+                }
+                else {
+                    if($architecture -ne $module.Architecture) {
+                        $conflict = $true
+                    }
+                }
+            }
+        }
+    }
+
+    $result = @{}
+    $result.Conflict = $conflict
+    $result.Module = $module
+
+    return $result
 }
