@@ -92,12 +92,12 @@ function Update-EnvironmentModuleCache()
             Add-EnvironmentModuleInternal(New-EnvironmentModuleInfoBase $module)
             $moduleNameParts = Split-EnvironmentModuleName $module.Name
 
-            if($null -eq $moduleNameParts[1]) {
-              $moduleNameParts[1] = ""
+            if($null -eq $moduleNameParts.Version) {
+              $moduleNameParts.Version = ""
             }
 
-            if($null -eq $moduleNameParts[2]) {
-              $moduleNameParts[2] = ""
+            if($null -eq $moduleNameParts.Architecture) {
+              $moduleNameParts.Architecture = ""
             }
 
             # Read the environment module properties from the pse1 file
@@ -111,24 +111,24 @@ function Update-EnvironmentModuleCache()
             $allModuleNames.Add($module.Name) > $null
 
             # Handle the module by architecture (if architecture is specified)
-            if($moduleNameParts[2] -ne "") {
-                $dictionaryKey = [System.Tuple]::Create($moduleNameParts[0],$moduleNameParts[2])
-                $dictionaryValue = [System.Tuple]::Create($moduleNameParts[1], $module)
+            if($moduleNameParts.Architecture -ne "") {
+                $dictionaryKey = [System.Tuple]::Create($moduleNameParts.Name,$moduleNameParts.Architecture)
+                $dictionaryValue = [System.Tuple]::Create($moduleNameParts.Version, $module)
                 $oldItem = $modulesByArchitecture.Get_Item($dictionaryKey)
 
                 if($null -eq $oldItem) {
                     $modulesByArchitecture.Add($dictionaryKey, $dictionaryValue)
                 }
                 else {
-                    if(($oldItem.Item1) -lt $moduleNameParts[1]) {
+                    if(($oldItem.Item1) -lt $moduleNameParts.Version) {
                       $modulesByArchitecture.Set_Item($dictionaryKey, $dictionaryValue)
                     }
                 }
             }
 
             # Handle the module by version (if version is specified)
-            $dictionaryKey = $moduleNameParts[0]
-            $dictionaryValue = [System.Tuple]::Create($moduleNameParts[1], $module)
+            $dictionaryKey = $moduleNameParts.Name
+            $dictionaryValue = [System.Tuple]::Create($moduleNameParts.Version, $module)
             $oldItem = $modulesByVersion.Get_Item($dictionaryKey)
 
             if($null -eq $oldItem) {
@@ -136,7 +136,7 @@ function Update-EnvironmentModuleCache()
                 continue
             }
 
-            if(($oldItem.Item1) -lt $moduleNameParts[1]) {
+            if(($oldItem.Item1) -lt $moduleNameParts.Version) {
               $modulesByVersion.Set_Item($dictionaryKey, $dictionaryValue)
             }
         }

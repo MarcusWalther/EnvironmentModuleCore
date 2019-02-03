@@ -88,8 +88,7 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
     .OUTPUTS
     No outputs are returned.
     #>
-    $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
-    $name = $moduleInfos[0]
+    $name = (Split-EnvironmentModuleName $ModuleFullName).Name
 
     if(!$script:loadedEnvironmentModules.ContainsKey($name)) {
         Write-Host "Module $name not found"

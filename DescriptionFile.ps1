@@ -6,7 +6,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
     Splits the given name into an array with 4 parts (name, version, architecture, additionalOptions).
     .DESCRIPTION
     Split a name string that either has the format 'Name-Version-Architecture' or just 'Name'. The output is
-    an array with the 4 parts (name, version, architecture, additionalOptions). If a value was not specified,
+    an anonymous object with the 4 properties (name, version, architecture, additionalOptions). If a value was not specified,
     $null is returned at the according array index.
     .PARAMETER ModuleFullName
     The full name of the module that should be splitted.
@@ -32,11 +32,17 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
         Write-Verbose ("Architecture: " + $matches.architecture)
         Write-Verbose ("Additional Options: " + $matches.additionalOptions)
 
-        return $matches.name, $matches.version, $matches.architecture, $matches.additionalOptions
+        $result = @{}
+        $result.Name = $matches.name
+        $result.Version = $matches.version
+        $result.Architecture = $matches.architecture
+        $result.AdditionalOptions = $matches.AdditionalOptions
+
+        return $result
     }
     else
     {
-        Write-Host ("The environment module name '$ModuleFullName' is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+        Write-Warning "The environment module name '$ModuleFullName' is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'"
         return $null
     }
 }
@@ -160,8 +166,11 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
         return $null
     }
 
+    $nameParts = (Split-EnvironmentModuleName $Module.Name)
+
     $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList $Module.ModuleBase),
-                            (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))) + (Split-EnvironmentModuleName $Module.Name)
+                            (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name)),
+                            $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
 
     $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
 

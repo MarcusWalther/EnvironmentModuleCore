@@ -1,13 +1,40 @@
 function Set-EnvironmentModuleParameterInternal {
+    <#
+    .SYNOPSIS
+    Set the parameter value to the given value.
+    .PARAMETER Parameter
+    The name of the parameter to set. If the parameter does not exist, it is created.
+    .PARAMETER Value
+    The value to set.
+    .PARAMETER ModuleFullName
+    The module that has specified the value. A user change should be indicated by an empty string.
+    #>
+
     param(
         [String] $Parameter,
-        [String] $Value
+        [String] $Value,
+        [String] $ModuleFullName = ""  # Empty string means: set by user
     )
 
-    $script:environmentModuleParameters[$Parameter] = $Value
+    $knownValue = $script:environmentModuleParameters[$Parameter]
+    if($null -eq $knownValue) {
+        $knownValue = New-Object "EnvironmentModules.EnvironmentModuleParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value
+    }
+    $knownValue.Value = $Value
+    $knownValue.ModuleFullName = $ModuleFullName
+    $script:environmentModuleParameters[$Parameter] = $knownValue
 }
 
 function Set-EnvironmentModuleParameter {
+    <#
+    .SYNOPSIS
+    This function is called by the user in order to change a parameter value.
+    .PARAMETER Parameter
+    The name of the parameter to set. If the parameter does not exist, it is created.
+    .PARAMETER Value
+    The value to set.
+    #>
+
     [cmdletbinding()]
     Param()
     DynamicParam {
@@ -29,30 +56,19 @@ function Set-EnvironmentModuleParameter {
             $Value = ""
         }
 
-        Set-EnvironmentModuleParameterInternal $Parameter $Value
+        Set-EnvironmentModuleParameterInternal $Parameter $Value ""
     }
 }
 
 function Get-EnvironmentModuleParameter {
-    [cmdletbinding()]
-    Param()
-    DynamicParam {
-        $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-
-        $parameterNames = $script:environmentModuleParameters.Keys
-        Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $parameterNames
-
-        return $runtimeParameterDictionary
-    }
-    begin {
-        $Parameter = $PsBoundParameters['Parameter']
-    }
-    process {
-        $script:environmentModuleParameters[$Parameter]
-    }
-}
-
-function Get-EnvironmentModuleParameters {
+    <#
+    .SYNOPSIS
+    Get all parameter definitions matching the given search criterias.
+    .PARAMETER ParameterName
+    The name of the parameter to return (can contain wildcards).
+    .OUTPUTS
+    All identified paramter info objects matching the search criterias.
+    #>
     [cmdletbinding()]
     Param(
         [string] $ParameterName = "*"
@@ -62,10 +78,8 @@ function Get-EnvironmentModuleParameters {
             if(-not ($parameter -like $ParameterName)) {
                 continue
             }
-            $parameterObject = @{}
-            $parameterObject.Parameter = $parameter
-            $parameterObject.Value = $script:environmentModuleParameters[$parameter]
-            $parameterObject
+
+            $script:environmentModuleParameters[$parameter]
         }
     }
 }

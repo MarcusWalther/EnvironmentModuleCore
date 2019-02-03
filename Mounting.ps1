@@ -237,7 +237,9 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $conflict = $conflictTestResult.Conflict
 
     if($conflict) {
-        Write-Error ("The module '$ModuleFullName' conflicts with the already loaded module '$($module.FullName)'")
+        if(-not ($SilentMode)) {
+            Write-Error ("The module '$ModuleFullName' conflicts with the already loaded module '$($module.FullName)'")
+        }
         return $false
     }
 
@@ -263,7 +265,9 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     if ($null -eq $module) {
-        Write-Error "Unable to read environment module description file of module $ModuleFullName"
+        if(-not($SilentMode)) {
+            Write-Error "Unable to read environment module description file of module $ModuleFullName"
+        }
         return $false
     }
 
@@ -277,8 +281,10 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $moduleRoot = Get-EnvironmentModuleRootDirectory $module
 
     if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
-        Write-Host "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
-        Write-Host "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+        if(-not $SilentMode) {
+            Write-Host "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+            Write-Host "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+        }
         return $false
     }
 
@@ -313,7 +319,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     Write-Progress -activity $progressName -status "Importing the module itself" -percentcomplete 85
 
     # Set the parameter defaults
-    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] }
+    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName }
 
     # Load the module itself
     $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
@@ -433,7 +439,7 @@ function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]
     #>
     $aliases = Get-EnvironmentModuleAlias | Sort-Object -Property "Name"
     $functions = Get-EnvironmentModuleFunction | Sort-Object -Property "Name"
-    $parameters = Get-EnvironmentModuleParameters | Sort-Object -Property "Parameter"
+    $parameters = Get-EnvironmentModuleParameter | Sort-Object -Property "Name"
     $modules = Get-ConcreteEnvironmentModules | Sort-Object -Property "FullName"
 
     Write-Host ""
@@ -621,10 +627,10 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName)
     A tuple containing a boolean value as first argument. True if the module does conflict with the already loaded modules, false otherwise.
     And the identified module as second argument.
     #>
-    $moduleInfos = Split-EnvironmentModuleName $ModuleFullName
-    $name = $moduleInfos[0]
-    $version = $moduleInfos[1]
-    $architecture = $moduleInfos[2]
+    $moduleNameParts = Split-EnvironmentModuleName $ModuleFullName
+    $name = $moduleNameParts.Name
+    $version = $moduleNameParts.Version
+    $architecture = $moduleNameParts.Architecture
 
     $module = $null
     $conflict = $false

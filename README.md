@@ -4,7 +4,7 @@ A powershell extension to load and remove modules that affect the environment (v
 Overview
 --------
 
-This PowerShell extension can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules 
+This PowerShell extension can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules
 are defined that are called "environment modules". Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.
 
 Example
@@ -14,7 +14,7 @@ Example
 Import-Module EnvironmentModules
 
 Write-Host $env:PATH
-# Output: 
+# Output:
 
 Import-EnvironmentModule NotepadPlusPlus
 Write-Host $env:PATH
@@ -26,7 +26,7 @@ npp
 Remove-EnvironmentModule NotepadPlusPlus
 
 Write-Host $env:PATH
-# Output: 
+# Output:
 
 # Alias npp not available anymore
 ```
@@ -34,7 +34,7 @@ Write-Host $env:PATH
 Installation
 ------------
 
-The code is provided as PowerShell-Module. Download the files to a folder called "EnvironmentModules" and add the parent folder to the **PSModulePath** environment variable. 
+The code is provided as PowerShell-Module. Download the files to a folder called "EnvironmentModules" and add the parent folder to the **PSModulePath** environment variable.
 
 
 Usage
@@ -76,18 +76,24 @@ Each environment module should contain a pse file in its module directory. The s
 
     # Default search paths in the registry
     DefaultRegistryPaths = @("HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon")
-        
+
     # Default search paths on the file system
     DefaultFolderPaths = @("C:\Program Files (x86)\Notepad++")
-    
+
     # Default environment variable search paths
     DefaultEnvironmentPaths = @("NOTEPAD_PLUS_PLUS_ROOT")
-        
+
     # Required files that must be part of the folder candidate
     RequiredFiles = @("notepad++.exe")
 
     # The version of the description files
-    StyleVersion = 2.0    
+    StyleVersion = 2.1
+
+    # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
+    Parameters = @{
+        "NotepadPlusPlus.Parameter1" = "Value1"
+        "NotepadPlusPlus.Parameter2" = "Value2"
+    }
 }
 ```
 
@@ -98,8 +104,8 @@ The psm file of an environment module has a special module parameter as argument
 ```powershell
 param(
     [parameter(Position=0, Mandatory=$true)]
-	[EnvironmentModules.EnvironmentModule]
-	$Module
+    [EnvironmentModules.EnvironmentModule]
+    $Module
 )
 
 $Module.AddPrependPath("PATH", $Module.ModuleRoot)

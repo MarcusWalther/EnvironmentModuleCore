@@ -166,7 +166,7 @@ function Copy-EnvironmentModule
 
         mkdir $destination -Force
 
-        Write-Host "Cloning module $ModuleFullName to $destination"
+        Write-Verbose "Cloning module $ModuleFullName to $destination"
 
         $filesToCopy = Get-ChildItem -File $moduleFolder
         $directoriesToCopy = Get-ChildItem -Directory $moduleFolder

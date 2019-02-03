@@ -55,7 +55,7 @@ $script:configuration = @{} # Configuration parameters
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = @{} # AliasName -> EnvironmentModuleAliasInfo[]
 $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModuleFunctionInfo[]
-$script:environmentModuleParameters = @{} # VariableName -> VariableValue
+$script:environmentModuleParameters = @{} # ParameterName -> EnvironmentModuleParameterInfo
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
