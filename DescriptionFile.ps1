@@ -182,10 +182,15 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
         $result.SearchPaths = $result.SearchPaths + $customSearchPaths
     }
 
+    $dependencies = @()
     if($descriptionContent.Contains("RequiredEnvironmentModules")) {
-        $result.RequiredEnvironmentModules = $descriptionContent.Item("RequiredEnvironmentModules")
+        Write-Warning "The field 'RequiredEnvironmentModules' is deprecated, please use the dependencies field."
+        # $result.RequiredEnvironmentModules = $descriptionContent.Item("RequiredEnvironmentModules")
+        $dependencies = $descriptionContent.Item("RequiredEnvironmentModules") | Foreach-Object { New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_}
         Write-Verbose "Read module dependencies $($result.RequiredEnvironmentModules)"
     }
+
+    $result.Dependencies = $dependencies
 
     if($descriptionContent.Contains("DirectUnload")) {
         $result.DirectUnload = $descriptionContent.Item("DirectUnload")

@@ -59,8 +59,8 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     }
 
     if($IncludeDependencies) {
-        foreach ($dependencyModuleName in $Module.RequiredEnvironmentModules) {
-            $dependencyModule = Get-EnvironmentModule -ListAvailable $dependencyModuleName
+        foreach ($dependency in $Module.Dependencies) {
+            $dependencyModule = Get-EnvironmentModule -ListAvailable $dependency.ModuleFullName
 
             if(-not $dependencyModule) {
                 return $false
@@ -292,14 +292,14 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $loadedDependencies = New-Object "System.Collections.Stack"
     Write-Progress -activity $progressName -status "Importing dependencies" -percentcomplete 30
 
-    if($module.RequiredEnvironmentModules.Count -gt 0) {
-        $percentagePerDependency = 50 / $module.RequiredEnvironmentModules.Count
+    if($module.Dependencies.Count -gt 0) {
+        $percentagePerDependency = 50 / $module.Dependencies.Count
         $dependencyIndex = 0
-        foreach ($dependency in $module.RequiredEnvironmentModules) {
+        foreach ($dependency in $module.Dependencies) {
             $percentageComplete = 30 + ($percentagePerDependency * $dependencyIndex)
             Write-Progress -activity $progressName -status "Importing dependency $dependency" -percentcomplete $percentageComplete
             Write-Verbose "Importing dependency $dependency"
-            $loadingResult = (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly $KnownModules)
+            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules)
             if (-not $loadingResult) {
                 while ($loadedDependencies.Count -gt 0) {
                     Remove-EnvironmentModule ($loadedDependencies.Pop())
@@ -307,7 +307,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
                 return $false
             }
             else {
-                $loadedDependencies.Push($dependency)
+                $loadedDependencies.Push($dependency.ModuleFullName)
             }
 
             $dependencyIndex++

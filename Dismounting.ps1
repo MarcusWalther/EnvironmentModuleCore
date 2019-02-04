@@ -106,8 +106,8 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
 
     Write-Verbose "The module $($module.Name) has now a reference counter of $($module.ReferenceCounter)"
 
-    foreach ($refModule in $module.RequiredEnvironmentModules) {
-        Remove-RequiredModulesRecursive $refModule $False
+    foreach ($refModule in $module.Dependencies) {
+        Remove-RequiredModulesRecursive $refModule.ModuleFullName $False
     }
 
     if($module.ReferenceCounter -le 0) {
