@@ -471,7 +471,7 @@ function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]
 
     Write-Host "Available Parameters:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $parameters | ForEach-Object {
-        Write-Host "  * $($_.Parameter) - " -NoNewline
+        Write-Host "  * $($_.Name) - " -NoNewline
         Write-Host $_.Value -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
     }
     Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
