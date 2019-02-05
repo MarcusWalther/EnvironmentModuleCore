@@ -33,15 +33,23 @@ function Set-EnvironmentModuleParameter {
     The name of the parameter to set. If the parameter does not exist, it is created.
     .PARAMETER Value
     The value to set.
+    .PARAMETER Silent
+    No validation set is used for the parmeter name. If the parameter does not exist, no action is performed and no 
+    error is printed.
     #>
 
     [cmdletbinding()]
-    Param()
+    Param([switch] $Silent)
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $parameterNames = $Script:environmentModuleParameters.Keys
-        Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $parameterNames
+        if(-not $Silent) {
+            $parameterNames = $Script:environmentModuleParameters.Keys
+            Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $parameterNames
+        }
+        else {
+            Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0
+        }
 
         Add-DynamicParameter 'Value' String $runtimeParameterDictionary -Mandatory $False -Position 1
 
@@ -52,6 +60,9 @@ function Set-EnvironmentModuleParameter {
         $Value = $PsBoundParameters['Value']
     }
     process {
+        if(-not ($script:environmentModuleParameters[$Parameter])) {
+            return
+        }
         if([string]::IsNullOrEmpty($Value)) {
             $Value = ""
         }

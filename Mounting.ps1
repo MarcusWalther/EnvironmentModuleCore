@@ -11,11 +11,12 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $S
     .PARAMETER SubFolderPath
     The subfolder path that should be appended to the folder path.
     .OUTPUTS
-    True if the folder does exist and if it contains all files, false otherwise.
+    An anonymous object containing 2 values. "Exists": True if the folder does exist and if it contains all files, false otherwise.
+    "Folder": The full path to the folder containing the file. The value is $null if no folder was found.
     #>
     if (-not $FolderPath) {
         Write-Error "No folder path given"
-        return $false
+        return @{Exists=$false; Folder=$null}
     }
 
     if (-not $SubFolderPath) {
@@ -23,21 +24,24 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $S
     }
 
     Write-Verbose "Testing file exisiting '$Files' in folder '$Folder' and subfolder '$SubFolderPath'"
+    $folderCandidates = (Get-Item (Join-Path "$FolderPath" "$SubFolderPath") -ErrorAction SilentlyContinue) | Where-Object {$_.PsIsContainer}
 
-    $completePath = Join-Path "$FolderPath" "$SubFolderPath"
-    if (-not (Test-Path $completePath)) {
-        Write-Verbose "The folder $completePath does not exist"
-        return $false
-    }
+    foreach($folderCandidate in $folderCandidates) {
+        $match = $true
+        foreach($file in $Files) {
+            if (-not (Test-Path (Join-Path "$($folderCandidate.FullName)" "$file"))) {
+                Write-Verbose "The file $file does not exist in folder $($folderCandidate.FullName)"
+                $match = $false
+                break
+            }
+        }
 
-    foreach($file in $Files) {
-        if (-not (Test-Path (Join-Path "$completePath" "$file"))) {
-            Write-Verbose "The file $file does not exist in folder $completePath"
-            return $false
+        if($match) {
+            return @{Exists=$true; Folder=$folderCandidate.FullName}
         }
     }
 
-    return $true
+    return @{Exists=$false; Folder=$null}
 }
 
 function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module, [switch] $IncludeDependencies)
@@ -118,9 +122,10 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
                 Write-Verbose "Checking the folder $folder"
 
-                if (Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder) {
-                    Write-Verbose "The folder $folder contains the required files"
-                    return Join-Path $folder $searchPath.SubFolder
+                $testResult = Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder
+                if ($testResult.Exists) {
+                    Write-Verbose "The folder $($testResult.Folder) contains the required files"
+                    return $testResult.Folder
                 }
             }
             catch {
@@ -132,8 +137,9 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::Directory) {
             Write-Verbose "Checking directory search path $($searchPath.Key)"
-            if (Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder) {
-                return Join-Path $searchPath.Key $searchPath.SubFolder
+            $testResult = Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder
+            if ($testResult.Exists) {
+                return $testResult.Folder
             }
 
             continue
@@ -141,9 +147,14 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::ENVIRONMENT_VARIABLE) {
             $directory = $([environment]::GetEnvironmentVariable($searchPath.Key))
+
+            if(-not $directory) {
+                continue
+            }
             Write-Verbose "Checking environment search path $($searchPath.Key) -> $directory"
-            if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)) {
-                return Join-Path $directory $searchPath.SubFolder
+            $testResult = (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)
+            if ($testResult.Exists) {
+                return $testResult.Folder
             }
 
             continue
@@ -299,12 +310,16 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
             $percentageComplete = 30 + ($percentagePerDependency * $dependencyIndex)
             Write-Progress -activity $progressName -status "Importing dependency $dependency" -percentcomplete $percentageComplete
             Write-Verbose "Importing dependency $dependency"
-            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules)
+
+            $silentDependencyMode = $dependency.IsOptional
+            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules -SilentMode $silentDependencyMode)
             if (-not $loadingResult) {
-                while ($loadedDependencies.Count -gt 0) {
-                    Remove-EnvironmentModule ($loadedDependencies.Pop())
+                if(-not ($dependency.IsOptional)) {
+                    while ($loadedDependencies.Count -gt 0) {
+                        Remove-EnvironmentModule ($loadedDependencies.Pop())
+                    }
+                    return $false
                 }
-                return $false
             }
             else {
                 $loadedDependencies.Push($dependency.ModuleFullName)

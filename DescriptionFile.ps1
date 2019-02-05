@@ -184,10 +184,22 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
 
     $dependencies = @()
     if($descriptionContent.Contains("RequiredEnvironmentModules")) {
-        Write-Warning "The field 'RequiredEnvironmentModules' is deprecated, please use the dependencies field."
+        Write-Warning "The field 'RequiredEnvironmentModules' defined for '$($Module.Name)' is deprecated, please use the dependencies field."
         # $result.RequiredEnvironmentModules = $descriptionContent.Item("RequiredEnvironmentModules")
         $dependencies = $descriptionContent.Item("RequiredEnvironmentModules") | Foreach-Object { New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_}
-        Write-Verbose "Read module dependencies $($result.RequiredEnvironmentModules)"
+        Write-Verbose "Read module dependencies $($dependencies)"
+    }
+
+    if($descriptionContent.Contains("Dependencies")) {
+        $dependencies = $dependencies + $descriptionContent.Item("Dependencies") | Foreach-Object { 
+            if($_.GetType() -eq [string]) {
+                New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_
+            }
+            else {
+                New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_.Name, $_.Optional
+            }
+        }
+        Write-Verbose "Read module dependencies $($dependencies)"
     }
 
     $result.Dependencies = $dependencies

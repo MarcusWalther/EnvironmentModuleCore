@@ -9,7 +9,7 @@
 
 @{
     # Environment Modules that must be imported into the global environment prior importing this module
-    RequiredEnvironmentModules = @("Abstract_Project", "NotepadPlusPlus-x86", "Cmd")
+    Dependencies = @("Abstract_Project", "NotepadPlusPlus-x86", "Cmd")
 
     # The type of the module, either "Default" or "Meta" if it is a project-module
     ModuleType = "Meta"
