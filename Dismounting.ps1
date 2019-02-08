@@ -138,18 +138,16 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
         foreach ($pathInfo in $Module.Paths)
         {
             [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator
-            Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
+            Write-Verbose "Handling path for variable $($pathInfo.Variable) with values '$joinedValue'"
             if($joinedValue -eq "")  {
                 continue
             }
 
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::PREPEND) {
-                Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
-                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
+                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $_}
             }
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::APPEND) {
-                Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
-                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
+                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $_ -Reverse}
             }
             if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::SET) {
                 [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
@@ -178,7 +176,7 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
     }
 }
 
-function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
+function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value, [Switch] $Reverse)
 {
     <#
     .SYNOPSIS
@@ -190,6 +188,8 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     The name of the environment variable that should be extended.
     .PARAMETER Value
     The new value that should be removed from the environment variable.
+    .PARAMETER Reverse
+    The last occurence will be removed if this value is set.
     .OUTPUTS
     No output is returned.
     #>
@@ -197,8 +197,25 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     if($null -eq $oldValue) {
         return
     }
-    $allPathValues = $oldValue.Split([IO.Path]::PathSeparator)
-    $allPathValues = ($allPathValues | Where-Object {$_.ToString() -ne $Value.ToString()})
+    Write-Verbose "Removing value '$Value' from environment variable '$Variable'. Reverse search is set to '$Reverse'"
+    [System.Collections.Generic.List[string]] $allPathValues = $oldValue.Split([IO.Path]::PathSeparator)
+    if($Reverse) {
+        for($i = $allPathValues.Count; $i -gt 0; $i++) {
+            if($_ -eq $Value) {
+                $allPathValues.RemoveAt($i)
+                break
+            }
+        }
+    }
+    else {
+        for($i = 0; $i -lt $allPathValues.Count; $i++) {
+            if($_ -eq $Value) {
+                $allPathValues.RemoveAt($i)
+                break
+            }
+        }
+    }
+
     $newValue = ($allPathValues -join [IO.Path]::PathSeparator)
     [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
 }
