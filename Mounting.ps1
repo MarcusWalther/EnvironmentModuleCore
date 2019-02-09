@@ -209,12 +209,13 @@ function Import-EnvironmentModule
         }
 
         $initialSilentLoadState = $script:silentLoad
-        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $silentMode
+        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $null $silentMode
         $script:silentLoad = $initialSilentLoadState
     }
 }
 
-function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules, [Bool] $SilentMode)
+function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules,
+                                         [EnvironmentModules.EnvironmentModuleInfo] $SourceModule = $null, [Bool] $SilentMode = $false)
 {
     <#
     .SYNOPSIS
@@ -227,6 +228,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     True if the module was loaded directly by the user. False if it was loaded as dependency.
     .PARAMETER KnownModules
     A collection of known modules, used to detect circular dependencies.
+    .PARAMETER SourceModule
+    The module that has triggered the loading of this module (used when module is loaded as dependency).
     .PARAMETER SilentMode
     True if no outputs should be printed.
     .OUTPUTS
@@ -312,7 +315,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
             Write-Verbose "Importing dependency $dependency"
 
             $silentDependencyMode = $dependency.IsOptional
-            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules -SilentMode $silentDependencyMode)
+            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules $module $silentDependencyMode)
             if (-not $loadingResult) {
                 if(-not ($dependency.IsOptional)) {
                     while ($loadedDependencies.Count -gt 0) {
@@ -337,7 +340,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName }
 
     # Load the module itself
-    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
+    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly, $SourceModule)
+
     Write-Verbose "Importing the module $ModuleFullName into the Powershell environment"
     Import-Module $ModuleFullName -Scope Global -Force -ArgumentList $module
 
