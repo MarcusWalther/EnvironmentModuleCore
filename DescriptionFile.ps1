@@ -1,5 +1,10 @@
 
-function Split-EnvironmentModuleName([String] $ModuleFullName)
+$nameRegex = "^[0-9A-Za-z_]+$"
+$versionRegex = "^v?(?:(?:(?<epoch>[0-9]+)!)?(?<release>[0-9]+(?:\.[0-9]+)*)(?<pre>[_\.]?(?<pre_l>(a|b|c|rc|alpha|beta|pre|preview))[_\.]?(?<pre_n>[0-9]+)?)?(?<post>(?:-(?<post_n1>[0-9]+))|(?:[_\.]?(?<post_l>post|rev|r)[_\.]?(?<post_n2>[0-9]+)?))?(?<dev>[_\.]?(?<dev_l>dev)[_\.]?(?<dev_n>[0-9]+)?)?)(?:\+(?<local>[a-z0-9]+(?:[_\.][a-z0-9]+)*))?$"
+$architectureRegex = "^x64|x86$"
+$additionalOptionsRegex = "^[0-9A-Za-z]+$"
+
+function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
 {
     <#
     .SYNOPSIS
@@ -13,38 +18,42 @@ function Split-EnvironmentModuleName([String] $ModuleFullName)
     .OUTPUTS
     A string array with 4 parts (name, version, architecture, additionalOptions)
     #>
-    $doesMatch = $ModuleFullName -match '^(?<name>[0-9A-Za-z_]+)(-(?<version>(?!x64|x86)[^-]+)|(?<version>))((-(?<architecture>(x64|x86)))|(?<architecture>))((-(?<additionalOptions>[0-9A-Za-z]+))|(?<additionalOptions>))$'
-    if($doesMatch)
-    {
-        if($matches.version -eq "") {
-            $matches.version = $null
-        }
-        if($matches.architecture -eq "") {
-            $matches.architecture = $null
-        }
-        if($matches.additionalOptions -eq "") {
-            $matches.additionalOptions = $null
+    $parts = $ModuleFullName.Split("-")
+    $nameMatchResult = [System.Text.RegularExpressions.Regex]::Match($parts[0], $nameRegex)
+
+    $result = @{}
+    $result.Name = $nameMatchResult.Value
+
+    $regexOrder = @(@($versionRegex, "Version"), @($architectureRegex, "Architecture"), @($additionalOptionsRegex, "AdditionalOptions"))
+
+    $currentRegexIndex = 0
+    $matchFailed = (-not ($nameMatchResult.Success))
+    for($i = 1; $i -lt $parts.Count; $i++) {
+        if($currentRegexIndex -ge $regexOrder.Count) {
+            # More parts than matching regexes found
+            $matchFailed = $true
+            break
         }
 
-        Write-Verbose "Splitted $ModuleFullName into parts:"
-        Write-Verbose ("Name: " + $matches.name)
-        Write-Verbose ("Version: " + $matches.version)
-        Write-Verbose ("Architecture: " + $matches.architecture)
-        Write-Verbose ("Additional Options: " + $matches.additionalOptions)
-
-        $result = @{}
-        $result.Name = $matches.name
-        $result.Version = $matches.version
-        $result.Architecture = $matches.architecture
-        $result.AdditionalOptions = $matches.AdditionalOptions
-
-        return $result
+        $currentRegex = $regexOrder[$currentRegexIndex][0]
+        $matchResult = [System.Text.RegularExpressions.Regex]::Match($parts[$i], $currentRegex)
+        if($matchResult.Success) {
+            $result.($regexOrder[$currentRegexIndex][1]) = $matchResult.Value
+        }
+        else {
+            $i-- # We have to check the same part again with the next regex in the list
+        }
+        $currentRegexIndex++
     }
-    else
-    {
-        Write-Warning "The environment module name '$ModuleFullName' is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'"
+
+    if($matchFailed) {
+        if(-not ($Silent)) {
+            Write-Warning "The environment module name '$ModuleFullName' is not correctly formated. It must be 'Name-Version-Architecture-AdditionalOptions'"
+        }
         return $null
     }
+
+    return $result
 }
 
 function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
@@ -191,7 +200,7 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
     }
 
     if($descriptionContent.Contains("Dependencies")) {
-        $dependencies = $dependencies + $descriptionContent.Item("Dependencies") | Foreach-Object { 
+        $dependencies = $dependencies + $descriptionContent.Item("Dependencies") | Foreach-Object {
             if($_.GetType() -eq [string]) {
                 New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_
             }
