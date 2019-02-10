@@ -77,8 +77,9 @@ function Update-EnvironmentModuleCache()
     No output is returned.
     #>
     $script:environmentModules = @{}
-    $modulesByArchitecture = @{}
-    $modulesByVersion = @{}
+    $modulesByShortName = New-Object 'System.Collections.Generic.HashSet[String]'
+    $modulesByArchitecture = @{}  # Name -> Set(Architecture)
+    $modulesByMajorVersion = @{} # Name -> Set(Version)
     $allModuleNames = New-Object 'System.Collections.Generic.HashSet[String]'
 
     # Delete all temporary modules created previously
@@ -87,92 +88,118 @@ function Update-EnvironmentModuleCache()
     foreach ($module in (Get-Module -ListAvailable)) {
         Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
         $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
-        if($isEnvironmentModule) {
-            Write-Verbose "Environment module $($module.Name) found"
-            Add-EnvironmentModuleInternal(New-EnvironmentModuleInfoBase $module)
-            $moduleNameParts = Split-EnvironmentModuleName $module.Name
 
-            if($null -eq $moduleNameParts.Version) {
-              $moduleNameParts.Version = ""
+        if(-not ($isEnvironmentModule)) {
+            continue
+        }
+
+        Write-Verbose "Environment module $($module.Name) found"
+        Add-EnvironmentModuleInternal(New-EnvironmentModuleInfoBase $module)
+        $moduleNameParts = Split-EnvironmentModuleName $module.Name
+
+        if($null -eq $moduleNameParts) {
+            continue # The module is invalid
+        }
+
+        # Read the environment module properties from the pse1 file
+        $info = New-EnvironmentModuleInfoBase $module
+
+        if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
+            continue #Ignore meta and abstract modules
+        }
+
+        # Add the module to the list of all modules
+        $allModuleNames.Add($module.Name) > $null
+
+        # Handle the module by short name
+        $_ = $modulesByShortName.Add($moduleNameParts.Name)
+
+        # Handle the module by architecture (if architecture is specified)
+        if(-not([string]::IsNullOrEmpty($moduleNameParts.Architecture))) {
+            $knownValues = $modulesByArchitecture[$moduleNameParts.Name]
+            if($null -eq $knownValues) {
+                $knownValues = New-Object "System.Collections.Generic.HashSet[string]]"
             }
+            $_ = $knownValues.Add($moduleNameParts.Architecture)
+            $modulesByArchitecture[$moduleNameParts.Name] = $knownValues
+        }
 
-            if($null -eq $moduleNameParts.Architecture) {
-              $moduleNameParts.Architecture = ""
-            }
-
-            # Read the environment module properties from the pse1 file
-            $info = New-EnvironmentModuleInfoBase $module
-
-            if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
-                continue #Ignore meta and abstract modules
-            }
-
-            # Add the module to the list of all modules
-            $allModuleNames.Add($module.Name) > $null
-
-            # Handle the module by architecture (if architecture is specified)
-            if($moduleNameParts.Architecture -ne "") {
-                $dictionaryKey = [System.Tuple]::Create($moduleNameParts.Name,$moduleNameParts.Architecture)
-                $dictionaryValue = [System.Tuple]::Create($moduleNameParts.Version, $module)
-                $oldItem = $modulesByArchitecture.Get_Item($dictionaryKey)
-
-                if($null -eq $oldItem) {
-                    $modulesByArchitecture.Add($dictionaryKey, $dictionaryValue)
-                }
-                else {
-                    if(($oldItem.Item1) -lt $moduleNameParts.Version) {
-                      $modulesByArchitecture.Set_Item($dictionaryKey, $dictionaryValue)
-                    }
-                }
-            }
-
-            # Handle the module by version (if version is specified)
-            $dictionaryKey = $moduleNameParts.Name
-            $dictionaryValue = [System.Tuple]::Create($moduleNameParts.Version, $module)
-            $oldItem = $modulesByVersion.Get_Item($dictionaryKey)
-
-            if($null -eq $oldItem) {
-                $modulesByVersion.Add($dictionaryKey, $dictionaryValue)
+        # Handle the module by major version (if version is specified)
+        if(-not([string]::IsNullOrEmpty($moduleNameParts.Version))) {
+            if(-not ($moduleNameParts.Version -match "^(?<MajorVersion>[0-9]+)[._]")) {
                 continue
             }
 
-            if(($oldItem.Item1) -lt $moduleNameParts.Version) {
-              $modulesByVersion.Set_Item($dictionaryKey, $dictionaryValue)
+            $knownValues = $modulesByMajorVersion[$moduleNameParts.Name]
+            if($null -eq $knownValues) {
+                $knownValues = New-Object "System.Collections.Generic.HashSet[object]]"
             }
+            $newValue = New-Object "System.Tuple[string,string]" -ArgumentList $Matches["MajorVersion"],$moduleNameParts.Architecture
+            $_ = $knownValues.Add($newValue)
+            $modulesByMajorVersion[$moduleNameParts.Name] = $knownValues
         }
     }
 
     $createdEnvironmentModules = New-Object "System.Collections.Generic.List[string]"
-    foreach($module in $modulesByArchitecture.GetEnumerator()) {
-      $moduleName = "$($module.Key.Item1)-$($module.Key.Item2)"
 
-      Write-Verbose "Creating module with name $moduleName"
+    # Create the environment modules by short name
+    if($script:configuration["CreateDefaultModulesByName"] -ne $false) {
+        foreach($moduleName in $modulesByShortName) {
 
-      #Check if there is no module with the default name
-      if($allModuleNames.Contains($moduleName)) {
-        Write-Verbose "The module $moduleName is not generated, because it does already exist"
-        continue
-      }
+            #Check if there is no module with the default name
+            if($allModuleNames.Contains($moduleName)) {
+                Write-Verbose "The module $moduleName is not generated, because it does already exist"
+                continue
+            }
 
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
-      Write-Verbose "EnvironmentModule $moduleName generated"
-      $createdEnvironmentModules.Add($moduleName)
+            [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
+            Write-Verbose "EnvironmentModule $moduleName generated"
+            $createdEnvironmentModules.Add($moduleName)
+        }
     }
 
-    foreach($module in $modulesByVersion.GetEnumerator()) {
-      $moduleName = $module.Key
+    # Create the environment modules by architecture
+    if($script:configuration["CreateDefaultModulesByArchitecture"] -ne $false) {
+        foreach($module in $modulesByArchitecture.GetEnumerator()) {
+            foreach($architecture in $module.Value) {
+                $moduleName = "$($module.Key)-$architecture"
 
-      Write-Verbose "Creating module with name $moduleName"
+                #Check if there is no module with the default name
+                if($allModuleNames.Contains($moduleName)) {
+                    Write-Verbose "The module $moduleName is not generated, because it does already exist"
+                    continue
+                }
 
-      #Check if there is no module with the default name
-      if($allModuleNames.Contains($moduleName)) {
-        Write-Verbose "The module $moduleName is not generated, because it does already exist"
-        continue
-      }
+                [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
+                Write-Verbose "EnvironmentModule $moduleName generated"
+                $createdEnvironmentModules.Add($moduleName)
+            }
+        }
+    }
 
-      [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
-      Write-Verbose "EnvironmentModule $moduleName generated"
-      $createdEnvironmentModules.Add($moduleName)
+    # Create the environment modules by major version
+    if($script:configuration["CreateDefaultModulesByMajorVersion"] -ne $false) {
+        foreach($module in $modulesByMajorVersion.GetEnumerator()) {
+            foreach($versionArchitecture in $module.Value) {
+                $version = $versionArchitecture.Item1
+                $architecture = $versionArchitecture.Item2
+
+                $moduleName = "$($module.Key)-$version"
+                if(-not([string]::IsNullOrEmpty($architecture))) {
+                    $moduleName = "$moduleName-$architecture"
+                }
+
+                #Check if there is no module with the default name
+                if($allModuleNames.Contains($moduleName)) {
+                    Write-Verbose "The module $moduleName is not generated, because it does already exist"
+                    continue
+                }
+
+                [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
+                Write-Verbose "EnvironmentModule $moduleName generated"
+                $createdEnvironmentModules.Add($moduleName)
+            }
+        }
     }
 
     $modules = Get-Module -ListAvailable
@@ -184,11 +211,6 @@ function Update-EnvironmentModuleCache()
         }
         Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
-
-    Write-Verbose "By Architecture"
-    Write-Verbose $modulesByArchitecture.GetEnumerator()
-    Write-Verbose "By Version"
-    Write-Verbose $modulesByVersion.GetEnumerator()
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
 }

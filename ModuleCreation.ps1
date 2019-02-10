@@ -164,7 +164,7 @@ function Copy-EnvironmentModule
             return
         }
 
-        mkdir $destination -Force
+        $_ = mkdir $destination -Force
 
         Write-Verbose "Cloning module $ModuleFullName to $destination"
 

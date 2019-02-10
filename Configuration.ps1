@@ -1,6 +1,12 @@
 
 function Import-EnvironmentModulesConfiguration
 {
+    <#
+    .SYNOPSIS
+    Import the configuration from the given file.
+    .PARAMETER ConfigurationFile
+    The configuration file to read. The content type must be XML.
+    #>
     [CmdletBinding()]
     param(
         [String] $ConfigurationFile
@@ -15,6 +21,12 @@ function Import-EnvironmentModulesConfiguration
 
 function Export-EnvironmentModulesConfiguration
 {
+    <#
+    .SYNOPSIS
+    Export the internal configuration to a file.
+    .PARAMETER ConfigurationFile
+    The configuration file to write. The content type will be XML.
+    #>
     [CmdletBinding()]
     param(
         [String] $ConfigurationFile = $null
@@ -35,7 +47,8 @@ function Set-EnvironmentModuleConfigurationValue
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        $moduleSet = @("NugetApiKey", "NugetSource", "DefaultModuleStoragePath", "ShowLoadingMessages")
+        $moduleSet = @("DefaultModuleStoragePath", "ShowLoadingMessages", "CreateDefaultModulesByArchitecture",
+                       "CreateDefaultModulesByName", "CreateDefaultModulesByMajorVersion")
         Add-DynamicParameter 'ParameterName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
         Add-DynamicParameter 'Value' String $runtimeParameterDictionary -Mandatory $True -Position 1
 
