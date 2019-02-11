@@ -112,13 +112,18 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
     .NOTES
     The given module name must match exactly one module, otherwise $null is returned.
     #>
+    $nameParts = Split-EnvironmentModuleName $Module.Name
+    if($null -eq $nameParts) {
+        return $null
+    }
+
     $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module
 
     if(-not $descriptionContent) {
         return $null
     }
 
-    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module)
+    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     return $result
@@ -140,7 +145,7 @@ function Set-EnvironmentModuleInfoBaseParameter([EnvironmentModules.EnvironmentM
     }
 }
 
-function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullName)
+function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase] $Module, [String] $ModuleFullName)
 {
     <#
     .SYNOPSIS
@@ -155,46 +160,42 @@ function New-EnvironmentModuleInfo([PSModuleInfo] $Module, [String] $ModuleFullN
     The given module name must match exactly one module, otherwise $null is returned.
     #>
     if($Module -eq $null) {
-        $matchingModules = Get-Module -ListAvailable $ModuleFullName
+        $matchingModules = Get-EnvironmentModule -ListAvailable $ModuleFullName
 
         if($matchingModules.Length -lt 1) {
-            Write-Verbose "Unable to find the module $ModuleFullName in the list of all modules"
+            Write-Verbose "Unable to find the module $ModuleFullName in the list of all environment modules"
             return $null
         }
 
         if($matchingModules.Length -gt 1) {
-            Write-Warning "More than one module matches the given full name '$ModuleFullName'"
+            Write-Warning "More than one environment module matches the given full name '$ModuleFullName'"
         }
 
         $Module = $matchingModules[0]
     }
 
-    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module
+    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.PSModuleInfo
 
     if(-not $descriptionContent) {
         return $null
     }
 
-    $nameParts = (Split-EnvironmentModuleName $Module.Name)
-
-    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList $Module.ModuleBase),
-                            (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name)),
-                            $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
+    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList $Module.PSModuleInfo.ModuleBase),
+                            (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name)))
 
     $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
 
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     $result.DirectUnload = $false
-    $customSearchPaths = $script:customSearchPaths[$Module.Name]
+    $customSearchPaths = $script:customSearchPaths[$Module.FullName]
     if ($customSearchPaths) {
         $result.SearchPaths = $result.SearchPaths + $customSearchPaths
     }
 
     $dependencies = @()
     if($descriptionContent.Contains("RequiredEnvironmentModules")) {
-        Write-Warning "The field 'RequiredEnvironmentModules' defined for '$($Module.Name)' is deprecated, please use the dependencies field."
-        # $result.RequiredEnvironmentModules = $descriptionContent.Item("RequiredEnvironmentModules")
+        Write-Warning "The field 'RequiredEnvironmentModules' defined for '$($Module.FullName)' is deprecated, please use the dependencies field."
         $dependencies = $descriptionContent.Item("RequiredEnvironmentModules") | Foreach-Object { New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_}
         Write-Verbose "Read module dependencies $($dependencies)"
     }

@@ -122,7 +122,7 @@ The name of an environment module plays an important role, because it is used to
  - EnvironmentModuleName -> A simple module name without dashes, indicating that the architecture and version doesn't matter (for instance *NotepadPlusPlus*)
  - EnvironmentModuleName-Version -> A module with a version number. The version parts are separated by underscores (for instance *NotepadPlusPlus-7_4_2*)
  - EnvironmentModuleName-Version-Architecture -> An additional version tag can be specified. Either 'x64' or 'x86' are supported at the moment (for instance *NotepadPlusPlus-7_4_2-x86*).
- - EnvironmentModuleName-Version-Architecture-AdditionalInformation -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
+ - EnvironmentModuleName-Version-Architecture-AdditionalOptions -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
 
 
 Caching and Default Modules

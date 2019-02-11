@@ -140,7 +140,7 @@ function Update-EnvironmentModuleCache()
         }
     }
 
-    $createdEnvironmentModules = New-Object "System.Collections.Generic.List[string]"
+    $createdEnvironmentModules = New-Object "System.Collections.Generic.List[object]"
 
     # Create the environment modules by short name
     if($script:configuration["CreateDefaultModulesByName"] -ne $false) {
@@ -154,7 +154,7 @@ function Update-EnvironmentModuleCache()
 
             [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
             Write-Verbose "EnvironmentModule $moduleName generated"
-            $createdEnvironmentModules.Add($moduleName)
+            $createdEnvironmentModules.Add(@{FullName=$moduleName;Name=$moduleName;Version=$null;Architecture=$null;AdditionalOptions=$null})
         }
     }
 
@@ -172,7 +172,7 @@ function Update-EnvironmentModuleCache()
 
                 [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
                 Write-Verbose "EnvironmentModule $moduleName generated"
-                $createdEnvironmentModules.Add($moduleName)
+                $createdEnvironmentModules.Add(@{FullName=$moduleName;Name=$module.Key;Version=$null;Architecture=$architecture;AdditionalOptions=$null})
             }
         }
     }
@@ -197,19 +197,19 @@ function Update-EnvironmentModuleCache()
 
                 [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
                 Write-Verbose "EnvironmentModule $moduleName generated"
-                $createdEnvironmentModules.Add($moduleName)
+                $createdEnvironmentModules.Add(@{FullName=$moduleName;Name=$module.Key;Version=$version;Architecture=$architecture;AdditionalOptions=$null})
             }
         }
     }
 
     $modules = Get-Module -ListAvailable
-    foreach($moduleName in $createdEnvironmentModules) {
-        $module = $modules | Where-Object {$_.Name -eq $moduleName}
+    foreach($moduleDescription in $createdEnvironmentModules) {
+        $module = $modules | Where-Object {$_.Name -eq $moduleDescription.FullName}
         if($null -eq $module) {
             Write-Warning "Unable to find the created module $moduleName in the PS module list"
             continue
         }
-        Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, [EnvironmentModules.EnvironmentModuleType]::Meta))
+        Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, $moduleDescription.Name, $moduleDescription.Version, $moduleDescription.Architecture, $moduleDescription.AdditionalOptions, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules

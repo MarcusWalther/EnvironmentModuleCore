@@ -16,6 +16,14 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
     .OUTPUTS
     The EnvironmentModule-object(s) matching the filter. If no module was found, $null is returned.
     #>
+    if([string]::IsNullOrEmpty($Architecture)) {
+        $Architecture = "*"
+    }
+
+    if([string]::IsNullOrEmpty($Version)) {
+        $Version = "*"
+    }
+
     if($ListAvailable) {
         foreach($module in Get-AllEnvironmentModules) {
             if(-not ($module.FullName -like $ModuleFullName)) {
@@ -30,7 +38,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
                 continue
             }
 
-            New-EnvironmentModuleInfo -ModuleFullName $module.FullName
+            New-EnvironmentModuleInfo -Module $module
         }
     }
     else {
