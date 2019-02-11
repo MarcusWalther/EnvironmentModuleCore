@@ -127,7 +127,7 @@ function Get-ConcreteEnvironmentModules([switch] $ListAvailable, [switch] $Exclu
     }
 }
 
-function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $ModuleFullName = "*")
+function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $ModuleFullName = "*", [Switch] $ReturnTopLevelFunction)
 {
     <#
     .SYNOPSIS
@@ -136,12 +136,29 @@ function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $M
     This function will search the function stack for functions defined with the passed name.
     .PARAMETER FunctionName
     The name of the function.
+    .PARAMETER ModuleFullName
+    The name of the module defining the function.
+    .PARAMETER ReturnTopLevelFunction
+    If set, only the top level function is returned.
     .OUTPUTS
     The list of modules defining the function. The last function in the list is the executed one.
     #>
-    foreach($info in $script:loadedEnvironmentModuleFunctions.Values) {
-        if(($info.ModuleFullName -like $ModuleFullName) -and ($info.Name -like $FunctionName)) {
-            $info
+    foreach($key in $script:loadedEnvironmentModuleFunctions.Keys) {
+        $values = $script:loadedEnvironmentModuleFunctions.Item($key)
+        if(-not($key -like $FunctionName)) {
+            continue
+        }
+
+        for($i = $values.Count - 1; $i -ge 0; $i--) {
+            $value = $values[$i]
+            if(-not($value.ModuleFullName -like $ModuleFullName)) {
+                continue
+            }
+
+            $value
+            if($ReturnTopLevelFunction) {
+                break
+            }
         }
     }
 }

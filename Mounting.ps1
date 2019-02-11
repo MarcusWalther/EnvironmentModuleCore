@@ -457,7 +457,7 @@ function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]
     No output is returned.
     #>
     $aliases = Get-EnvironmentModuleAlias | Sort-Object -Property "Name"
-    $functions = Get-EnvironmentModuleFunction | Sort-Object -Property "Name"
+    $functions = Get-EnvironmentModuleFunction -ReturnTopLevelFunction | Sort-Object -Property "Name"
     $parameters = Get-EnvironmentModuleParameter | Sort-Object -Property "Name"
     $modules = Get-ConcreteEnvironmentModules | Sort-Object -Property "FullName"
 
