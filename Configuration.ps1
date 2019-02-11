@@ -42,6 +42,14 @@ function Export-EnvironmentModulesConfiguration
 
 function Set-EnvironmentModuleConfigurationValue
 {
+    <#
+    .SYNOPSIS
+    Set a configuration value influencing the behaviour of the environment module engine. The configuration value is stored persistently.
+    .PARAMETER ParameterName
+    The name of the configuration parameter to set.
+    .PARAMETER Value
+    The value set.
+    #>
     [CmdletBinding()]
     param(
     )
