@@ -17,7 +17,11 @@ function Initialize-EnvironmentModuleCache()
         return
     }
 
-    $script:environmentModules = Import-CliXml -Path $moduleCacheFileLocation
+    $script:environmentModules = @{}
+    (Import-CliXml -Path $moduleCacheFileLocation).GetEnumerator() | ForEach-Object {
+        $item = $_.Value
+        $script:environmentModules[$_.Name] = (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList $item.FullName, (New-Object "System.IO.DirectoryInfo" -ArgumentList $item.BaseDirectory.FullName), $item.Name, $item.Version, $item.Architecture, $item.AdditionalOptions, $item.ModuleType)
+    }
 }
 
 function Initialize-CustomSearchPaths()

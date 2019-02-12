@@ -1,6 +1,6 @@
 
 $nameRegex = "^[0-9A-Za-z_]+$"
-$versionRegex = "^v?(?:(?:(?<epoch>[0-9]+)!)?(?<release>[0-9]+(?:\.[0-9]+)*)(?<pre>[_\.]?(?<pre_l>(a|b|c|rc|alpha|beta|pre|preview))[_\.]?(?<pre_n>[0-9]+)?)?(?<post>(?:-(?<post_n1>[0-9]+))|(?:[_\.]?(?<post_l>post|rev|r)[_\.]?(?<post_n2>[0-9]+)?))?(?<dev>[_\.]?(?<dev_l>dev)[_\.]?(?<dev_n>[0-9]+)?)?)(?:\+(?<local>[a-z0-9]+(?:[_\.][a-z0-9]+)*))?$"
+$versionRegex = "^v?(?:(?:(?<epoch>[0-9]+)!)?(?<release>[0-9]*(?:[_\.][0-9]+)*)(?<pre>[_\.]?(?<pre_l>(a|b|c|rc|alpha|beta|pre|preview|sp))[_\.]?(?<pre_n>[0-9]+)?)?(?<post>(?:-(?<post_n1>[0-9]+))|(?:[_\.]?(?<post_l>post|rev|r)[_\.]?(?<post_n2>[0-9]+)?))?(?<dev>[_\.]?(?<dev_l>dev)[_\.]?(?<dev_n>[0-9]+)?)?)(?:\+(?<local>[a-z0-9]+(?:[_\.][a-z0-9]+)*))?$"
 $architectureRegex = "^x64|x86$"
 $additionalOptionsRegex = "^[0-9A-Za-z]+$"
 
@@ -19,7 +19,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
     A string array with 4 parts (name, version, architecture, additionalOptions)
     #>
     $parts = $ModuleFullName.Split("-")
-    $nameMatchResult = [System.Text.RegularExpressions.Regex]::Match($parts[0], $nameRegex)
+    $nameMatchResult = [System.Text.RegularExpressions.Regex]::Match($parts[0], $nameRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 
     $result = @{}
     $result.Name = $nameMatchResult.Value
@@ -36,7 +36,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
         }
 
         $currentRegex = $regexOrder[$currentRegexIndex][0]
-        $matchResult = [System.Text.RegularExpressions.Regex]::Match($parts[$i], $currentRegex)
+        $matchResult = [System.Text.RegularExpressions.Regex]::Match($parts[$i], $currentRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
         if($matchResult.Success) {
             $result.($regexOrder[$currentRegexIndex][1]) = $matchResult.Value
         }
@@ -56,7 +56,7 @@ function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
     return $result
 }
 
-function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
+function Read-EnvironmentModuleDescriptionFile([string] $ModuleBase, [string] $ModuleFullName)
 {
     <#
     .SYNOPSIS
@@ -69,14 +69,9 @@ function Read-EnvironmentModuleDescriptionFile([PSModuleInfo] $Module)
     #>
 
     Write-Verbose "Reading environment module description file for $($Module.Name)"
-    $isEnvironmentModule = ("$($Module.RequiredModules)" -match "EnvironmentModules")
-
-    if(-not $isEnvironmentModule) {
-        return $null
-    }
 
     # Search for a pse1 file in the base directory
-    return Read-EnvironmentModuleDescriptionFileByPath (Join-Path $Module.ModuleBase "$($Module.Name).pse1")
+    return Read-EnvironmentModuleDescriptionFileByPath (Join-Path $ModuleBase "$($ModuleFullName).pse1")
 }
 
 function Read-EnvironmentModuleDescriptionFileByPath([string] $Path)
@@ -117,13 +112,13 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
         return $null
     }
 
-    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module
+    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.Name
 
     if(-not $descriptionContent) {
         return $null
     }
 
-    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
+    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, (New-Object "System.IO.DirectoryInfo" -ArgumentList $Module.ModuleBase), $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     return $result
@@ -174,14 +169,13 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
         $Module = $matchingModules[0]
     }
 
-    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.PSModuleInfo
+    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.BaseDirectory.FullName $Module.FullName
 
     if(-not $descriptionContent) {
         return $null
     }
 
-    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList $Module.PSModuleInfo.ModuleBase),
-                            (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name)))
+    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name)))
 
     $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
 
