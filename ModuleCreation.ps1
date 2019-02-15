@@ -8,9 +8,9 @@ function Test-PartOfTmpDirectory([string] $Destination, [switch] $ShowError)
     .OUTPUTS
     True if the folder is part of the temporary directory.
     #>
-    $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" (Resolve-Path $script:tmpEnvironmentRootPath)
+    $tmpDirectory = (Resolve-Path $script:tmpEnvironmentRootPath)
 
-    if($Destination.StartsWith($tmpDirectory.FullName)) {
+    if($Destination.StartsWith($tmpDirectory)) {
         if($ShowError) {
             Write-Error "The target destination is part of the temporary directory. Please specify another directory or set the force parameter."
         }

@@ -118,7 +118,7 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
         return $null
     }
 
-    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, (New-Object "System.IO.DirectoryInfo" -ArgumentList $Module.ModuleBase), $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
+    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, $Module.ModuleBase, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     return $result
@@ -169,13 +169,13 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
         $Module = $matchingModules[0]
     }
 
-    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.BaseDirectory.FullName $Module.FullName
+    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.FullName
 
     if(-not $descriptionContent) {
         return $null
     }
 
-    $arguments = @($Module, (New-Object -TypeName "System.IO.DirectoryInfo" -ArgumentList (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name)))
+    $arguments = @($Module, (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))
 
     $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
 

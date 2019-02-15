@@ -20,7 +20,7 @@ function Initialize-EnvironmentModuleCache()
     $script:environmentModules = @{}
     (Import-CliXml -Path $moduleCacheFileLocation).GetEnumerator() | ForEach-Object {
         $item = $_.Value
-        $script:environmentModules[$_.Name] = (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList $item.FullName, (New-Object "System.IO.DirectoryInfo" -ArgumentList $item.BaseDirectory.FullName), $item.Name, $item.Version, $item.Architecture, $item.AdditionalOptions, $item.ModuleType)
+        $script:environmentModules[$_.Name] = (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList $item.FullName, $item.ModuleBase, $item.Name, $item.Version, $item.Architecture, $item.AdditionalOptions, $item.ModuleType)
     }
 }
 
