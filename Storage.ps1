@@ -213,7 +213,7 @@ function Update-EnvironmentModuleCache()
             Write-Warning "Unable to find the created module $moduleName in the PS module list"
             continue
         }
-        Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, $moduleDescription.Name, $moduleDescription.Version, $moduleDescription.Architecture, $moduleDescription.AdditionalOptions, [EnvironmentModules.EnvironmentModuleType]::Meta))
+        Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, $module.ModuleBase, $moduleDescription.Name, $moduleDescription.Version, $moduleDescription.Architecture, $moduleDescription.AdditionalOptions, [EnvironmentModules.EnvironmentModuleType]::Meta))
     }
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules

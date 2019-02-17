@@ -118,7 +118,7 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
         return $null
     }
 
-    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, $Module.ModuleBase, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions)
+    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, $Module.ModuleBase, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions, [EnvironmentModules.EnvironmentModuleType]::Default)
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     return $result
@@ -175,7 +175,7 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
         return $null
     }
 
-    $arguments = @($Module, (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))
+    $arguments = @($Module, $null, (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))
 
     $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
 

@@ -58,7 +58,7 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     .OUTPUTS
     True if a valid root directory was found.
     #>
-    if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Get-EnvironmentModuleRootDirectory $Module))) {
+    if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Set-EnvironmentModuleRootDirectory $Module))) {
         return $false
     }
 
@@ -79,11 +79,11 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     return $true
 }
 
-function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module)
+function Set-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module)
 {
     <#
     .SYNOPSIS
-    Find the root directory of the module, that is either specified by a registry entry or by a path.
+    Find the root directory of the module that is either specified by a registry entry or by a path. Store the value in the object.
     .DESCRIPTION
     This function will check the meta parameter of the given module and will identify the root directory of the module, either by its registry or path parameters.
     .PARAMETER Module
@@ -91,6 +91,10 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
     .OUTPUTS
     The path to the root directory or $null if it was not found.
     #>
+    if((-not ([string]::IsNullOrEmpty($Module.ModuleRoot))) -and (Test-Path ($Module.ModuleRoot))) {
+        return $Module.ModuleRoot
+    }
+
     Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredFiles.Count) required files"
 
     if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredFiles.Count -gt 0)) {
@@ -125,6 +129,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
                 $testResult = Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder
                 if ($testResult.Exists) {
                     Write-Verbose "The folder $($testResult.Folder) contains the required files"
+                    $Module.ModuleRoot = $testResult.Folder
                     return $testResult.Folder
                 }
             }
@@ -139,6 +144,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
             Write-Verbose "Checking directory search path $($searchPath.Key)"
             $testResult = Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder
             if ($testResult.Exists) {
+                $Module.ModuleRoot = $testResult.Folder
                 return $testResult.Folder
             }
 
@@ -154,6 +160,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
             Write-Verbose "Checking environment search path $($searchPath.Key) -> $directory"
             $testResult = (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)
             if ($testResult.Exists) {
+                $Module.ModuleRoot = $testResult.Folder
                 return $testResult.Folder
             }
 
@@ -161,6 +168,7 @@ function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         }
     }
 
+    $Module = $null
     return $null
 }
 
@@ -292,7 +300,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Identify the root directory
-    $moduleRoot = Get-EnvironmentModuleRootDirectory $module
+    $moduleRoot = Set-EnvironmentModuleRootDirectory $module
 
     if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
         if(-not $SilentMode) {
@@ -340,7 +348,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName }
 
     # Load the module itself
-    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly, $SourceModule)
+    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $LoadedDirectly, $SourceModule)
 
     Write-Verbose "Importing the module $ModuleFullName into the Powershell environment"
     Import-Module $ModuleFullName -Scope Global -Force -ArgumentList $module
