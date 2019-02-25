@@ -57,7 +57,7 @@ $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModu
 $script:environmentModuleParameters = @{} # ParameterName -> EnvironmentModuleParameterInfo
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
-$script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
+$script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
 $script:silentUnload = $false # Indicates if output should be printed on module unload
 $script:silentLoad = $false # Indicates if output should be printed on module load
 
@@ -99,4 +99,4 @@ if(test-path $script:searchPathsFileLocation)
 . (Join-Path $PSScriptRoot "ModuleCreation.ps1")
 
 # Include the main code
-. (Join-Path $PSScriptRoot "EnvironmentModules.ps1")
+. (Join-Path $PSScriptRoot "EnvironmentModuleCore.ps1")

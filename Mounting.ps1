@@ -1,17 +1,17 @@
-function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $SubFolderPath) {
+function Test-ItemExistence([string] $FolderPath, [EnvironmentModules.EnvironmentModuleRequiredItem[]] $Items, [string] $SubFolderPath) {
     <#
     .SYNOPSIS
-    Check if the given folder contains all files given as second parameter.
+    Check if the given folder contains all items given as second parameter.
     .DESCRIPTION
-    This function will check if the folder does exist and if it contains all given files.
+    This function will check if the folder does exist and if it contains all given items.
     .PARAMETER FolderPath
     The folder to check.
-    .PARAMETER Files
-    The files to check.
+    .PARAMETER Items
+    The items to check.
     .PARAMETER SubFolderPath
     The subfolder path that should be appended to the folder path.
     .OUTPUTS
-    An anonymous object containing 2 values. "Exists": True if the folder does exist and if it contains all files, false otherwise.
+    An anonymous object containing 2 values. "Exists": True if the folder does exist and if it contains all items, false otherwise.
     "Folder": The full path to the folder containing the file. The value is $null if no folder was found.
     #>
     if (-not $FolderPath) {
@@ -23,16 +23,22 @@ function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $S
         $SubFolderPath = ""
     }
 
-    Write-Verbose "Testing file exisiting '$Files' in folder '$Folder' and subfolder '$SubFolderPath'"
+    Write-Verbose "Testing item exisiting in folder '$Folder' and subfolder '$SubFolderPath'"
     $folderCandidates = (Get-Item (Join-Path "$FolderPath" "$SubFolderPath") -ErrorAction SilentlyContinue) | Where-Object {$_.PsIsContainer}
 
     foreach($folderCandidate in $folderCandidates) {
         $match = $true
-        foreach($file in $Files) {
-            if (-not (Test-Path (Join-Path "$($folderCandidate.FullName)" "$file"))) {
-                Write-Verbose "The file $file does not exist in folder $($folderCandidate.FullName)"
-                $match = $false
-                break
+        foreach($item in $Items) {
+            $itemType = $item.ItemType.ToUpper()
+            if ($itemType -eq [EnvironmentModules.EnvironmentModuleRequiredItem]::FILE_TYPE) {
+                if (-not (Test-Path (Join-Path "$($folderCandidate.FullName)" "$file"))) {
+                    Write-Verbose "The file $file does not exist in folder $($folderCandidate.FullName)"
+                    $match = $false
+                    break
+                }
+            }
+            else {
+                Write-Warning "Unable to handle item type '$itemType'"
             }
         }
 
@@ -58,7 +64,7 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     .OUTPUTS
     True if a valid root directory was found.
     #>
-    if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Set-EnvironmentModuleRootDirectory $Module))) {
+    if(($Module.RequiredItems.Length -gt 0) -and ($null -eq (Set-EnvironmentModuleRootDirectory $Module))) {
         return $false
     }
 
@@ -95,9 +101,9 @@ function Set-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
         return $Module.ModuleRoot
     }
 
-    Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredFiles.Count) required files"
+    Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredItems.Count) required items"
 
-    if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredFiles.Count -gt 0)) {
+    if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredItems.Count -gt 0)) {
         Write-Warning "The module $($Module.FullName) has no defined search paths. Please use the function Add-EnvironmentModuleSearchPath to specify the location"
     }
 
@@ -126,7 +132,7 @@ function Set-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
                 Write-Verbose "Checking the folder $folder"
 
-                $testResult = Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder
+                $testResult = Test-FileExistence $folder $Module.RequiredItems $searchPath.SubFolder
                 if ($testResult.Exists) {
                     Write-Verbose "The folder $($testResult.Folder) contains the required files"
                     $Module.ModuleRoot = $testResult.Folder
@@ -142,7 +148,7 @@ function Set-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
 
         if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::Directory) {
             Write-Verbose "Checking directory search path $($searchPath.Key)"
-            $testResult = Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder
+            $testResult = Test-FileExistence $searchPath.Key $Module.RequiredItems $searchPath.SubFolder
             if ($testResult.Exists) {
                 $Module.ModuleRoot = $testResult.Folder
                 return $testResult.Folder
@@ -158,7 +164,7 @@ function Set-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModul
                 continue
             }
             Write-Verbose "Checking environment search path $($searchPath.Key) -> $directory"
-            $testResult = (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)
+            $testResult = (Test-FileExistence $directory $Module.RequiredItems $searchPath.SubFolder)
             if ($testResult.Exists) {
                 $Module.ModuleRoot = $testResult.Folder
                 return $testResult.Folder
@@ -302,7 +308,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     # Identify the root directory
     $moduleRoot = Set-EnvironmentModuleRootDirectory $module
 
-    if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
+    if (($module.RequiredItems.Length -gt 0) -and ($null -eq $moduleRoot)) {
         if(-not $SilentMode) {
             Write-Host "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
             Write-Host "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor

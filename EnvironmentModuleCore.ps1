@@ -120,10 +120,10 @@ function Get-ConcreteEnvironmentModules([switch] $ListAvailable, [switch] $Exclu
     }
 
     if($ExcludeMetaModules) {
-        return $moduleSet | Where-Object {($_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract) -and ($_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Meta)}
+        return $moduleSet | Where-Object {($_.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Abstract) -and ($_.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Meta)}
     }
     else {
-        return $moduleSet | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract}
+        return $moduleSet | Where-Object {$_.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Abstract}
     }
 }
 
@@ -218,12 +218,12 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
                 continue
             }
             $definition = $aliases[$alias]
-            New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
+            New-Object "EnvironmentModuleCore.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
         }
     }
 }
 
-function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModules.EnvironmentModulePathType] $PathType = [EnvironmentModules.EnvironmentModulePathType]::UNKNOWN)
+function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModuleCore.EnvironmentModulePathType] $PathType = [EnvironmentModuleCore.EnvironmentModulePathType]::UNKNOWN)
 {
     <#
     .SYNOPSIS
@@ -249,7 +249,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
             if(-not ($pathInfo.Variable -like $PathName)) {
                 continue
             }
-            if(([EnvironmentModules.EnvironmentModulePathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
+            if(([EnvironmentModuleCore.EnvironmentModulePathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
                 continue
             }
 

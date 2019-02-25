@@ -214,8 +214,9 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
     }
 
     if($descriptionContent.Contains("RequiredFiles")) {
-        $result.RequiredFiles = $descriptionContent.Item("RequiredFiles")
-        Write-Verbose "Read required files $($result.RequiredFiles)"
+        Write-Warning "The field 'RequiredFiles' defined for '$($Module.FullName)' is deprecated, please use the RequiredItems field."
+        $result.RequiredItems = $result.RequiredItems + ($descriptionContent.Item("RequiredFiles") | ForEach-Object {New-Object "EnvironmentModules.EnvironmentModuleRequiredItem" [EnvironmentModules.EnvironmentModuleRequiredItem]::FILE_TYPE $_})
+        Write-Verbose "Read required files $($descriptionContent.Item('RequiredFiles'))"
     }
 
     if($descriptionContent.Contains("DefaultRegistryPaths")) {
