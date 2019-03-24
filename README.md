@@ -121,3 +121,6 @@ Caching and Default Modules
 ---------------------------
 
 In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
+
+# Referenced Libraries
+Scriban (see https://github.com/lunet-io/scriban) - BSD 2-Clause "Simplified" License.
