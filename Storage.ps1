@@ -20,7 +20,7 @@ function Initialize-EnvironmentModuleCache()
     $script:environmentModules = @{}
     (Import-CliXml -Path $moduleCacheFileLocation).GetEnumerator() | ForEach-Object {
         $item = $_.Value
-        $script:environmentModules[$_.Name] = (New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList $item.FullName, $item.ModuleBase, $item.Name, $item.Version, $item.Architecture, $item.AdditionalOptions, $item.ModuleType)
+        $script:environmentModules[$_.Name] = (New-Object EnvironmentModuleCore.EnvironmentModuleInfoBase -ArgumentList $item.FullName, $item.ModuleBase, $item.Name, $item.Version, $item.Architecture, $item.AdditionalOptions, $item.ModuleType)
     }
 }
 
@@ -34,7 +34,7 @@ function Initialize-CustomSearchPaths()
     .OUTPUTS
     No output is returned.
     #>
-    $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModules.SearchPath]]"
+    $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
 
     $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:searchPathsFileLocation
     if(($null -eq $fileInfo) -or ($fileInfo.Length -eq 0)) {
@@ -42,7 +42,7 @@ function Initialize-CustomSearchPaths()
     }
 
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
-    $knownTypes.Add([EnvironmentModules.SearchPath])
+    $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
     $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
 
@@ -69,7 +69,7 @@ function Initialize-CustomSearchPaths()
     }
 }
 
-function Update-EnvironmentModuleCache()
+function Update-EnvironmentModuleCache
 {
     <#
     .SYNOPSIS
@@ -80,6 +80,13 @@ function Update-EnvironmentModuleCache()
     .OUTPUTS
     No output is returned.
     #>
+    [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
+    param()
+
+    if (-not $PSCmdlet.ShouldProcess("Update the environment module cache file")) {
+        return
+    }
+
     $script:environmentModules = @{}
     $modulesByShortName = New-Object 'System.Collections.Generic.HashSet[String]'
     $modulesByArchitecture = @{}  # Name -> Set(Architecture)
@@ -91,7 +98,7 @@ function Update-EnvironmentModuleCache()
 
     foreach ($module in (Get-Module -ListAvailable)) {
         Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
-        $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModules")
+        $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModuleCore")
 
         if(-not ($isEnvironmentModule)) {
             continue
@@ -108,7 +115,7 @@ function Update-EnvironmentModuleCache()
         # Read the environment module properties from the pse1 file
         $info = New-EnvironmentModuleInfoBase $module
 
-        if($info.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Default) {
+        if($info.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Default) {
             continue #Ignore meta and abstract modules
         }
 
@@ -156,7 +163,7 @@ function Update-EnvironmentModuleCache()
                 continue
             }
 
-            [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
+            [EnvironmentModuleCore.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
             Write-Verbose "EnvironmentModule $moduleName generated"
             $createdEnvironmentModules.Add(@{FullName=$moduleName;Name=$moduleName;Version=$null;Architecture=$null;AdditionalOptions=$null})
         }
@@ -174,7 +181,7 @@ function Update-EnvironmentModuleCache()
                     continue
                 }
 
-                [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
+                [EnvironmentModuleCore.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
                 Write-Verbose "EnvironmentModule $moduleName generated"
                 $createdEnvironmentModules.Add(@{FullName=$moduleName;Name=$module.Key;Version=$null;Architecture=$architecture;AdditionalOptions=$null})
             }
@@ -199,7 +206,7 @@ function Update-EnvironmentModuleCache()
                     continue
                 }
 
-                [EnvironmentModules.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
+                [EnvironmentModuleCore.ModuleCreator]::CreateMetaEnvironmentModule($moduleName, $script:tmpEnvironmentModulePath, ([System.IO.Path]::Combine($script:moduleFileLocation, "..")), $true, "", $null)
                 Write-Verbose "EnvironmentModule $moduleName generated"
                 $createdEnvironmentModules.Add(@{FullName=$moduleName;Name=$module.Key;Version=$version;Architecture=$architecture;AdditionalOptions=$null})
             }
@@ -213,13 +220,13 @@ function Update-EnvironmentModuleCache()
             Write-Warning "Unable to find the created module $moduleName in the PS module list"
             continue
         }
-        Add-EnvironmentModuleInternal(New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($module, $module.ModuleBase, $moduleDescription.Name, $moduleDescription.Version, $moduleDescription.Architecture, $moduleDescription.AdditionalOptions, [EnvironmentModules.EnvironmentModuleType]::Meta))
+        Add-EnvironmentModuleInternal(New-Object EnvironmentModuleCore.EnvironmentModuleInfoBase -ArgumentList @($module, $module.ModuleBase, $moduleDescription.Name, $moduleDescription.Version, $moduleDescription.Architecture, $moduleDescription.AdditionalOptions, [EnvironmentModuleCore.EnvironmentModuleType]::Meta))
     }
 
     Export-Clixml -Path "$moduleCacheFileLocation" -InputObject $script:environmentModules
 }
 
-function Add-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModuleInfoBase] $Module)
+function Add-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module)
 {
     <#
     .SYNOPSIS
@@ -248,7 +255,7 @@ function Add-EnvironmentModuleSearchPath
     .PARAMETER Type
     The type of the search path.
     .PARAMETER Key
-    The key to set - the key of the class EnvironmentModules.SearchPath.
+    The key to set - the key of the class EnvironmentModuleCore.SearchPath.
     .PARAMETER Module
     The module that should be extended with a new search path.
     .PARAMETER SubFolder
@@ -256,7 +263,7 @@ function Add-EnvironmentModuleSearchPath
     .OUTPUTS
     List of all search paths.
     #>
-    [cmdletbinding()]
+    [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
     Param()
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -264,14 +271,19 @@ function Add-EnvironmentModuleSearchPath
         $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
-        Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet @("Directory", "Registry", "Environment")
+        Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $script:searchPathTypes.Keys
         Add-DynamicParameter 'Key' String $runtimeParameterDictionary -Mandatory $True -Position 2
         Add-DynamicParameter 'SubFolder' String $runtimeParameterDictionary -Mandatory $False -Position 3
+        Add-DynamicParameter 'Priority' Int $runtimeParameterDictionary -Mandatory $False -Position 4
 
         return $runtimeParameterDictionary
     }
 
     begin {
+        if (-not $PSCmdlet.ShouldProcess("Add a new environment module search path")) {
+            return
+        }
+
         $ModuleFullName = $PsBoundParameters['ModuleFullName']
         $Type = $PsBoundParameters['Type']
         $Key = $PsBoundParameters['Key']
@@ -280,29 +292,24 @@ function Add-EnvironmentModuleSearchPath
         if(-not $SubFolder) {
             $SubFolder = ""
         }
+
+        $Priority = $PsBoundParameters['Priority']
+
+        if(-not $Priority) {
+            $Priority = $script:searchPathTypes[$Type].Item2 # Get the default priority of the type
+        }
     }
 
     process {
         $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
-        $newSearchPath
-        if($Type -eq "Directory") {
-            $newSearchPath = New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($Key, $SubFolder, 40, $false)
-        }
-        else {
-            if($Type -eq "Registry") {
-                $newSearchPath = New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($Key, $SubFolder, 40, $false)
-            }
-            else {
-                $newSearchPath = New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($Key, $SubFolder, 40, $false)
-            }
-        }
+        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false)
 
         if($oldSearchPaths) {
             $oldSearchPaths.Add($newSearchPath)
             $script:customSearchPaths[$ModuleFullName] = $oldSearchPaths
         }
         else {
-            $searchPaths = New-Object "System.Collections.Generic.List[EnvironmentModules.SearchPath]"
+            $searchPaths = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]"
             $searchPaths.Add($newSearchPath)
             $script:customSearchPaths[$ModuleFullName] = $searchPaths
         }
@@ -329,7 +336,7 @@ function Remove-EnvironmentModuleSearchPath
     .OUTPUTS
     List of all search paths.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
     Param()
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -362,6 +369,10 @@ function Remove-EnvironmentModuleSearchPath
     }
 
     process {
+        if (-not $PSCmdlet.ShouldProcess("Remove an existing environment module search path")) {
+            return
+        }
+
         $customSearchPaths = Get-EnvironmentModuleSearchPath -ModuleName $ModuleFullName -Type $Type -Key $Key -SubFolder $SubFolder -Custom
         if($null -eq $customSearchPaths) {
             return
@@ -490,7 +501,7 @@ function Write-CustomSearchPaths
     No output is returned.
     #>
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
-    $knownTypes.Add([EnvironmentModules.SearchPath])
+    $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
     $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
     $fileStream = $null

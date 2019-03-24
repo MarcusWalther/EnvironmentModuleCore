@@ -1,4 +1,3 @@
-
 $nameRegex = "^[0-9A-Za-z_]+$"
 $versionRegex = "^v?(?:(?:(?<epoch>[0-9]+)!)?(?<release>[0-9]*(?:[_\.][0-9]+)*)(?<pre>[_\.]?(?<pre_l>(a|b|c|rc|alpha|beta|pre|preview|sp))[_\.]?(?<pre_n>[0-9]+)?)?(?<post>(?:-(?<post_n1>[0-9]+))|(?:[_\.]?(?<post_l>post|rev|r)[_\.]?(?<post_n2>[0-9]+)?))?(?<dev>[_\.]?(?<dev_l>dev)[_\.]?(?<dev_n>[0-9]+)?)?)(?:\+(?<local>[a-z0-9]+(?:[_\.][a-z0-9]+)*))?$"
 $architectureRegex = "^x64|x86$"
@@ -88,14 +87,13 @@ function Read-EnvironmentModuleDescriptionFileByPath([string] $Path)
     if(Test-Path $Path) {
         # Parse the pse1 file
         Write-Verbose "Found desciption file $descriptionFile"
-        $descriptionFileContent = Get-Content $Path -Raw
-        return Invoke-Expression $descriptionFileContent
+        return Import-PowershellDataFile $Path
     }
 
     return @{}
 }
 
-function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
+function New-EnvironmentModuleInfoBase
 {
     <#
     .SYNOPSIS
@@ -107,6 +105,11 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
     .NOTES
     The given module name must match exactly one module, otherwise $null is returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param (
+        [PSModuleInfo] $Module
+    )
+
     $nameParts = Split-EnvironmentModuleName $Module.Name
     if($null -eq $nameParts) {
         return $null
@@ -118,13 +121,13 @@ function New-EnvironmentModuleInfoBase([PSModuleInfo] $Module)
         return $null
     }
 
-    $result = New-Object EnvironmentModules.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, $Module.ModuleBase, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions, [EnvironmentModules.EnvironmentModuleType]::Default)
+    $result = New-Object EnvironmentModuleCore.EnvironmentModuleInfoBase -ArgumentList @($Module.Name, $Module.ModuleBase, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions, [EnvironmentModuleCore.EnvironmentModuleType]::Default)
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     return $result
 }
 
-function Set-EnvironmentModuleInfoBaseParameter([EnvironmentModules.EnvironmentModuleInfoBase][ref] $Module, [hashtable] $Parameters)
+function Set-EnvironmentModuleInfoBaseParameter
 {
     <#
     .SYNOPSIS
@@ -134,13 +137,19 @@ function Set-EnvironmentModuleInfoBaseParameter([EnvironmentModules.EnvironmentM
     .PARAMETER Parameters
     The parameters to set.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param(
+        [EnvironmentModuleCore.EnvironmentModuleInfoBase][ref] $Module,
+        [hashtable] $Parameters
+    )
+
     if($Parameters.Contains("ModuleType")) {
-        $Module.ModuleType = [Enum]::Parse([EnvironmentModules.EnvironmentModuleType], $descriptionContent.Item("ModuleType"))
+        $Module.ModuleType = [Enum]::Parse([EnvironmentModuleCore.EnvironmentModuleType], $descriptionContent.Item("ModuleType"))
         Write-Verbose "Read module type $($Module.ModuleType)"
     }
 }
 
-function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase] $Module, [String] $ModuleFullName)
+function New-EnvironmentModuleInfo
 {
     <#
     .SYNOPSIS
@@ -154,6 +163,12 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
     .NOTES
     The given module name must match exactly one module, otherwise $null is returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param (
+        [EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module,
+        [String] $ModuleFullName
+    )
+
     if($Module -eq $null) {
         $matchingModules = Get-EnvironmentModule -ListAvailable $ModuleFullName
 
@@ -177,7 +192,7 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
 
     $arguments = @($Module, $null, (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))
 
-    $result = New-Object EnvironmentModules.EnvironmentModuleInfo -ArgumentList $arguments
+    $result = New-Object EnvironmentModuleCore.EnvironmentModuleInfo -ArgumentList $arguments
 
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
@@ -190,17 +205,17 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
     $dependencies = @()
     if($descriptionContent.Contains("RequiredEnvironmentModules")) {
         Write-Warning "The field 'RequiredEnvironmentModules' defined for '$($Module.FullName)' is deprecated, please use the dependencies field."
-        $dependencies = $descriptionContent.Item("RequiredEnvironmentModules") | Foreach-Object { New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_}
+        $dependencies = $descriptionContent.Item("RequiredEnvironmentModules") | Foreach-Object { New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_}
         Write-Verbose "Read module dependencies $($dependencies)"
     }
 
     if($descriptionContent.Contains("Dependencies")) {
         $dependencies = $dependencies + $descriptionContent.Item("Dependencies") | Foreach-Object {
             if($_.GetType() -eq [string]) {
-                New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_
+                New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_
             }
             else {
-                New-Object "EnvironmentModules.DependencyInfo" -ArgumentList $_.Name, $_.Optional
+                New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_.Name, $_.Optional
             }
         }
         Write-Verbose "Read module dependencies $($dependencies)"
@@ -213,38 +228,86 @@ function New-EnvironmentModuleInfo([EnvironmentModules.EnvironmentModuleInfoBase
         Write-Verbose "Read module direct unload $($result.DirectUnload)"
     }
 
+    $requiredItems = @()
     if($descriptionContent.Contains("RequiredFiles")) {
         Write-Warning "The field 'RequiredFiles' defined for '$($Module.FullName)' is deprecated, please use the RequiredItems field."
-        $result.RequiredItems = $result.RequiredItems + ($descriptionContent.Item("RequiredFiles") | ForEach-Object {New-Object "EnvironmentModules.EnvironmentModuleRequiredItem" [EnvironmentModules.EnvironmentModuleRequiredItem]::FILE_TYPE $_})
+        $requiredItems = $result.RequiredItems + ($descriptionContent.Item("RequiredFiles") | ForEach-Object {
+            New-Object "EnvironmentModuleCore.RequiredItem" -ArgumentList ([EnvironmentModuleCore.RequiredItem]::TYPE_FILE), $_
+        })
         Write-Verbose "Read required files $($descriptionContent.Item('RequiredFiles'))"
     }
 
+    if($descriptionContent.Contains("RequiredItems")) {
+        $requiredItems = $requiredItems + $descriptionContent.Item("RequiredItems") | Foreach-Object {
+            if($_.GetType() -eq [string]) {
+                New-Object "EnvironmentModuleCore.RequiredItem" -ArgumentList ([EnvironmentModuleCore.RequiredItem]::TYPE_FILE), $_
+            }
+            else {
+                New-Object "EnvironmentModuleCore.RequiredItem" -ArgumentList $_.Type, $_.Value
+            }
+        }
+        Write-Verbose "Read module dependencies $($dependencies)"
+    }
+
+    $result.RequiredItems = $requiredItems
+
     if($descriptionContent.Contains("DefaultRegistryPaths")) {
+        Write-Warning "The field 'DefaultRegistryPaths' defined for '$($Module.FullName)' is deprecated, please use the DefaultSearchPaths field."
         $pathValues = $descriptionContent.Item("DefaultRegistryPaths")
+        $searchPathType = "REGISTRY"
+        $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
+        Write-Verbose "Read default registry paths $($result.DefaultRegistryPaths)"
 
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
             $parts = $_.Split([IO.Path]::PathSeparator) + @("")
-            New-Object EnvironmentModules.RegistrySearchPath -ArgumentList @($parts[0], $parts[1], $true)
+            New-Object "EnvironmentModuleCore.SearchPath" -ArgumentList @($parts[0], $searchPathType, $searchPathPriority, $parts[1], $true)
         }))
-        Write-Verbose "Read default registry paths $($result.DefaultRegistryPaths)"
     }
 
     if($descriptionContent.Contains("DefaultFolderPaths")) {
+        Write-Warning "The field 'DefaultFolderPaths' defined for '$($Module.FullName)' is deprecated, please use the DefaultSearchPaths field."
         $pathValues = $descriptionContent.Item("DefaultFolderPaths")
+        $searchPathType = [EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY
+        $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
+        Write-Verbose "Read default folder paths $($result.DefaultFolderPaths)"
+
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
             $parts = $_.Split([IO.Path]::PathSeparator) + @("")
-            New-Object EnvironmentModules.DirectorySearchPath -ArgumentList @($parts[0], $parts[1], $true)
+            New-Object "EnvironmentModuleCore.SearchPath" -ArgumentList @($parts[0], $searchPathType, $searchPathPriority, $parts[1], $true)
         }))
-        Write-Verbose "Read default folder paths $($result.DefaultFolderPaths)"
     }
 
     if($descriptionContent.Contains("DefaultEnvironmentPaths")) {
+        Write-Warning "The field 'DefaultEnvironmentPaths' defined for '$($Module.FullName)' is deprecated, please use the DefaultSearchPaths field."
         $pathValues = $descriptionContent.Item("DefaultEnvironmentPaths")
+        $searchPathType = [EnvironmentModuleCore.SearchPath]::TYPE_ENVIRONMENT_VARIABLE
+        $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
+        Write-Verbose "Read default environment paths $($result.DefaultEnvironmentPaths)"
+
         $result.SearchPaths = $result.SearchPaths + (($pathValues | ForEach-Object {
             $parts = $_.Split([IO.Path]::PathSeparator) + @("")
-            New-Object EnvironmentModules.EnvironmentSearchPath -ArgumentList @($parts[0], $parts[1], $true)
+            New-Object "EnvironmentModuleCore.SearchPath" -ArgumentList @($parts[0], $searchPathType, $searchPathPriority, $parts[1], $true)
         }))
-        Write-Verbose "Read default environment paths $($result.DefaultEnvironmentPaths)"
+    }
+
+    if($descriptionContent.Contains("DefaultSearchPaths")) {
+        $result.SearchPaths = $result.SearchPaths + $descriptionContent.Item("DefaultSearchPaths") | Foreach-Object {
+            if($_.GetType() -eq [string]) {
+                $searchPathType = [EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY
+                $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
+                New-Object "EnvironmentModuleCore.SearchPath" -ArgumentList $_, $searchPathType, $searchPathPriority, $null, $true
+            }
+            else {
+                $searchPathType = $_.Type
+                $searchPathPriority = $_.Priority
+                if($null -eq $searchPathPriority) {
+                    $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
+                }
+
+                New-Object "EnvironmentModuleCore.SearchPath" -ArgumentList $_.Key, $searchPathType, $searchPathPriority, $_.SubFolder, $true
+            }
+        }
+        Write-Verbose "Read module default search paths $($result.SearchPaths)"
     }
 
     if($descriptionContent.Contains("StyleVersion")) {

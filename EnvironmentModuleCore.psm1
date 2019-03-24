@@ -1,7 +1,7 @@
 ﻿# Read the temp folder location
 $script:moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:moduleFileLocation, ".."))
-$storageFileLocation = "$env:APPDATA\PowerShell\EnvironmentModules"
+$storageFileLocation = "$env:APPDATA\PowerShell\EnvironmentModuleCore"
 
 # Include the util functions
 . (Join-Path $PSScriptRoot "Utils.ps1")
@@ -52,9 +52,9 @@ mkdir $script:configEnvironmentRootPath -Force
 # Setup the variables
 $script:configuration = @{} # Configuration parameters
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
-$script:loadedEnvironmentModuleAliases = @{} # AliasName -> EnvironmentModuleAliasInfo[]
-$script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> EnvironmentModuleFunctionInfo[]
-$script:environmentModuleParameters = @{} # ParameterName -> EnvironmentModuleParameterInfo
+$script:loadedEnvironmentModuleAliases = @{} # AliasName -> AliasInfo[]
+$script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> FunctionInfo[]
+$script:environmentModuleParameters = @{} # ParameterName -> ParameterInfo
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
@@ -64,7 +64,7 @@ $script:silentLoad = $false # Indicates if output should be printed on module lo
 # Initialialize the configuration
 . (Join-Path $PSScriptRoot "Configuration.ps1")
 $script:configurationFilePath = (Join-Path $script:configEnvironmentRootPath "Configuration.xml")
-Import-EnvironmentModulesConfiguration $script:configurationFilePath
+Import-EnvironmentModuleCoreConfiguration $script:configurationFilePath
 
 # Include the module parameter functions
 . (Join-Path $PSScriptRoot "ModuleParameters.ps1")
@@ -100,3 +100,11 @@ if(test-path $script:searchPathsFileLocation)
 
 # Include the main code
 . (Join-Path $PSScriptRoot "EnvironmentModuleCore.ps1")
+
+# Load the extensions
+if(Test-Path (Join-Path $PSScriptRoot "Extensions")) {
+    foreach($file in Get-ChildItem (Join-Path $PSScriptRoot (Join-Path "Extensions" "*.ps1"))) {
+        Write-Verbose "Loading Extension $file"
+        . $file
+    }
+}

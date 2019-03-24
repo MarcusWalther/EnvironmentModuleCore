@@ -5,8 +5,8 @@ param(
     $Repository
 )
 
-pushd
-cd (Join-Path $PSScriptRoot "..")
+Push-Location
+Set-Location(Join-Path $PSScriptRoot "..")
 
 # Create the package directory
 $packageFolder = (Join-Path "package" "EnvironmentModules")
@@ -18,12 +18,12 @@ if(Test-Path $packageFolder) {
 mkdir $packageFolder
 
 # Copy the relevant items to the package folder
-cp "*.ps*1" $packageFolder
-cp "*.dll" $packageFolder
-cp "*.md" $packageFolder
-cp "*.ps1xml" $packageFolder
-cp "LICENSE*" $packageFolder
-cp "Templates" $packageFolder -Recurse
+Copy-Item "*.ps*1" $packageFolder
+Copy-Item "*.dll" $packageFolder
+Copy-Item "*.md" $packageFolder
+Copy-Item "*.ps1xml" $packageFolder
+Copy-Item "LICENSE*" $packageFolder
+Copy-Item "Templates" $packageFolder -Recurse
 
 # Publish the module
 Publish-Module -Path $packageFolder -Repository $Repository -Verbose -NuGetApiKey $NuGetApiKey
@@ -31,4 +31,4 @@ Publish-Module -Path $packageFolder -Repository $Repository -Verbose -NuGetApiKe
 # Cleanup
 Remove-Item -Recurse -Force $packageFolder
 
-popd
+Pop-Location

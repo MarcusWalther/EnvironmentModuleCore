@@ -36,6 +36,7 @@ function New-EnvironmentModule
     .OUTPUTS
     No outputs are returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     Param(
         [String] $Name,
         [String] $Author,
@@ -75,7 +76,7 @@ function New-EnvironmentModule
             return
         }
 
-        [EnvironmentModules.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
+        [EnvironmentModuleCore.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
         Update-EnvironmentModuleCache
     }
 }
@@ -203,7 +204,7 @@ function Copy-EnvironmentModule
 
         foreach($directory in $directoriesToCopy) {
             Write-Verbose "Handling directory $directory"
-            Copy-Item -Recurse -Force -Path $directory -Destination $destination
+            Copy-Item -Recurse -Force -Path $directory.FullName -Destination $destination
         }
 
         if(-not $SkipCacheUpdate) {

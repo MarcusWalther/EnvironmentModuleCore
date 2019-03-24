@@ -10,6 +10,7 @@ function Set-EnvironmentModuleParameterInternal {
     The module that has specified the value. A user change should be indicated by an empty string.
     #>
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param(
         [String] $Parameter,
         [String] $Value,
@@ -18,7 +19,7 @@ function Set-EnvironmentModuleParameterInternal {
 
     $knownValue = $script:environmentModuleParameters[$Parameter]
     if($null -eq $knownValue) {
-        $knownValue = New-Object "EnvironmentModules.EnvironmentModuleParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value
+        $knownValue = New-Object "EnvironmentModuleCore.ParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value
     }
     $knownValue.Value = $Value
     $knownValue.ModuleFullName = $ModuleFullName
@@ -34,11 +35,12 @@ function Set-EnvironmentModuleParameter {
     .PARAMETER Value
     The value to set.
     .PARAMETER Silent
-    No validation set is used for the parmeter name. If the parameter does not exist, no action is performed and no 
+    No validation set is used for the parmeter name. If the parameter does not exist, no action is performed and no
     error is printed.
     #>
 
     [cmdletbinding()]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     Param([switch] $Silent)
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary

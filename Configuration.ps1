@@ -1,5 +1,5 @@
 
-function Import-EnvironmentModulesConfiguration
+function Import-EnvironmentModuleCoreConfiguration
 {
     <#
     .SYNOPSIS
@@ -7,11 +7,15 @@ function Import-EnvironmentModulesConfiguration
     .PARAMETER ConfigurationFile
     The configuration file to read. The content type must be XML.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
     param(
         [String] $ConfigurationFile
     )
     process {
+        if ( -not $PSCmdlet.ShouldProcess("Import environment module configuration")) {
+            return
+        }
+
         if(-not (Test-Path $ConfigurationFile)) {
             return
         }
@@ -19,7 +23,7 @@ function Import-EnvironmentModulesConfiguration
     }
 }
 
-function Export-EnvironmentModulesConfiguration
+function Export-EnvironmentModuleCoreConfiguration
 {
     <#
     .SYNOPSIS
@@ -50,7 +54,7 @@ function Set-EnvironmentModuleConfigurationValue
     .PARAMETER Value
     The value set.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
     param(
     )
     DynamicParam {
@@ -68,7 +72,11 @@ function Set-EnvironmentModuleConfigurationValue
         $Value = $PsBoundParameters["Value"]
     }
     process {
+        if ( -not $PSCmdlet.ShouldProcess("Change environment module configuration")) {
+            return
+        }
+
         $script:configuration[$ParameterName] = $Value
-        Export-EnvironmentModulesConfiguration
+        Export-EnvironmentModuleCoreConfiguration
     }
 }

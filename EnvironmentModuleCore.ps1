@@ -186,7 +186,7 @@ function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $Modu
 
     foreach($functionInfo in $knownFunctions) {
         if($functionInfo.ModuleFullName -eq $ModuleFullName) {
-            return Invoke-Command -ScriptBlock $functionInfo.Definition -ArgumentList $ArgumentList
+            return Invoke-Command -ScriptBlock ([ScriptBlock]$functionInfo.Definition) -ArgumentList $ArgumentList
         }
     }
 
@@ -203,7 +203,7 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
     .PARAMETER AliasName
     The name of the aliases to investigate. Wildcards are allowed.
     .OUTPUTS
-    An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
+    An array of EnvironmentModules.AliasInfo objects.
     #>
     $modules = Get-LoadedEnvironmentModules
 
@@ -218,12 +218,12 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
                 continue
             }
             $definition = $aliases[$alias]
-            New-Object "EnvironmentModuleCore.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
+            New-Object "EnvironmentModuleCore.AliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
         }
     }
 }
 
-function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModuleCore.EnvironmentModulePathType] $PathType = [EnvironmentModuleCore.EnvironmentModulePathType]::UNKNOWN)
+function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModuleCore.PathType] $PathType = [EnvironmentModuleCore.PathType]::UNKNOWN)
 {
     <#
     .SYNOPSIS
@@ -235,7 +235,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
     .PARAMETER PathType
     The type of the paths to investigate. UNKNOWN if all types should be considered.
     .OUTPUTS
-    An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
+    An array of EnvironmentModules.AliasInfo objects.
     #>
     $modules = Get-LoadedEnvironmentModules
 
@@ -249,7 +249,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
             if(-not ($pathInfo.Variable -like $PathName)) {
                 continue
             }
-            if(([EnvironmentModuleCore.EnvironmentModulePathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
+            if(([EnvironmentModuleCore.PathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
                 continue
             }
 

@@ -13,11 +13,11 @@ Example
 ```powershell
 Import-Module EnvironmentModules
 
-Write-Host $env:PATH
+Write-Information $env:PATH
 # Output:
 
 Import-EnvironmentModule NotepadPlusPlus
-Write-Host $env:PATH
+Write-Information $env:PATH
 # Output: C:\Program Files (x86)\Notepad++
 
 # npp is alias to start Notepad++
@@ -25,7 +25,7 @@ npp
 
 Remove-EnvironmentModule NotepadPlusPlus
 
-Write-Host $env:PATH
+Write-Information $env:PATH
 # Output:
 
 # Alias npp not available anymore
@@ -74,20 +74,15 @@ Each environment module should contain a pse file in its module directory. The s
     # The type of the module, either "Default" or "Meta" if it is a project-module
     ModuleType = "Default"
 
-    # Default search paths in the registry
-    DefaultRegistryPaths = @("HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon")
-
-    # Default search paths on the file system
-    DefaultFolderPaths = @("C:\Program Files (x86)\Notepad++")
-
-    # Default environment variable search paths
-    DefaultEnvironmentPaths = @("NOTEPAD_PLUS_PLUS_ROOT")
+    # Default search paths
+    DefaultSearchPaths = @(@{Type="ENVIRONMENT_VARIABLE";Key="NOTEPAD_PLUS_PLUS_ROOT"}, "C:\Program Files (x86)\Notepad++",
+                           @{Type="REGISTRY";Key="HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon"})
 
     # Required files that must be part of the folder candidate
-    RequiredFiles = @("notepad++.exe")
+    RequiredItems = @("notepad++.exe")
 
     # The version of the description files
-    StyleVersion = 2.1
+    StyleVersion = 3.0
 
     # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
     Parameters = @{
@@ -104,7 +99,7 @@ The psm file of an environment module has a special module parameter as argument
 ```powershell
 param(
     [parameter(Position=0, Mandatory=$true)]
-    [EnvironmentModules.EnvironmentModule]
+    [EnvironmentModuleCore.EnvironmentModule]
     $Module
 )
 

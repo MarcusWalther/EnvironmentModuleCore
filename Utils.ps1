@@ -2,18 +2,18 @@ function Add-DynamicParameter {
     <#
     .SYNOPSIS
     Add a new dynamic parameter to the parameter sets.
-    .PARAMETER Name 
+    .PARAMETER Name
     The name of the parameter to add.
     .PARAMETER Type
     The type of the parameter to add. Switch is supported as well, but not recommended (they should be defined as static parameters).
     .PARAMETER ParamDict
     The dictionary containing the parameter definitions. This value is passed by reference.
     .PARAMETER Mandatory
-    Indicates if the parameter is mandatory.    
+    Indicates if the parameter is mandatory.
     .PARAMETER Position
-    The position of the parameter. The first parmeter must have position 0.  
+    The position of the parameter. The first parmeter must have position 0.
     .PARAMETER ValidateSet
-    The validate set to use.   
+    The validate set to use.
     .EXAMPLE
     Populate the parameter set with 3 parameters.
         Add-DynamicParameter 'DynamicParam' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet @("Dyn1", "Dyn2", "Dyn3")
@@ -26,7 +26,7 @@ function Add-DynamicParameter {
         [Parameter(Mandatory=$True)]
         [String] $Name,
         [Parameter(Mandatory=$True)]
-        [System.Type] $Type,        
+        [System.Type] $Type,
         [Parameter(Mandatory=$True)]
         [System.Management.Automation.RuntimeDefinedParameterDictionary][ref] $ParamDict,
         [Boolean] $Mandatory = $false,
@@ -43,16 +43,16 @@ function Add-DynamicParameter {
         if($null -ne $Position) {
             $parameterAttribute.Position = $Position
         }
-    
+
         # Add the attributes to the attributes collection
         $attributeCollection.Add($parameterAttribute)
-        
+
         # Add the validation set to the attributes collection
         if(($null -ne $ValidateSet) -and ($ValidateSet.Count -gt 0)) {
             $validateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($ValidateSet)
-            $attributeCollection.Add($validateSetAttribute)            
+            $attributeCollection.Add($validateSetAttribute)
         }
-    
+
         # Create and return the dynamic parameter
         $runtimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($Name, $Type, $attributeCollection)
         $ParamDict.Add($Name, $runtimeParameter)
@@ -73,8 +73,8 @@ function Show-SelectDialogue([array] $Options, [string] $Header)
     .OUTPUTS
     The selected value or $null if no element was selected.
     #>
-    Write-Host "$($Header):"
-    Write-Host
+    Write-InformationColored -InformationAction 'Continue' "$($Header):"
+    Write-InformationColored -InformationAction 'Continue' ""
     $indexPathMap = @{}
 
     if($Options.Count -eq 0) {
@@ -87,11 +87,11 @@ function Show-SelectDialogue([array] $Options, [string] $Header)
 
     $i = 1
     foreach ($option in $Options) {
-        Write-Host "[$i] $option"
+        Write-InformationColored -InformationAction 'Continue' "[$i] $option"
         $indexPathMap[$i] = $option
         $i++
     }
-        
+
     $selectedIndex = Read-Host -Prompt " "
     Write-Verbose "Got selected index $selectedIndex and possibilities $($Options.Count)"
     if(-not($selectedIndex -match '^[0-9]+$')) {
@@ -121,7 +121,7 @@ function Show-ConfirmDialogue([string] $Message) {
     The question to display.
     .OUTPUTS
     $True if the user has answered "yes".
-    #>    
+    #>
     $result = Read-Host "$Message [y/n]"
 
     if($result.ToLower() -ne "y") {
@@ -140,10 +140,10 @@ function Test-PathPartOfEnvironmentVariable([String] $Path, [String] $Variable) 
     .PARAMETER Path
     The path to check.
     .PARAMETER Variable
-    The environment variable to consider. 
+    The environment variable to consider.
     .OUTPUTS
     $True if the path was identified in the variable.
-    #> 
+    #>
 
     $variableValue = [System.Environment]::GetEnvironmentVariable($Variable)
     if(-not $variableValue) {
@@ -163,4 +163,37 @@ function Test-PathPartOfEnvironmentVariable([String] $Path, [String] $Variable) 
     }
 
     return $false
+}
+
+<#
+    Taken from https://blog.kieranties.com/2018/03/26/write-information-with-colours
+    .SYNOPSIS
+        Writes messages to the information stream, optionally with
+        color when written to the host.
+    .DESCRIPTION
+        An alternative to Write-Host which will write to the information stream
+        and the host (optionally in colors specified) but will honor the
+        $InformationPreference of the calling context.
+        In PowerShell 5.0+ Write-Host calls through to Write-Information but
+        will _always_ treats $InformationPreference as 'Continue', so the caller
+        cannot use other options to the preference variable as intended.
+#>
+Function Write-InformationColored {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [Object] $MessageData,
+        [ConsoleColor] $ForegroundColor = $Host.UI.RawUI.ForegroundColor, # Make sure we use the current colours by default
+        [ConsoleColor] $BackgroundColor = $Host.UI.RawUI.BackgroundColor,
+        [Switch] $NoNewline
+    )
+
+    $msg = [System.Management.Automation.HostInformationMessage]@{
+        Message         = $MessageData
+        ForegroundColor = $ForegroundColor
+        BackgroundColor = $BackgroundColor
+        NoNewline       = $NoNewline.IsPresent
+    }
+
+    Write-Information $msg
 }

@@ -20,14 +20,14 @@ if(($null -ne $AdditionalModulePaths) -and ($AdditionalModulePaths.Count -gt 0))
 $env:ENVIRONMENT_MODULES_TMP = "$TempDirectory"
 $env:ENVIRONMENT_MODULES_CONFIG = "$ConfigDirectory"
 
-if($null -ne (Get-Module 'EnvironmentModules')) {
-    Remove-Module EnvironmentModules
+if($null -ne (Get-Module 'EnvironmentModuleCore')) {
+    Remove-Module EnvironmentModuleCore
 }
 
 # Remove the temp directory
 Remove-Item -Recurse -Force "$(Join-Path $TempDirectory 'Modules')" -ErrorAction SilentlyContinue
 
-Import-Module "$(Resolve-Path (Join-Path $PSScriptRoot (Join-Path '..' 'EnvironmentModules.psm1')))"
+Import-Module "$(Resolve-Path (Join-Path $PSScriptRoot (Join-Path '..' 'EnvironmentModuleCore.psm1')))"
 
 Update-EnvironmentModuleCache
 Clear-EnvironmentModuleSearchPaths -Force
