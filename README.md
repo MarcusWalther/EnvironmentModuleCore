@@ -1,14 +1,11 @@
-# EnvironmentModules
-A powershell extension to load and remove modules that affect the environment (variables, aliases and functions) of the running session. These features will make the Powershell more powerful when used interactively or in automatic processes.
+<p align="center">
+  <img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/Icon.png?raw=true" height="64">
+  <h3 align="center">EnvironmentModuleCore</h3>
+  <p align="left">This PowerShell module can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules are defined that are called *Environment Modules*. Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.<p>
+  <p align="center"><a href="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/master/LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a></p>
+</p>
 
-Overview
---------
-
-This PowerShell extension can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules
-are defined that are called "environment modules". Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.
-
-Example
--------
+# Example
 
 ```powershell
 Import-Module EnvironmentModules
