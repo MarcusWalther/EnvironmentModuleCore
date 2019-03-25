@@ -7,26 +7,9 @@
 
 # Example
 
-```powershell
-Import-Module EnvironmentModules
-
-Write-Information $env:PATH
-# Output:
-
-Import-EnvironmentModule NotepadPlusPlus
-Write-Information $env:PATH
-# Output: C:\Program Files (x86)\Notepad++
-
-# npp is alias to start Notepad++
-npp
-
-Remove-EnvironmentModule NotepadPlusPlus
-
-Write-Information $env:PATH
-# Output:
-
-# Alias npp not available anymore
-```
+<p align="center">
+<img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/Samples/PythonScreen.gif">
+</p>
 
 Installation
 ------------
