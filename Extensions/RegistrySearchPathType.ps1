@@ -1,12 +1,22 @@
 Register-EnvironmentModuleSearchPathType "REGISTRY" 25 {
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
 
-    $propertyName = Split-Path -Leaf $SearchPath.Key
-    $propertyPath = Split-Path $SearchPath.Key
     Write-Verbose "Checking registry search path $($SearchPath.Key)"
-    Write-Verbose "Splitted registry search path into path '$propertyPath' and name '$propertyName'"
+
     try {
-        $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"
+        $registryValue = $null
+        if($SearchPath.Key.EndsWith("\")) {
+            $propertyPath = $SearchPath.Key
+            $registryValue = (Get-Item -ErrorAction SilentlyContinue -Path "Registry::$propertyPath").GetValue("")
+        }
+        else {
+            Write-Verbose "Splitted registry search path into path '$propertyPath' and name '$propertyName'"
+            $propertyName = Split-Path -Leaf $SearchPath.Key
+            $propertyPath = Split-Path $SearchPath.Key
+            $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"
+        }
+
+        Write-Verbose "Got registry value $registryValue"
         if ($null -eq $registryValue) {
                 Write-Verbose "Unable to find the registry value $($SearchPath.Key)"
                 return $null

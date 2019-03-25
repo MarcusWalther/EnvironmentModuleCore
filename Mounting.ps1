@@ -103,7 +103,7 @@ function Test-ItemExistence([string] $FolderPath, [EnvironmentModuleCore.Require
                 $match = $false
             }
             else {
-                $found = $handler.Invoke($folderCandidate, $item)
+                $found = $handler.InvokeReturnAsIs($folderCandidate, $item)
 
                 if(-not $found) {
                     $match = $false
@@ -196,9 +196,11 @@ function Set-EnvironmentModuleRootDirectory
             continue
         }
 
-        $result = ($handler.Item1).Invoke($searchPath, $Module)
+        $result = (($handler.Item1).InvokeReturnAsIs($searchPath, $Module))
+        Write-Verbose "Handling search path $($searchPath.Key) returned with '$result'"
 
         if($null -eq $result) {
+            Write-Verbose "Checking next search path"
             continue
         }
 
@@ -341,7 +343,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     if (($module.RequiredItems.Length -gt 0) -and ($null -eq $moduleRoot)) {
         if(-not $SilentMode) {
-            Write-InformationColored -InformationAction 'Continue' "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' "Unable to find the root directory of module $($module.FullName) - Is the program correctly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
             Write-InformationColored -InformationAction 'Continue' "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
         }
         return $false
