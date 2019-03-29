@@ -20,7 +20,7 @@ GUID = '0c95874c-e278-48eb-ae99-9ed4194f1cee'
 Author = 'Marcus Walther'
 
 # Copyright statement for this module
-Copyright = '(c) 2015 Marcus Walther. All rights reserved.'
+Copyright = '(c) 2015 Marcus Walther.'
 
 # Description of the functionality provided by this module
 Description = 'This environment module gives you access to the "Notepad++" editor.'

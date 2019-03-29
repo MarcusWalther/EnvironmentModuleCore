@@ -21,7 +21,7 @@ GUID = '145f6307-ba32-4e08-9904-5ed595011057'
 Author = 'Marcus Walther'
 
 # Copyright statement for this module
-Copyright = '(c) 2019 MarcusW. All rights reserved.'
+Copyright = '(c) 2019 MarcusW.'
 
 # Description of the functionality provided by this module
 Description = 'This environment module will add the Aspell program to the PATH.'

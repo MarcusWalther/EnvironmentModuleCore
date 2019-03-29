@@ -23,6 +23,7 @@ Copy-Item "*.dll" $packageFolder
 Copy-Item "*.md" $packageFolder
 Copy-Item "*.ps1xml" $packageFolder
 Copy-Item "LICENSE*" $packageFolder
+Copy-Item "Icon.png" $packageFolder
 Copy-Item "Templates" $packageFolder -Recurse
 
 # Publish the module

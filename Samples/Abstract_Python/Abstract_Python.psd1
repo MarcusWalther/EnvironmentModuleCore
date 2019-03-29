@@ -21,7 +21,7 @@
     Author = 'Marcus W'
 
     # Copyright statement for this module
-    Copyright = '(c) 2018 MarcusW. All rights reserved.'
+    Copyright = '(c) 2018 MarcusW.'
 
     # Description of the functionality provided by this module
     Description = 'This abstract environment module provides the framework for all "Python" functions.'
