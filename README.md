@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/Icon.png?raw=true" height="64">
+  <img src="https://github.com/MarcusWalther/EnvironmentModuleCoreSrc/blob/master/Icon.png?raw=true" height="64">
   <h3 align="center">EnvironmentModuleCore</h3>
   <p align="left">This PowerShell module can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules are defined that are called *Environment Modules*. Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.<p>
   <p align="center"><a href="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a></p>
@@ -105,5 +105,7 @@ Caching and Default Modules
 
 In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
 
-# Referenced Libraries
-Scriban (see https://github.com/lunet-io/scriban) - BSD 2-Clause "Simplified" License.
+# References
+* Library -- Scriban (see https://github.com/lunet-io/scriban) - BSD 2-Clause "Simplified" License.
+* Idea -- Environment Modules on Linux Systems (see http://modules.sourceforge.net)
+* Icon -- Adaption of Powershell Icon (see https://de.wikipedia.org/wiki/Datei:PowerShell_5.0_icon.png)
