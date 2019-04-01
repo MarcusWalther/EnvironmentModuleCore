@@ -11,14 +11,14 @@
 <img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/Samples/PythonScreen.gif">
 </p>
 
-Installation
-------------
+# Installation
 
-The code is provided as PowerShell-Module. Download the files to a folder called "EnvironmentModules" and add the parent folder to the **PSModulePath** environment variable.
+You can either download the package from the Powershell Gallery or downlaod it manually.
+* A) Download the package from the Powershell Gallery using **Install-Module EnvironmentModuleCore**
+* B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the script **Utilities/Prepare.ps1** to download the required libraries.
 
 
-Usage
------
+# Usage Overview
 
 Import the module to get access to the functions
 - **Import-Module EnvironmentModules**
@@ -42,8 +42,8 @@ Edit environment module file(s)
 Update the cache
 - **Update-EnvironmentModuleCache**
 
-Environment-Module-Description-File (*.pse)
--------------------------------------------
+# Environment-Module-Description-File (*.pse)
+
 Each environment module should contain a pse file in its module directory. The syntax of such a file is similar to the syntax of the psd files.
 
 ```powershell
@@ -72,8 +72,8 @@ Each environment module should contain a pse file in its module directory. The s
 }
 ```
 
-Environment-Module-Files (*.psm)
---------------------------------
+# Environment-Module-Files (*.psm)
+
 The psm file of an environment module has a special module parameter as argument. This parameter can be used to manipulate the environment.
 
 ```powershell
@@ -90,8 +90,7 @@ $Module.AddAlias("npp", "Start-NotepadPlusPlus", "Use 'npp' to start NotepadPlus
 $Module.AddFunction("Start-NotepadPlusPlus", [ScriptBlock]::Create($cmd))
 ```
 
-Naming Convention
------------------
+# Naming Convention
 
 The name of an environment module plays an important role, because it is used to identify conflicts and default modules. The name of an environment module can be:
  - EnvironmentModuleName -> A simple module name without dashes, indicating that the architecture and version doesn't matter (for instance *NotepadPlusPlus*)
@@ -100,12 +99,12 @@ The name of an environment module plays an important role, because it is used to
  - EnvironmentModuleName-Version-Architecture-AdditionalOptions -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
 
 
-Caching and Default Modules
----------------------------
+# Caching and Default Modules
 
 In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
 
 # References
+
 * Library -- Scriban (see https://github.com/lunet-io/scriban) - BSD 2-Clause "Simplified" License.
 * Idea -- Environment Modules on Linux Systems (see http://modules.sourceforge.net)
 * Icon -- Adaption of Powershell Icon (see https://de.wikipedia.org/wiki/Datei:PowerShell_5.0_icon.png)
