@@ -10,6 +10,7 @@ function Set-EnvironmentModuleParameterInternal {
     The module that has specified the value. A user change should be indicated by an empty string.
     #>
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param(
         [String] $Parameter,
         [String] $Value,
@@ -18,7 +19,7 @@ function Set-EnvironmentModuleParameterInternal {
 
     $knownValue = $script:environmentModuleParameters[$Parameter]
     if($null -eq $knownValue) {
-        $knownValue = New-Object "EnvironmentModules.EnvironmentModuleParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value
+        $knownValue = New-Object "EnvironmentModuleCore.ParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value
     }
     $knownValue.Value = $Value
     $knownValue.ModuleFullName = $ModuleFullName
@@ -33,15 +34,24 @@ function Set-EnvironmentModuleParameter {
     The name of the parameter to set. If the parameter does not exist, it is created.
     .PARAMETER Value
     The value to set.
+    .PARAMETER Silent
+    No validation set is used for the parmeter name. If the parameter does not exist, no action is performed and no
+    error is printed.
     #>
 
     [cmdletbinding()]
-    Param()
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    Param([switch] $Silent)
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $parameterNames = $Script:environmentModuleParameters.Keys
-        Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $parameterNames
+        if(-not $Silent) {
+            $parameterNames = $Script:environmentModuleParameters.Keys
+            Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $parameterNames
+        }
+        else {
+            Add-DynamicParameter 'Parameter' String $runtimeParameterDictionary -Mandatory $True -Position 0
+        }
 
         Add-DynamicParameter 'Value' String $runtimeParameterDictionary -Mandatory $False -Position 1
 
@@ -52,6 +62,9 @@ function Set-EnvironmentModuleParameter {
         $Value = $PsBoundParameters['Value']
     }
     process {
+        if(-not ($script:environmentModuleParameters[$Parameter])) {
+            return
+        }
         if([string]::IsNullOrEmpty($Value)) {
             $Value = ""
         }

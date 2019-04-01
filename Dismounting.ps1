@@ -19,6 +19,7 @@ function Remove-EnvironmentModule
     No outputs are returned.
     #>
     [CmdletBinding()]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     Param(
         [switch] $Force,
         [switch] $Delete,
@@ -72,7 +73,7 @@ function Remove-EnvironmentModule
     }
 }
 
-function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $UnloadedDirectly, [switch] $Force)
+function Remove-RequiredModulesRecursive
 {
     <#
     .SYNOPSIS
@@ -88,10 +89,16 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
     .OUTPUTS
     No outputs are returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param(
+        [String] $ModuleFullName,
+        [Bool] $UnloadedDirectly,
+        [switch] $Force
+    )
     $name = (Split-EnvironmentModuleName $ModuleFullName).Name
 
     if(!$script:loadedEnvironmentModules.ContainsKey($name)) {
-        Write-Host "Module $name not found"
+        Write-InformationColored -InformationAction 'Continue' "Module $name not found"
         return
     }
 
@@ -106,8 +113,8 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
 
     Write-Verbose "The module $($module.Name) has now a reference counter of $($module.ReferenceCounter)"
 
-    foreach ($refModule in $module.RequiredEnvironmentModules) {
-        Remove-RequiredModulesRecursive $refModule $False
+    foreach ($refModule in $module.Dependencies) {
+        Remove-RequiredModulesRecursive $refModule.ModuleFullName $False
     }
 
     if($module.ReferenceCounter -le 0) {
@@ -116,7 +123,7 @@ function Remove-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Unloa
     }
 }
 
-function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Module, [switch] $SuppressOutput)
+function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $Module, [switch] $SuppressOutput)
 {
     <#
     .SYNOPSIS
@@ -130,7 +137,7 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
     process {
         if(!$loadedEnvironmentModules.ContainsKey($Module.Name))
         {
-            Write-Host ("The Environment-Module $inModule is not loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' ("The Environment-Module $inModule is not loaded.") -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
             return
         }
 
@@ -138,20 +145,18 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
         foreach ($pathInfo in $Module.Paths)
         {
             [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator
-            Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
+            Write-Verbose "Handling path for variable $($pathInfo.Variable) with values '$joinedValue'"
             if($joinedValue -eq "")  {
                 continue
             }
 
-            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::PREPEND) {
-                Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
-                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::PREPEND) {
+                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $_}
             }
-            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::APPEND) {
-                Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
-                Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
+                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $_ -Reverse}
             }
-            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::SET) {
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
                 [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
             }
         }
@@ -171,14 +176,14 @@ function Dismount-EnvironmentModule([EnvironmentModules.EnvironmentModule] $Modu
         Remove-Module $Module.FullName -Force
 
         if($script:configuration["ShowLoadingMessages"] -and (-not $script:silentUnload)) {
-            Write-Host ($Module.Name + " unloaded") -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' ($Module.Name + " unloaded") -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
         }
 
         return
     }
 }
 
-function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
+function Remove-EnvironmentVariableValue
 {
     <#
     .SYNOPSIS
@@ -190,20 +195,46 @@ function Remove-EnvironmentVariableValue([String] $Variable, [String] $Value)
     The name of the environment variable that should be extended.
     .PARAMETER Value
     The new value that should be removed from the environment variable.
+    .PARAMETER Reverse
+    The last occurence will be removed if this value is set.
     .OUTPUTS
     No output is returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param(
+        [String] $Variable,
+        [String] $Value,
+        [Switch] $Reverse
+    )
+
     $oldValue = [environment]::GetEnvironmentVariable($Variable,"Process")
     if($null -eq $oldValue) {
         return
     }
-    $allPathValues = $oldValue.Split([IO.Path]::PathSeparator)
-    $allPathValues = ($allPathValues | Where-Object {$_.ToString() -ne $Value.ToString()})
+    Write-Verbose "Removing value '$Value' from environment variable '$Variable'. Reverse search is set to '$Reverse'"
+    [System.Collections.Generic.List[string]] $allPathValues = $oldValue.Split([IO.Path]::PathSeparator)
+    if($Reverse) {
+        for($i = $allPathValues.Count; $i -gt 0; $i++) {
+            if($_ -eq $Value) {
+                $allPathValues.RemoveAt($i)
+                break
+            }
+        }
+    }
+    else {
+        for($i = 0; $i -lt $allPathValues.Count; $i++) {
+            if($_ -eq $Value) {
+                $allPathValues.RemoveAt($i)
+                break
+            }
+        }
+    }
+
     $newValue = ($allPathValues -join [IO.Path]::PathSeparator)
     [Environment]::SetEnvironmentVariable($Variable, $newValue, "Process")
 }
 
-function Remove-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleFunctionInfo] $FunctionDefinition)
+function Remove-EnvironmentModuleFunction
 {
     <#
     .SYNOPSIS
@@ -215,6 +246,10 @@ function Remove-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleF
     .OUTPUTS
     No output is returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param (
+        [EnvironmentModuleCore.FunctionInfo] $FunctionDefinition
+    )
 
     # Check if the function was already used
     if($script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionDefinition.Name))

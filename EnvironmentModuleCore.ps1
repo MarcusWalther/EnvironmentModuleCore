@@ -16,6 +16,14 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
     .OUTPUTS
     The EnvironmentModule-object(s) matching the filter. If no module was found, $null is returned.
     #>
+    if([string]::IsNullOrEmpty($Architecture)) {
+        $Architecture = "*"
+    }
+
+    if([string]::IsNullOrEmpty($Version)) {
+        $Version = "*"
+    }
+
     if($ListAvailable) {
         foreach($module in Get-AllEnvironmentModules) {
             if(-not ($module.FullName -like $ModuleFullName)) {
@@ -30,7 +38,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
                 continue
             }
 
-            New-EnvironmentModuleInfo -ModuleFullName $module.FullName
+            New-EnvironmentModuleInfo -Module $module
         }
     }
     else {
@@ -112,14 +120,14 @@ function Get-ConcreteEnvironmentModules([switch] $ListAvailable, [switch] $Exclu
     }
 
     if($ExcludeMetaModules) {
-        return $moduleSet | Where-Object {($_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract) -and ($_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Meta)}
+        return $moduleSet | Where-Object {($_.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Abstract) -and ($_.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Meta)}
     }
     else {
-        return $moduleSet | Where-Object {$_.ModuleType -ne [EnvironmentModules.EnvironmentModuleType]::Abstract}
+        return $moduleSet | Where-Object {$_.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Abstract}
     }
 }
 
-function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $ModuleFullName = "*")
+function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $ModuleFullName = "*", [Switch] $ReturnTopLevelFunction)
 {
     <#
     .SYNOPSIS
@@ -128,12 +136,29 @@ function Get-EnvironmentModuleFunction([String] $FunctionName = "*", [String] $M
     This function will search the function stack for functions defined with the passed name.
     .PARAMETER FunctionName
     The name of the function.
+    .PARAMETER ModuleFullName
+    The name of the module defining the function.
+    .PARAMETER ReturnTopLevelFunction
+    If set, only the top level function is returned.
     .OUTPUTS
     The list of modules defining the function. The last function in the list is the executed one.
     #>
-    foreach($info in $script:loadedEnvironmentModuleFunctions.Values) {
-        if(($info.ModuleFullName -like $ModuleFullName) -and ($info.Name -like $FunctionName)) {
-            $info
+    foreach($key in $script:loadedEnvironmentModuleFunctions.Keys) {
+        $values = $script:loadedEnvironmentModuleFunctions.Item($key)
+        if(-not($key -like $FunctionName)) {
+            continue
+        }
+
+        for($i = $values.Count - 1; $i -ge 0; $i--) {
+            $value = $values[$i]
+            if(-not($value.ModuleFullName -like $ModuleFullName)) {
+                continue
+            }
+
+            $value
+            if($ReturnTopLevelFunction) {
+                break
+            }
         }
     }
 }
@@ -161,7 +186,7 @@ function Invoke-EnvironmentModuleFunction([String] $FunctionName, [String] $Modu
 
     foreach($functionInfo in $knownFunctions) {
         if($functionInfo.ModuleFullName -eq $ModuleFullName) {
-            return Invoke-Command -ScriptBlock $functionInfo.Definition -ArgumentList $ArgumentList
+            return Invoke-Command -ScriptBlock ([ScriptBlock]$functionInfo.Definition) -ArgumentList $ArgumentList
         }
     }
 
@@ -178,7 +203,7 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
     .PARAMETER AliasName
     The name of the aliases to investigate. Wildcards are allowed.
     .OUTPUTS
-    An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
+    An array of EnvironmentModules.AliasInfo objects.
     #>
     $modules = Get-LoadedEnvironmentModules
 
@@ -193,12 +218,12 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
                 continue
             }
             $definition = $aliases[$alias]
-            New-Object "EnvironmentModules.EnvironmentModuleAliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
+            New-Object "EnvironmentModuleCore.AliasInfo" -ArgumentList @($alias, $module.FullName, $definition.Definition, $definition.Description)
         }
     }
 }
 
-function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModules.EnvironmentModulePathType] $PathType = [EnvironmentModules.EnvironmentModulePathType]::UNKNOWN)
+function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModuleCore.PathType] $PathType = [EnvironmentModuleCore.PathType]::UNKNOWN)
 {
     <#
     .SYNOPSIS
@@ -210,7 +235,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
     .PARAMETER PathType
     The type of the paths to investigate. UNKNOWN if all types should be considered.
     .OUTPUTS
-    An array of EnvironmentModules.EnvironmentModuleAliasInfo objects.
+    An array of EnvironmentModules.AliasInfo objects.
     #>
     $modules = Get-LoadedEnvironmentModules
 
@@ -224,7 +249,7 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
             if(-not ($pathInfo.Variable -like $PathName)) {
                 continue
             }
-            if(([EnvironmentModules.EnvironmentModulePathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
+            if(([EnvironmentModuleCore.PathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
                 continue
             }
 

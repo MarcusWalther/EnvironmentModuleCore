@@ -1,44 +1,24 @@
-# EnvironmentModules
-A powershell extension to load and remove modules that affect the environment (variables, aliases and functions) of the running session. These features will make the Powershell more powerful when used interactively or in automatic processes.
+<p align="center">
+  <img src="https://github.com/MarcusWalther/EnvironmentModuleCoreSrc/blob/master/Icon.png?raw=true" height="64">
+  <h3 align="center">EnvironmentModuleCore</h3>
+  <p align="left">This PowerShell module can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules are defined that are called *Environment Modules*. Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.<p>
+  <p align="center"><a href="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
+  <a href="https://www.powershellgallery.com/packages/EnvironmentModuleCore"><img src="https://img.shields.io/powershellgallery/vpre/EnvironmentModuleCore.svg" alt="Powershell Gallery Package"></a></p>
 
-Overview
---------
+# Example
 
-This PowerShell extension can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules
-are defined that are called "environment modules". Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.
+<p align="center">
+<img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/Samples/PythonScreen.gif">
+</p>
 
-Example
--------
+# Installation
 
-```powershell
-Import-Module EnvironmentModules
-
-Write-Host $env:PATH
-# Output:
-
-Import-EnvironmentModule NotepadPlusPlus
-Write-Host $env:PATH
-# Output: C:\Program Files (x86)\Notepad++
-
-# npp is alias to start Notepad++
-npp
-
-Remove-EnvironmentModule NotepadPlusPlus
-
-Write-Host $env:PATH
-# Output:
-
-# Alias npp not available anymore
-```
-
-Installation
-------------
-
-The code is provided as PowerShell-Module. Download the files to a folder called "EnvironmentModules" and add the parent folder to the **PSModulePath** environment variable.
+You can either download the package from the Powershell Gallery or downlaod it manually.
+* A) Download the package from the Powershell Gallery using **Install-Module EnvironmentModuleCore**
+* B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the script **Utilities/Prepare.ps1** to download the required libraries.
 
 
-Usage
------
+# Usage Overview
 
 Import the module to get access to the functions
 - **Import-Module EnvironmentModules**
@@ -62,8 +42,8 @@ Edit environment module file(s)
 Update the cache
 - **Update-EnvironmentModuleCache**
 
-Environment-Module-Description-File (*.pse)
--------------------------------------------
+# Environment-Module-Description-File (*.pse)
+
 Each environment module should contain a pse file in its module directory. The syntax of such a file is similar to the syntax of the psd files.
 
 ```powershell
@@ -74,20 +54,15 @@ Each environment module should contain a pse file in its module directory. The s
     # The type of the module, either "Default" or "Meta" if it is a project-module
     ModuleType = "Default"
 
-    # Default search paths in the registry
-    DefaultRegistryPaths = @("HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon")
-
-    # Default search paths on the file system
-    DefaultFolderPaths = @("C:\Program Files (x86)\Notepad++")
-
-    # Default environment variable search paths
-    DefaultEnvironmentPaths = @("NOTEPAD_PLUS_PLUS_ROOT")
+    # Default search paths
+    DefaultSearchPaths = @(@{Type="ENVIRONMENT_VARIABLE";Key="NOTEPAD_PLUS_PLUS_ROOT"}, "C:\Program Files (x86)\Notepad++",
+                           @{Type="REGISTRY";Key="HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon"})
 
     # Required files that must be part of the folder candidate
-    RequiredFiles = @("notepad++.exe")
+    RequiredItems = @("notepad++.exe")
 
     # The version of the description files
-    StyleVersion = 2.1
+    StyleVersion = 3.0
 
     # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
     Parameters = @{
@@ -97,14 +72,14 @@ Each environment module should contain a pse file in its module directory. The s
 }
 ```
 
-Environment-Module-Files (*.psm)
---------------------------------
+# Environment-Module-Files (*.psm)
+
 The psm file of an environment module has a special module parameter as argument. This parameter can be used to manipulate the environment.
 
 ```powershell
 param(
     [parameter(Position=0, Mandatory=$true)]
-    [EnvironmentModules.EnvironmentModule]
+    [EnvironmentModuleCore.EnvironmentModule]
     $Module
 )
 
@@ -115,17 +90,21 @@ $Module.AddAlias("npp", "Start-NotepadPlusPlus", "Use 'npp' to start NotepadPlus
 $Module.AddFunction("Start-NotepadPlusPlus", [ScriptBlock]::Create($cmd))
 ```
 
-Naming Convention
------------------
+# Naming Convention
 
 The name of an environment module plays an important role, because it is used to identify conflicts and default modules. The name of an environment module can be:
  - EnvironmentModuleName -> A simple module name without dashes, indicating that the architecture and version doesn't matter (for instance *NotepadPlusPlus*)
  - EnvironmentModuleName-Version -> A module with a version number. The version parts are separated by underscores (for instance *NotepadPlusPlus-7_4_2*)
  - EnvironmentModuleName-Version-Architecture -> An additional version tag can be specified. Either 'x64' or 'x86' are supported at the moment (for instance *NotepadPlusPlus-7_4_2-x86*).
- - EnvironmentModuleName-Version-Architecture-AdditionalInformation -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
+ - EnvironmentModuleName-Version-Architecture-AdditionalOptions -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
 
 
-Caching and Default Modules
----------------------------
+# Caching and Default Modules
 
 In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
+
+# References
+
+* Library -- Scriban (see https://github.com/lunet-io/scriban) - BSD 2-Clause "Simplified" License.
+* Idea -- Environment Modules on Linux Systems (see http://modules.sourceforge.net)
+* Icon -- Adaption of Powershell Icon (see https://de.wikipedia.org/wiki/Datei:PowerShell_5.0_icon.png)

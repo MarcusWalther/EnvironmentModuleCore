@@ -8,9 +8,9 @@ function Test-PartOfTmpDirectory([string] $Destination, [switch] $ShowError)
     .OUTPUTS
     True if the folder is part of the temporary directory.
     #>
-    $tmpDirectory = New-Object -TypeName "System.IO.DirectoryInfo" (Resolve-Path $script:tmpEnvironmentRootPath)
+    $tmpDirectory = (Resolve-Path $script:tmpEnvironmentRootPath)
 
-    if($Destination.StartsWith($tmpDirectory.FullName)) {
+    if($Destination.StartsWith($tmpDirectory)) {
         if($ShowError) {
             Write-Error "The target destination is part of the temporary directory. Please specify another directory or set the force parameter."
         }
@@ -36,6 +36,7 @@ function New-EnvironmentModule
     .OUTPUTS
     No outputs are returned.
     #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     Param(
         [String] $Name,
         [String] $Author,
@@ -75,7 +76,7 @@ function New-EnvironmentModule
             return
         }
 
-        [EnvironmentModules.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
+        [EnvironmentModuleCore.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
         Update-EnvironmentModuleCache
     }
 }
@@ -164,7 +165,7 @@ function Copy-EnvironmentModule
             return
         }
 
-        mkdir $destination -Force
+        $_ = mkdir $destination -Force
 
         Write-Verbose "Cloning module $ModuleFullName to $destination"
 
@@ -203,7 +204,7 @@ function Copy-EnvironmentModule
 
         foreach($directory in $directoriesToCopy) {
             Write-Verbose "Handling directory $directory"
-            Copy-Item -Recurse -Force -Path $directory -Destination $destination
+            Copy-Item -Recurse -Force -Path $directory.FullName -Destination $destination
         }
 
         if(-not $SkipCacheUpdate) {

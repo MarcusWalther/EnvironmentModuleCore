@@ -1,46 +1,129 @@
-function Test-FileExistence([string] $FolderPath, [string[]] $Files, [string] $SubFolderPath) {
+# ---------------------------------
+# Search Path Extension Point
+# ---------------------------------
+
+$script:searchPathTypes = @{}
+
+function Register-EnvironmentModuleSearchPathType([string] $Type, [int] $DefaultPriority, [scriptblock] $Handler)
+{
+    $script:searchPathTypes[$Type] = New-Object "System.Tuple[scriptblock, int]" -ArgumentList $Handler, $DefaultPriority
+}
+
+Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY) 20 {
+    param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
+    Write-Verbose "Checking directory search path $($SearchPath.Key)"
+    $testResult = Test-ItemExistence $SearchPath.Key $Module.RequiredItems $SearchPath.SubFolder
+    if ($testResult.Exists) {
+        $Module.ModuleRoot = $testResult.Folder
+        return $testResult.Folder
+    }
+
+    return $null
+}
+
+Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_ENVIRONMENT_VARIABLE) 30 {
+    param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
+    $directory = $([environment]::GetEnvironmentVariable($SearchPath.Key))
+
+    if(-not $directory) {
+        return $null
+    }
+
+    Write-Verbose "Checking environment search path $($SearchPath.Key) -> $directory"
+    $testResult = (Test-ItemExistence $directory $Module.RequiredItems $SearchPath.SubFolder)
+    if ($testResult.Exists) {
+        $Module.ModuleRoot = $testResult.Folder
+        return $testResult.Folder
+    }
+
+    return $null
+}
+
+# ---------------------------------
+# Required Item Extension Point
+# ---------------------------------
+
+$script:requiredItemTypes = @{}
+
+function Register-EnvironmentModuleRequiredItemType([string] $Type, [scriptblock] $Handler)
+{
+    $script:requiredItemTypes[$Type] = $Handler
+}
+
+Register-EnvironmentModuleRequiredItemType ([EnvironmentModuleCore.RequiredItem]::TYPE_FILE) {
+    param([System.IO.DirectoryInfo] $Directory, [EnvironmentModuleCore.RequiredItem] $Item)
+
+    if (-not (Test-Path (Join-Path "$($Directory.FullName)" "$($Item.Value)"))) {
+        Write-Verbose "The file $($Item.Value) does not exist in folder $($Directory.FullName)"
+        return $false
+    }
+
+    return $true
+}
+
+# ---------------------------------
+# Functions
+# ---------------------------------
+
+function Test-ItemExistence([string] $FolderPath, [EnvironmentModuleCore.RequiredItem[]] $Items, [string] $SubFolderPath) {
     <#
     .SYNOPSIS
-    Check if the given folder contains all files given as second parameter.
+    Check if the given folder contains all items given as second parameter.
     .DESCRIPTION
-    This function will check if the folder does exist and if it contains all given files.
+    This function will check if the folder does exist and if it contains all given items.
     .PARAMETER FolderPath
     The folder to check.
-    .PARAMETER Files
-    The files to check.
+    .PARAMETER Items
+    The items to check.
     .PARAMETER SubFolderPath
     The subfolder path that should be appended to the folder path.
     .OUTPUTS
-    True if the folder does exist and if it contains all files, false otherwise.
+    An anonymous object containing 2 values. "Exists": True if the folder does exist and if it contains all items, false otherwise.
+    "Folder": The full path to the folder containing the file. The value is $null if no folder was found.
     #>
     if (-not $FolderPath) {
         Write-Error "No folder path given"
-        return $false
+        return @{Exists=$false; Folder=$null}
     }
 
     if (-not $SubFolderPath) {
         $SubFolderPath = ""
     }
 
-    Write-Verbose "Testing file exisiting '$Files' in folder '$Folder' and subfolder '$SubFolderPath'"
+    Write-Verbose "Testing item exisiting in folder '$Folder' and subfolder '$SubFolderPath'"
+    $folderCandidates = (Get-Item (Join-Path "$FolderPath" "$SubFolderPath") -ErrorAction SilentlyContinue) | Where-Object {$_.PsIsContainer}
 
-    $completePath = Join-Path "$FolderPath" "$SubFolderPath"
-    if (-not (Test-Path $completePath)) {
-        Write-Verbose "The folder $completePath does not exist"
-        return $false
-    }
+    foreach($folderCandidate in $folderCandidates) {
+        $match = $true
+        foreach($item in $Items) {
+            $handler = $script:requiredItemTypes[$item.ItemType.ToUpper()]
 
-    foreach($file in $Files) {
-        if (-not (Test-Path (Join-Path "$completePath" "$file"))) {
-            Write-Verbose "The file $file does not exist in folder $completePath"
-            return $false
+            if($null -eq $handler) {
+                Write-Warning "No handler for item type $($item.ItemType) found"
+                $match = $false
+            }
+            else {
+                $found = $handler.InvokeReturnAsIs($folderCandidate, $item)
+
+                if(-not $found) {
+                    $match = $false
+                }
+            }
+
+            if($match -eq $false) {
+                break
+            }
+        }
+
+        if($match) {
+            return @{Exists=$true; Folder=$folderCandidate.FullName}
         }
     }
 
-    return $true
+    return @{Exists=$false; Folder=$null}
 }
 
-function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module, [switch] $IncludeDependencies)
+function Test-EnvironmentModuleRootDirectory([EnvironmentModuleCore.EnvironmentModuleInfo] $Module, [switch] $IncludeDependencies)
 {
     <#
     .SYNOPSIS
@@ -54,13 +137,13 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     .OUTPUTS
     True if a valid root directory was found.
     #>
-    if(($Module.RequiredFiles.Length -gt 0) -and ($null -eq (Get-EnvironmentModuleRootDirectory $Module))) {
+    if(($Module.RequiredItems.Length -gt 0) -and ($null -eq (Set-EnvironmentModuleRootDirectory $Module))) {
         return $false
     }
 
     if($IncludeDependencies) {
-        foreach ($dependencyModuleName in $Module.RequiredEnvironmentModules) {
-            $dependencyModule = Get-EnvironmentModule -ListAvailable $dependencyModuleName
+        foreach ($dependency in $Module.Dependencies) {
+            $dependencyModule = Get-EnvironmentModule -ListAvailable $dependency.ModuleFullName
 
             if(-not $dependencyModule) {
                 return $false
@@ -75,81 +158,56 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModu
     return $true
 }
 
-function Get-EnvironmentModuleRootDirectory([EnvironmentModules.EnvironmentModuleInfo] $Module)
+function Set-EnvironmentModuleRootDirectory
 {
     <#
     .SYNOPSIS
-    Find the root directory of the module, that is either specified by a registry entry or by a path.
+    Find the root directory of the module that is either specified by a search path object. Store the value in the object.
     .DESCRIPTION
-    This function will check the meta parameter of the given module and will identify the root directory of the module, either by its registry or path parameters.
+    This function will check the meta parameter of the given module and will identify the root directory of the module. The root directory is the first
+    directory that contains all required items.
     .PARAMETER Module
     The module to handle.
     .OUTPUTS
     The path to the root directory or $null if it was not found.
     #>
-    Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredFiles.Count) required files"
 
-    if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredFiles.Count -gt 0)) {
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param (
+        [EnvironmentModuleCore.EnvironmentModuleInfo] $Module
+    )
+
+    if((-not ([string]::IsNullOrEmpty($Module.ModuleRoot))) -and (Test-Path ($Module.ModuleRoot))) {
+        return $Module.ModuleRoot
+    }
+
+    Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredItems.Count) required items"
+
+    if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredItems.Count -gt 0)) {
         Write-Warning "The module $($Module.FullName) has no defined search paths. Please use the function Add-EnvironmentModuleSearchPath to specify the location"
     }
 
     foreach($searchPath in $Module.SearchPaths)
     {
-        if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::REGISTRY) {
-            $propertyName = Split-Path -Leaf $searchPath.Key
-            $propertyPath = Split-Path $searchPath.Key
+        $handler = $script:searchPathTypes[$searchPath.Type.ToUpper()]
 
-            Write-Verbose "Checking registry search path $($searchPath.Key)"
-            Write-Verbose "Splitted registry search path into path '$propertyPath' and name '$propertyName'"
-
-            try {
-                $registryValue = Get-ItemProperty -ErrorAction SilentlyContinue -Name "$propertyName" -Path "Registry::$propertyPath" | Select-Object -ExpandProperty "$propertyName"
-                if ($null -eq $registryValue) {
-                    Write-Verbose "Unable to find the registry value $($searchPath.Key)"
-                    continue
-                }
-
-                Write-Verbose "Found registry value $registryValue"
-                $folder = $registryValue
-                if(-not [System.IO.Directory]::Exists($folder)) {
-                    Write-Verbose "The folder $folder does not exist, using parent"
-                    $folder = Split-Path -parent $registryValue
-                }
-
-                Write-Verbose "Checking the folder $folder"
-
-                if (Test-FileExistence $folder $Module.RequiredFiles $searchPath.SubFolder) {
-                    Write-Verbose "The folder $folder contains the required files"
-                    return Join-Path $folder $searchPath.SubFolder
-                }
-            }
-            catch {
-                continue
-            }
-
+        if($null -eq $handler) {
+            Write-Warning "No handler for search path type $($searchPath.Type) found"
             continue
         }
 
-        if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::Directory) {
-            Write-Verbose "Checking directory search path $($searchPath.Key)"
-            if (Test-FileExistence $searchPath.Key $Module.RequiredFiles $searchPath.SubFolder) {
-                return Join-Path $searchPath.Key $searchPath.SubFolder
-            }
+        $result = (($handler.Item1).InvokeReturnAsIs($searchPath, $Module))
+        Write-Verbose "Handling search path $($searchPath.Key) returned with '$result'"
 
+        if($null -eq $result) {
+            Write-Verbose "Checking next search path"
             continue
         }
 
-        if($searchPath.Type -eq [EnvironmentModules.SearchPathType]::ENVIRONMENT_VARIABLE) {
-            $directory = $([environment]::GetEnvironmentVariable($searchPath.Key))
-            Write-Verbose "Checking environment search path $($searchPath.Key) -> $directory"
-            if ($directory -and (Test-FileExistence $directory $Module.RequiredFiles $searchPath.SubFolder)) {
-                return Join-Path $directory $searchPath.SubFolder
-            }
-
-            continue
-        }
+        return $result
     }
 
+    $Module = $null
     return $null
 }
 
@@ -198,12 +256,13 @@ function Import-EnvironmentModule
         }
 
         $initialSilentLoadState = $script:silentLoad
-        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $silentMode
+        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $null $silentMode
         $script:silentLoad = $initialSilentLoadState
     }
 }
 
-function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules, [Bool] $SilentMode)
+function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules,
+                                         [EnvironmentModuleCore.EnvironmentModuleInfo] $SourceModule = $null, [Bool] $SilentMode = $false)
 {
     <#
     .SYNOPSIS
@@ -216,6 +275,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     True if the module was loaded directly by the user. False if it was loaded as dependency.
     .PARAMETER KnownModules
     A collection of known modules, used to detect circular dependencies.
+    .PARAMETER SourceModule
+    The module that has triggered the loading of this module (used when module is loaded as dependency).
     .PARAMETER SilentMode
     True if no outputs should be printed.
     .OUTPUTS
@@ -259,7 +320,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName
 
     $alreadyLoadedModules = $null
-    if(($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) -and ($LoadedDirectly)) {
+    if(($module.ModuleType -eq [EnvironmentModuleCore.EnvironmentModuleType]::Meta) -and ($LoadedDirectly)) {
         $script:silentLoad = $true
         $alreadyLoadedModules = Get-EnvironmentModule
     }
@@ -278,12 +339,12 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Identify the root directory
-    $moduleRoot = Get-EnvironmentModuleRootDirectory $module
+    $moduleRoot = Set-EnvironmentModuleRootDirectory $module
 
-    if (($module.RequiredFiles.Length -gt 0) -and ($null -eq $moduleRoot)) {
+    if (($module.RequiredItems.Length -gt 0) -and ($null -eq $moduleRoot)) {
         if(-not $SilentMode) {
-            Write-Host "Unable to find the root directory of module $($module.FullName) - Is the program corretly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
-            Write-Host "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' "Unable to find the root directory of module $($module.FullName) - Is the program correctly installed?" -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' "Use 'Add-EnvironmentModuleSearchPath' to specify the location." -ForegroundColor $Host.PrivateData.ErrorForegroundColor -BackgroundColor $Host.PrivateData.ErrorBackgroundColor
         }
         return $false
     }
@@ -292,22 +353,26 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $loadedDependencies = New-Object "System.Collections.Stack"
     Write-Progress -activity $progressName -status "Importing dependencies" -percentcomplete 30
 
-    if($module.RequiredEnvironmentModules.Count -gt 0) {
-        $percentagePerDependency = 50 / $module.RequiredEnvironmentModules.Count
+    if($module.Dependencies.Count -gt 0) {
+        $percentagePerDependency = 50 / $module.Dependencies.Count
         $dependencyIndex = 0
-        foreach ($dependency in $module.RequiredEnvironmentModules) {
+        foreach ($dependency in $module.Dependencies) {
             $percentageComplete = 30 + ($percentagePerDependency * $dependencyIndex)
             Write-Progress -activity $progressName -status "Importing dependency $dependency" -percentcomplete $percentageComplete
             Write-Verbose "Importing dependency $dependency"
-            $loadingResult = (Import-RequiredModulesRecursive $dependency $loadDependenciesDirectly $KnownModules)
+
+            $silentDependencyMode = $dependency.IsOptional
+            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules $module $silentDependencyMode)
             if (-not $loadingResult) {
-                while ($loadedDependencies.Count -gt 0) {
-                    Remove-EnvironmentModule ($loadedDependencies.Pop())
+                if(-not ($dependency.IsOptional)) {
+                    while ($loadedDependencies.Count -gt 0) {
+                        Remove-EnvironmentModule ($loadedDependencies.Pop())
+                    }
+                    return $false
                 }
-                return $false
             }
             else {
-                $loadedDependencies.Push($dependency)
+                $loadedDependencies.Push($dependency.ModuleFullName)
             }
 
             $dependencyIndex++
@@ -322,7 +387,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName }
 
     # Load the module itself
-    $module = New-Object "EnvironmentModules.EnvironmentModule" -ArgumentList ($module, $moduleRoot, $LoadedDirectly)
+    $module = New-Object "EnvironmentModuleCore.EnvironmentModule" -ArgumentList ($module, $LoadedDirectly, $SourceModule)
+
     Write-Verbose "Importing the module $ModuleFullName into the Powershell environment"
     Import-Module $ModuleFullName -Scope Global -Force -ArgumentList $module
 
@@ -348,7 +414,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     Write-Progress -activity $progressName -status "Finishing import" -percentcomplete 95
 
     # Print the summary
-    if(($module.ModuleType -eq [EnvironmentModules.EnvironmentModuleType]::Meta) -and ($LoadedDirectly) -and (-not $SilentMode)) {
+    if(($module.ModuleType -eq [EnvironmentModuleCore.EnvironmentModuleType]::Meta) -and ($LoadedDirectly) -and (-not $SilentMode)) {
         Show-EnvironmentSummary -ModuleBlacklist $alreadyLoadedModules
     }
 
@@ -356,7 +422,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     return $true
 }
 
-function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] $Module, [Bool] $SilentMode)
+function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModule] $Module, [Bool] $SilentMode)
 {
     <#
     .SYNOPSIS
@@ -383,15 +449,15 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
                 continue
             }
 
-            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::PREPEND) {
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::PREPEND) {
                 Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
                 Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $false
             }
-            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::APPEND) {
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
                 Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
                 Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $true
             }
-            if ($pathInfo.PathType -eq [EnvironmentModules.EnvironmentModulePathType]::SET) {
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
                 Write-Verbose "Joined Set-Path: $($pathInfo.Variable) = $joinedValue"
                 [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
             }
@@ -403,7 +469,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
             Set-Alias -name $aliasInfo.Name -value $aliasInfo.Definition -scope "Global"
             if(($aliasInfo.Description -ne "") -and (-not $SilentMode)) {
                 if(-not $SilentMode) {
-                    Write-Host $aliasInfo.Description -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+                    Write-InformationColored -InformationAction 'Continue' $aliasInfo.Description -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
                 }
             }
         }
@@ -411,7 +477,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         foreach ($functionInfo in $Module.Functions.Values) {
             Add-EnvironmentModuleFunction $functionInfo
 
-            new-item -path function:\ -name "global:$($functionInfo.Name)" -value $functionInfo.Definition -Force
+            new-item -path function:\ -name "global:$($functionInfo.Name)" -value ([ScriptBlock]$functionInfo.Definition) -Force
         }
 
         Write-Verbose ("Register environment module with name " + $Module.Name + " and object " + $Module)
@@ -420,14 +486,14 @@ function Mount-EnvironmentModuleInternal([EnvironmentModules.EnvironmentModule] 
         $script:loadedEnvironmentModules[$Module.Name] = $Module
 
         if($script:configuration["ShowLoadingMessages"]) {
-            Write-Host ("$($Module.FullName) loaded")
+            Write-InformationColored -InformationAction 'Continue' ("$($Module.FullName) loaded")
         }
 
         return $true
     }
 }
 
-function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]] $ModuleBlacklist = $null)
+function Show-EnvironmentSummary([EnvironmentModuleCore.EnvironmentModuleInfoBase[]] $ModuleBlacklist = $null)
 {
     <#
     .SYNOPSIS
@@ -438,44 +504,44 @@ function Show-EnvironmentSummary([EnvironmentModules.EnvironmentModuleInfoBase[]
     No output is returned.
     #>
     $aliases = Get-EnvironmentModuleAlias | Sort-Object -Property "Name"
-    $functions = Get-EnvironmentModuleFunction | Sort-Object -Property "Name"
+    $functions = Get-EnvironmentModuleFunction -ReturnTopLevelFunction | Sort-Object -Property "Name"
     $parameters = Get-EnvironmentModuleParameter | Sort-Object -Property "Name"
     $modules = Get-ConcreteEnvironmentModules | Sort-Object -Property "FullName"
 
-    Write-Host ""
-    Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
-    Write-Host "Loaded Modules:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' ""
+    Write-InformationColored -InformationAction 'Continue' "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' "Loaded Modules:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
 
     $moduleBlackListNames = $ModuleBlacklist | Select-Object -ExpandProperty "FullName"
     $modules | ForEach-Object {
         if(-not ($moduleBlackListNames -match $_.FullName)) {
-            Write-Host "  * $($_.FullName)"
+            Write-InformationColored -InformationAction 'Continue' "  * $($_.FullName)"
         }
     }
 
-    Write-Host "Available Functions:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' "Available Functions:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $functions | ForEach-Object {
         if(-not ($moduleBlackListNames -match $_.ModuleFullName)) {
-            Write-Host "  * $($_.Name) - " -NoNewline
-            Write-Host $_.ModuleFullName -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' "  * $($_.Name) - " -NoNewline
+            Write-InformationColored -InformationAction 'Continue' $_.ModuleFullName -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
         }
     }
 
-    Write-Host "Available Aliases:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' "Available Aliases:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $aliases | ForEach-Object {
         if(-not ($moduleBlackListNames -match $_.ModuleFullName)) {
-            Write-Host "  * $($_.Name) - " -NoNewline
-            Write-Host $_.Description -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+            Write-InformationColored -InformationAction 'Continue' "  * $($_.Name) - " -NoNewline
+            Write-InformationColored -InformationAction 'Continue' $_.Description -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
         }
     }
 
-    Write-Host "Available Parameters:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' "Available Parameters:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     $parameters | ForEach-Object {
-        Write-Host "  * $($_.Parameter) - " -NoNewline
-        Write-Host $_.Value -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+        Write-InformationColored -InformationAction 'Continue' "  * $($_.Name) - " -NoNewline
+        Write-InformationColored -InformationAction 'Continue' $_.Value -ForegroundColor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
     }
-    Write-Host "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
-    Write-Host ""
+    Write-InformationColored -InformationAction 'Continue' "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' ""
 }
 
 function Switch-EnvironmentModule
@@ -561,7 +627,7 @@ function Add-EnvironmentVariableValue([String] $Variable, [String] $Value, [Bool
     [Environment]::SetEnvironmentVariable($Variable, $tmpValue, "Process")
 }
 
-function Add-EnvironmentModuleAlias([EnvironmentModules.EnvironmentModuleAliasInfo] $AliasInfo)
+function Add-EnvironmentModuleAlias([EnvironmentModuleCore.AliasInfo] $AliasInfo)
 {
     <#
     .SYNOPSIS
@@ -581,13 +647,13 @@ function Add-EnvironmentModuleAlias([EnvironmentModules.EnvironmentModuleAliasIn
         $knownAliases.Add($AliasInfo)
     }
     else {
-        $newValue = New-Object "System.Collections.Generic.List[EnvironmentModules.EnvironmentModuleAliasInfo]"
+        $newValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.AliasInfo]"
         $newValue.Add($AliasInfo)
         $script:loadedEnvironmentModuleAliases.Add($AliasInfo.Name, $newValue)
     }
 }
 
-function Add-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleFunctionInfo] $FunctionDefinition)
+function Add-EnvironmentModuleFunction([EnvironmentModuleCore.FunctionInfo] $FunctionDefinition)
 {
     <#
     .SYNOPSIS
@@ -607,7 +673,7 @@ function Add-EnvironmentModuleFunction([EnvironmentModules.EnvironmentModuleFunc
         $knownFunctions.Add($FunctionDefinition)
     }
     else {
-        $newValue = New-Object "System.Collections.Generic.List[EnvironmentModules.EnvironmentModuleFunctionInfo]"
+        $newValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.FunctionInfo]"
         $newValue.Add($FunctionDefinition)
         $script:loadedEnvironmentModuleFunctions.Add($FunctionDefinition.Name, $newValue)
     }

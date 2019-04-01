@@ -10,7 +10,7 @@
 @{
 
     # Environment Modules that must be imported into the global environment prior importing this module
-    RequiredEnvironmentModules = @({{RequiredEnvironmentModules}})
+    Dependencies = @({{Dependencies}})
 
     # The type of the module, either "Default" or "Meta" if it is a project-module
     ModuleType = "{{ModuleType}}"
@@ -22,14 +22,14 @@
     DirectUnload = {{DirectUnload}}
 
     # The version of the description files
-    StyleVersion = 2.1
+    StyleVersion = 3.0
 
     # The category (default storage path) of the module (for instance "Project", "Abstract", "Program", "Development")
     Category = "{{Category}}"
 
     # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
     Parameters = @{
-      {% for parameterKey in Parameters %}"{{parameterKey}}"="{{Parameters[parameterKey]}}"
-      {% endfor %}
+      {{ for parameterKey in Parameters }}"{{parameterKey}}"="{{Parameters[parameterKey]}}"
+      {{ end }}
 	}
 }

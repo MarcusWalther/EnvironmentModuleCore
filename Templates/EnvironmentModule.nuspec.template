@@ -7,8 +7,8 @@
     <description>{{Description}}</description>
     <dependencies>
       <dependency id="EnvironmentModules" />
-      {% for dependency in Dependencies %}<dependency id="{{dependency}}" />
-      {% endfor %}
+      {{ for dependency in Dependencies }}<dependency id="{{dependency}}" />
+      {{ end }}
     </dependencies>
   </metadata>
   <files>

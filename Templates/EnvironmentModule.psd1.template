@@ -24,7 +24,7 @@ Author = '{{Author}}'
 CompanyName = '{{CompanyName}}'
 
 # Copyright statement for this module
-Copyright = '(c) {{Year}} {{Author}}. All rights reserved.'
+Copyright = '(c) {{Year}} {{Author}}.'
 
 # Description of the functionality provided by this module
 Description = '{{Description}}'
