@@ -1,15 +1,32 @@
 Register-EnvironmentModuleRequiredItemType "GIT_REMOTE" {
     param([System.IO.DirectoryInfo] $Directory, [EnvironmentModuleCore.RequiredItem] $Item)
 
+    if([string]::IsNullOrEmpty($Item.Value)) {
+        Write-Warning "Required git remote without value specified"
+    }
+
     Push-Location
     Set-Location $Directory.FullName
-    # TODO: Sorround with try-catch
-    $remotes = git remote -v
+    $remotes = $null
+    try {
+        $remotes = git remote -v
+    }
+    catch {
+        Write-Warning "Error executing git"
+    }
     Pop-Location
-    $matchResult = $remotes -match "$($Item.Value) "
-    if($null -eq $matchResult) {
+
+    if([string]::IsNullOrEmpty($remotes)) {
         return $false
     }
 
+    Write-Verbose "Found the following remotes in '$Directory': $remotes"
+    $matchResult = $remotes -match $Item.Value
+    if($null -eq $matchResult) {
+        Write-Verbose "'$($Item.Value)' does not match"
+        return $false
+    }
+
+    Write-Verbose "'$($Item.Value)' does match"
     return $true
 }
