@@ -8,7 +8,7 @@ Set-Location (Join-Path $PSScriptRoot "..")
 # Create the nuget directory
 $nugetDirectory = "Nuget"
 
-mkdir -Force $nugetDirectory
+New-Item -ItemType directory -Force $nugetDirectory
 Set-Location $nugetDirectory
 
 nuget install EnvironmentModuleCore

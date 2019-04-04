@@ -25,7 +25,7 @@ if(Test-Path $packageFolder) {
     Remove-Item -Recurse -Force $packageFolder
 }
 
-mkdir $packageFolder
+New-Item -ItemType directory $packageFolder
 
 # Copy the relevant items to the package folder
 Copy-Item "*.ps*1" $packageFolder
@@ -34,6 +34,7 @@ Copy-Item "LICENSE.md" $packageFolder
 Copy-Item "*.ps1xml" $packageFolder
 Copy-Item "LICENSE*" $packageFolder
 Copy-Item "Templates" $packageFolder -Recurse
+Copy-Item "Extensions" $packageFolder -Recurse
 
 # Publish the module
 Publish-Module -Path $packageFolder -Repository $Repository -Verbose -NuGetApiKey $NuGetApiKey

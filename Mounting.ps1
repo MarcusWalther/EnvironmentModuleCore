@@ -12,6 +12,11 @@ function Register-EnvironmentModuleSearchPathType([string] $Type, [int] $Default
 Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY) 20 {
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
     Write-Verbose "Checking directory search path $($SearchPath.Key)"
+
+    if([string]::IsNullOrEmpty($SearchPath.Key)) {
+        Write-Warning "Directory search path without key specified"
+    }
+
     $testResult = Test-ItemExistence $SearchPath.Key $Module.RequiredItems $SearchPath.SubFolder
     if ($testResult.Exists) {
         $Module.ModuleRoot = $testResult.Folder
@@ -24,6 +29,10 @@ Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TY
 Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_ENVIRONMENT_VARIABLE) 30 {
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
     $directory = $([environment]::GetEnvironmentVariable($SearchPath.Key))
+
+    if([string]::IsNullOrEmpty($SearchPath.Key)) {
+        Write-Warning "Environment Variable search path without key specified"
+    }
 
     if(-not $directory) {
         return $null
@@ -52,6 +61,10 @@ function Register-EnvironmentModuleRequiredItemType([string] $Type, [scriptblock
 
 Register-EnvironmentModuleRequiredItemType ([EnvironmentModuleCore.RequiredItem]::TYPE_FILE) {
     param([System.IO.DirectoryInfo] $Directory, [EnvironmentModuleCore.RequiredItem] $Item)
+
+    if([string]::IsNullOrEmpty($Item.Value)) {
+        Write-Warning "Required file without value specified"
+    }
 
     if (-not (Test-Path (Join-Path "$($Directory.FullName)" "$($Item.Value)"))) {
         Write-Verbose "The file $($Item.Value) does not exist in folder $($Directory.FullName)"
@@ -380,7 +393,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Create the temp directory
-    mkdir -Force $module.TmpDirectory
+    New-Item -ItemType directory -Force $module.TmpDirectory
     Write-Progress -activity $progressName -status "Importing the module itself" -percentcomplete 85
 
     # Set the parameter defaults

@@ -3,6 +3,10 @@ Register-EnvironmentModuleSearchPathType "REGISTRY" 25 {
 
     Write-Verbose "Checking registry search path $($SearchPath.Key)"
 
+    if([string]::IsNullOrEmpty($SearchPath.Key)) {
+        Write-Warning "Registry search path without key specified"
+    }
+
     try {
         $registryValue = $null
         if($SearchPath.Key.EndsWith("\")) {
