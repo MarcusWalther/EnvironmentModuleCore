@@ -21,10 +21,10 @@ GUID = 'fc75d2cb-734d-4b59-aa49-1c3d8d78f6a0'
 Author = 'Marcus W'
 
 # Copyright statement for this module
-Copyright = '(c) 2015 MarcusW.'
+Copyright = '(c) 2019 MarcusW.'
 
 # Description of the functionality provided by this module
-Description = 'This environment module gives you access to the "ProjectA" modules.'
+Description = 'This environment module gives you access to the "Project-ProgramA" features.'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @("EnvironmentModuleCore")
