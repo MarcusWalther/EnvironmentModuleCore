@@ -15,7 +15,7 @@ else {
 }
 
 $script:tmpEnvironmentRootSessionPath = (Join-Path $script:tmpEnvironmentRootPath "Environment_$PID")
-mkdir $script:tmpEnvironmentRootPath -Force
+New-Item -ItemType directory $script:tmpEnvironmentRootPath -Force
 foreach($directory in (Get-ChildItem (Join-Path $script:tmpEnvironmentRootPath "Environment_*"))) {
     if($directory.Name -Match "Environment_(?<PID>[0-9]+)") {
         $processInfo = (Get-Process -Id $Matches["PID"] -ErrorAction SilentlyContinue)
@@ -25,13 +25,13 @@ foreach($directory in (Get-ChildItem (Join-Path $script:tmpEnvironmentRootPath "
     }
 }
 
-mkdir $script:tmpEnvironmentRootSessionPath -Force
+New-Item -ItemType directory $script:tmpEnvironmentRootSessionPath -Force
 
 # Configure the tmp directory and append it to the PSModulePath
 Write-Verbose "Using environment module temp path $($script:tmpEnvironmentRootPath)"
 $script:tmpEnvironmentModulePath = ([System.IO.Path]::Combine($script:tmpEnvironmentRootPath, "Modules"))
 
-mkdir $script:tmpEnvironmentModulePath -Force
+New-Item -ItemType directory $script:tmpEnvironmentModulePath -Force
 
 if(-not (Test-PathPartOfEnvironmentVariable $script:tmpEnvironmentModulePath "PSModulePath")) {
     $env:PSModulePath = "$($env:PSModulePath)$([IO.Path]::PathSeparator)$($script:tmpEnvironmentModulePath)"
@@ -47,7 +47,7 @@ else {
     $env:ENVIRONMENT_MODULES_CONFIG = $script:configEnvironmentRootPath
 }
 
-mkdir $script:configEnvironmentRootPath -Force
+New-Item -ItemType directory $script:configEnvironmentRootPath -Force
 
 # Setup the variables
 $script:configuration = @{} # Configuration parameters

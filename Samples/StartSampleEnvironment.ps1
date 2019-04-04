@@ -21,7 +21,7 @@ $env:ENVIRONMENT_MODULES_TMP = "$TempDirectory"
 $env:ENVIRONMENT_MODULES_CONFIG = "$ConfigDirectory"
 
 if($null -ne (Get-Module 'EnvironmentModuleCore')) {
-    Remove-Module EnvironmentModuleCore
+    Remove-Module EnvironmentModuleCore -Force
 }
 
 # Remove the temp directory

@@ -393,7 +393,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Create the temp directory
-    mkdir -Force $module.TmpDirectory
+    New-Item -ItemType directory -Force $module.TmpDirectory
     Write-Progress -activity $progressName -status "Importing the module itself" -percentcomplete 85
 
     # Set the parameter defaults
