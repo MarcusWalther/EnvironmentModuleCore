@@ -22,7 +22,7 @@ Register-EnvironmentModuleRequiredItemType "GIT_REMOTE" {
 
     Write-Verbose "Found the following remotes in '$Directory': $remotes"
     $matchResult = $remotes -match $Item.Value
-    if($null -eq $matchResult) {
+    if(($null -eq $matchResult) -or ($matchResult.Length -eq 0)) {
         Write-Verbose "'$($Item.Value)' does not match"
         return $false
     }
