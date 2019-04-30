@@ -35,6 +35,7 @@ Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TY
     }
 
     if(-not $directory) {
+        Write-Verbose "No directory found under environment variable '$($SearchPath.Key)'"
         return $null
     }
 

@@ -27,10 +27,11 @@ Register-EnvironmentModuleSearchPathType "REGISTRY" 25 {
             }
 
             Write-Verbose "Found registry value $registryValue"
-            $folder = $registryValue
+            $folder = $registryValue -replace '"', ""
             if(-not [System.IO.Directory]::Exists($folder)) {
-                Write-Verbose "The folder $folder does not exist, using parent"
-                $folder = Split-Path -parent $registryValue
+                $parent = Split-Path -parent $folder
+                Write-Verbose "The folder $folder does not exist, using parent $parent"
+                $folder = $parent
             }
 
             Write-Verbose "Checking the folder $folder"

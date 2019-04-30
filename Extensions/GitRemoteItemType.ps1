@@ -5,6 +5,8 @@ Register-EnvironmentModuleRequiredItemType "GIT_REMOTE" {
         Write-Warning "Required git remote without value specified"
     }
 
+    Write-Verbose "Searching for remote $Item.Value in $Directory.FullName"
+
     Push-Location
     Set-Location $Directory.FullName
     $remotes = $null

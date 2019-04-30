@@ -322,7 +322,7 @@ function New-EnvironmentModuleInfo
 
     if($descriptionContent.Contains("Parameters")) {
         $descriptionContent.Item("Parameters").Keys | Foreach-Object { $result.Parameters[$_] = $descriptionContent.Item("Parameters")[$_] }
-        Write-Verbose "Read module parameters $($result.Parameters)"
+        Write-Verbose "Read module parameters $($result.Parameters.GetEnumerator() -join ',')"
     }
 
     return $result
