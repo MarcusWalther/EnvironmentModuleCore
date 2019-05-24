@@ -1,5 +1,6 @@
 $script:moduleCacheFileLocation = [System.IO.Path]::Combine($script:tmpEnvironmentRootPath, "ModuleCache.xml")
-$script:searchPathsFileLocation = [System.IO.Path]::Combine($script:configEnvironmentRootPath, "CustomSearchPaths.xml")
+$script:localSearchPathsFileLocation = [System.IO.Path]::Combine($script:localConfigEnvironmentRootPath, "CustomSearchPaths.xml")
+$script:globalSearchPathsFileLocation = [System.IO.Path]::Combine($script:globalConfigEnvironmentRootPath, "CustomSearchPaths.xml")
 
 function Initialize-EnvironmentModuleCache()
 {
@@ -36,7 +37,7 @@ function Initialize-CustomSearchPaths()
     #>
     $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
 
-    $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:searchPathsFileLocation
+    $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:localSearchPathsFileLocation
     if(($null -eq $fileInfo) -or ($fileInfo.Length -eq 0)) {
         return
     }
@@ -44,11 +45,28 @@ function Initialize-CustomSearchPaths()
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
+    Read-CustomSearchPathsFromFile $script:localSearchPathsFileLocation
+    Read-CustomSearchPathsFromFile $script:globalConfigEnvironmentRootPath
+}
+
+function Read-CustomSearchPathsFromFile([string] $FilePath)
+{
+    <#
+    .SYNOPSIS
+    Append the search paths stored in the given file to the internal search path list.
+    .DESCRIPTION
+    This function will load the search paths defined in the given file. All identified search paths are added to the internal search path collection.
+    .OUTPUTS
+    No output is returned.
+    #>
+    if(-not (Test-Path $FilePath)) {
+        return
+    }
     $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
 
     $fileStream = $null
     try {
-        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:searchPathsFileLocation, ([System.IO.FileMode]::Open)
+        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $FilePath, ([System.IO.FileMode]::Open)
         $reader = $null
         try {
             $reader = [System.Xml.XmlDictionaryReader]::CreateTextReader($fileStream, (New-Object "System.Xml.XmlDictionaryReaderQuotas"))
@@ -252,11 +270,13 @@ function Add-EnvironmentModuleSearchPath
     Add a new custom search path for an environment module.
     .DESCRIPTION
     This function will register a new custom search path for a module.
+    .PARAMETER IsGlobal
+    True if the value should be stored in the global storage file.
     .PARAMETER Type
     The type of the search path.
     .PARAMETER Key
     The key to set - the key of the class EnvironmentModuleCore.SearchPath.
-    .PARAMETER Module
+    .PARAMETER ModuleFullName
     The module that should be extended with a new search path.
     .PARAMETER SubFolder
     The sub folder for the search.
@@ -264,7 +284,7 @@ function Add-EnvironmentModuleSearchPath
     List of all search paths.
     #>
     [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
-    Param()
+    Param([switch] $IsGlobal)
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
@@ -302,7 +322,7 @@ function Add-EnvironmentModuleSearchPath
 
     process {
         $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
-        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false)
+        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false, $IsGlobal)
 
         if($oldSearchPaths) {
             $oldSearchPaths.Add($newSearchPath)
@@ -333,8 +353,6 @@ function Remove-EnvironmentModuleSearchPath
     The key of the search path to remove.
     .PARAMETER SubFolder
     The sub folder of the search path to remove.
-    .OUTPUTS
-    List of all search paths.
     #>
     [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
     Param()
@@ -503,10 +521,11 @@ function Write-CustomSearchPaths
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
+    #TODO: Write global search path file as well
     $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
     $fileStream = $null
     try {
-        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:searchPathsFileLocation, ([System.IO.FileMode]::Create)
+        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:localSearchPathsFileLocation, ([System.IO.FileMode]::Create)
         $writer = $null
         try {
             $writer = New-Object "System.IO.StreamWriter" -ArgumentList $fileStream, ([System.Text.Encoding]::UTF8)

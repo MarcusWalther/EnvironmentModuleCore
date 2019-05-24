@@ -1,7 +1,17 @@
 ﻿# Read the temp folder location
 $script:moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:moduleFileLocation, ".."))
-$storageFileLocation = "$env:APPDATA\PowerShell\EnvironmentModuleCore"
+$localStorageFileLocation = "$env:APPDATA"
+if(-not $localStorageFileLocation) {
+    $localStorageFileLocation = "~"
+}
+$localStorageFileLocation += "/PowerShell/EnvironmentModuleCore"
+
+$globalStorageFileLocation = "$env:PROGRAMDATA"
+if(-not $globalStorageFileLocation) {
+    $globalStorageFileLocation = "/lib"
+}
+$globalStorageFileLocation += "/PowerShell/EnvironmentModuleCore"
 
 # Include the util functions
 . (Join-Path $PSScriptRoot "Utils.ps1")
@@ -10,7 +20,7 @@ if($null -ne $env:ENVIRONMENT_MODULES_TMP) {
     $script:tmpEnvironmentRootPath = $env:ENVIRONMENT_MODULES_TMP
 }
 else {
-    $script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Tmp"))
+    $script:tmpEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($localStorageFileLocation, "Tmp"))
     $env:ENVIRONMENT_MODULES_TMP = $script:tmpEnvironmentRootPath
 }
 
@@ -37,17 +47,18 @@ if(-not (Test-PathPartOfEnvironmentVariable $script:tmpEnvironmentModulePath "PS
     $env:PSModulePath = "$($env:PSModulePath)$([IO.Path]::PathSeparator)$($script:tmpEnvironmentModulePath)"
 }
 
-# Read the config folder location
-$script:configEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($storageFileLocation, "Config"))
+# Read the config folder locations
+$script:localConfigEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($localStorageFileLocation, "Config"))
+$script:globalConfigEnvironmentRootPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($globalStorageFileLocation, "Config"))
 
 if($null -ne $env:ENVIRONMENT_MODULES_CONFIG) {
-    $script:configEnvironmentRootPath = $env:ENVIRONMENT_MODULES_CONFIG
+    $script:localConfigEnvironmentRootPath = $env:ENVIRONMENT_MODULES_CONFIG
 }
 else {
-    $env:ENVIRONMENT_MODULES_CONFIG = $script:configEnvironmentRootPath
+    $env:ENVIRONMENT_MODULES_CONFIG = $script:localConfigEnvironmentRootPath
 }
 
-New-Item -ItemType directory $script:configEnvironmentRootPath -Force
+New-Item -ItemType directory $script:localConfigEnvironmentRootPath -Force
 
 # Setup the variables
 $script:configuration = @{} # Configuration parameters
@@ -63,7 +74,7 @@ $script:silentLoad = $false # Indicates if output should be printed on module lo
 
 # Initialialize the configuration
 . (Join-Path $PSScriptRoot "Configuration.ps1")
-$script:configurationFilePath = (Join-Path $script:configEnvironmentRootPath "Configuration.xml")
+$script:configurationFilePath = (Join-Path $script:localConfigEnvironmentRootPath "Configuration.xml")
 Import-EnvironmentModuleCoreConfiguration $script:configurationFilePath
 
 # Include the module parameter functions
@@ -84,7 +95,7 @@ else
 }
 
 # Initialize the custom search path handling
-if(test-path $script:searchPathsFileLocation)
+if(test-path $script:localSearchPathsFileLocation)
 {
     Initialize-CustomSearchPaths
 }
