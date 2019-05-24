@@ -284,7 +284,10 @@ function Add-EnvironmentModuleSearchPath
     List of all search paths.
     #>
     [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
-    Param([switch] $IsGlobal)
+    Param(
+        [Switch] $IsGlobal,
+        [Switch] $IsTemporary
+    )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
@@ -322,7 +325,7 @@ function Add-EnvironmentModuleSearchPath
 
     process {
         $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
-        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false, $IsGlobal)
+        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false, $IsTemporary, $IsGlobal)
 
         if($oldSearchPaths) {
             $oldSearchPaths.Add($newSearchPath)
@@ -334,7 +337,9 @@ function Add-EnvironmentModuleSearchPath
             $script:customSearchPaths[$ModuleFullName] = $searchPaths
         }
 
-        Write-CustomSearchPaths
+        if(-not $IsTemporary) {
+            Write-CustomSearchPaths
+        }
     }
 }
 
@@ -492,20 +497,26 @@ function Clear-EnvironmentModuleSearchPaths
     No output is returned.
     #>
     Param(
+        [Switch] $OnlyTemporary,
         [Switch] $Force
     )
 
     # Ask for deletion
     if(-not $Force) {
-        $answer = Read-Host -Prompt "Do you really want to delete all custom seach paths (Y/N)?"
+        $answer = Read-Host -Prompt "Do you really want to delete the custom seach paths (Y/N)?"
 
         if($answer.ToLower() -ne "y") {
             return
         }
     }
 
-    $script:customSearchPaths.Clear()
-    Write-CustomSearchPaths
+    if($OnlyTemporary) {
+        Initialize-CustomSearchPaths
+    }
+    else {
+        $script:customSearchPaths.Clear()
+        Write-CustomSearchPaths
+    }
 }
 
 function Write-CustomSearchPaths
@@ -521,8 +532,22 @@ function Write-CustomSearchPaths
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
-    #TODO: Write global search path file as well
-    $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
+    $searchPathsToWrite = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
+    foreach($moduleFullName in $script:customSearchPaths.Keys) {
+        foreach($searchPath in $script:customSearchPaths[$moduleFullName]) {
+            if(-not $searchPath.IsTemporary) {
+                $oldValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]"
+                if($searchPathsToWrite.ContainsKey($moduleFullName)) {
+                    $oldValue = $searchPathsToWrite[$moduleFullName]
+                }
+
+                $oldValue.Add($searchPath)
+                $searchPathsToWrite[$moduleFullName] = $oldValue
+            }
+        }
+    }
+
+    $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $searchPathsToWrite.GetType(), $knownTypes
     $fileStream = $null
     try {
         $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:localSearchPathsFileLocation, ([System.IO.FileMode]::Create)
@@ -534,7 +559,7 @@ function Write-CustomSearchPaths
                 $xmlWriter = [System.Xml.XmlTextWriter]($writer)
                 $xmlWriter.Formatting = [System.Xml.Formatting]::Indented
                 $xmlWriter.WriteStartDocument()
-                $serializer.WriteObject($xmlWriter, $script:customSearchPaths)
+                $serializer.WriteObject($xmlWriter, $searchPathsToWrite)
                 $xmlWriter.Flush()
             }
             finally {
