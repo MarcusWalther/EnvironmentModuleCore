@@ -60,6 +60,13 @@ else {
 
 New-Item -ItemType directory $script:localConfigEnvironmentRootPath -Force
 
+try {
+    New-Item -ItemType directory $script:globalConfigEnvironmentRootPath -Force
+}
+catch {
+    Write-Verbose "No write access to global configuration"
+}
+
 # Setup the variables
 $script:configuration = @{} # Configuration parameters
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
