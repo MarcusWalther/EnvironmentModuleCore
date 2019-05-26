@@ -1,4 +1,4 @@
-Register-EnvironmentModuleSearchPathType "REGISTRY" 25 {
+Register-EnvironmentModuleSearchPathType "REGISTRY" 5 {
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
 
     Write-Verbose "Checking registry search path $($SearchPath.Key)"

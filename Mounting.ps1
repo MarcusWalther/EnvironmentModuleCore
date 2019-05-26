@@ -9,7 +9,7 @@ function Register-EnvironmentModuleSearchPathType([string] $Type, [int] $Default
     $script:searchPathTypes[$Type] = New-Object "System.Tuple[scriptblock, int]" -ArgumentList $Handler, $DefaultPriority
 }
 
-Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY) 20 {
+Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY) 8 {
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
     Write-Verbose "Checking directory search path $($SearchPath.Key)"
 
@@ -26,7 +26,7 @@ Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TY
     return $null
 }
 
-Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_ENVIRONMENT_VARIABLE) 30 {
+Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TYPE_ENVIRONMENT_VARIABLE) 10 {
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
     $directory = $([environment]::GetEnvironmentVariable($SearchPath.Key))
 

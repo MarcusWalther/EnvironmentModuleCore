@@ -336,7 +336,10 @@ function Add-EnvironmentModuleSearchPath
         $Priority = $PsBoundParameters['Priority']
 
         if(-not $Priority) {
-            $Priority = $script:searchPathTypes[$Type].Item2 # Get the default priority of the type
+            $Priority = $script:searchPathTypes[$Type].Item2 + 20 # Get the default priority of the type and increase it because it is custom
+            if($IsGlobal) {
+                $Priority = $Priority - 10 # Local search definition will have a higher priority than the global ones
+            }
         }
     }
 
