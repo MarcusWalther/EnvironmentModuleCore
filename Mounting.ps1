@@ -188,7 +188,8 @@ function Set-EnvironmentModuleRootDirectory
 
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param (
-        [EnvironmentModuleCore.EnvironmentModuleInfo] $Module
+        [EnvironmentModuleCore.EnvironmentModuleInfo] $Module,
+        [bool] $SilentMode
     )
 
     if((-not ([string]::IsNullOrEmpty($Module.ModuleRoot))) -and (Test-Path ($Module.ModuleRoot))) {
@@ -198,7 +199,9 @@ function Set-EnvironmentModuleRootDirectory
     Write-Verbose "Searching root for $($Module.Name) with $($Module.SearchPaths.Count) search paths and $($Module.RequiredItems.Count) required items"
 
     if(($Module.SearchPaths.Count -eq 0) -and ($Module.RequiredItems.Count -gt 0)) {
-        Write-Warning "The module $($Module.FullName) has no defined search paths. Please use the function Add-EnvironmentModuleSearchPath to specify the location"
+        if(-not $SilentMode) {
+            Write-Warning "The module $($Module.FullName) has no defined search paths. Please use the function Add-EnvironmentModuleSearchPath to specify the location"
+        }
     }
 
     foreach($searchPath in $Module.SearchPaths)
@@ -206,7 +209,9 @@ function Set-EnvironmentModuleRootDirectory
         $handler = $script:searchPathTypes[$searchPath.Type.ToUpper()]
 
         if($null -eq $handler) {
-            Write-Warning "No handler for search path type $($searchPath.Type) found"
+            if(-not $SilentMode) {
+                Write-Warning "No handler for search path type $($searchPath.Type) found"
+            }
             continue
         }
 
@@ -353,7 +358,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Identify the root directory
-    $moduleRoot = Set-EnvironmentModuleRootDirectory $module
+    $moduleRoot = Set-EnvironmentModuleRootDirectory $module $SilentMode
 
     if (($module.RequiredItems.Length -gt 0) -and ($null -eq $moduleRoot)) {
         if(-not $SilentMode) {

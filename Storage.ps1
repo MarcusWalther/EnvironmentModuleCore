@@ -1,5 +1,6 @@
 $script:moduleCacheFileLocation = [System.IO.Path]::Combine($script:tmpEnvironmentRootPath, "ModuleCache.xml")
-$script:searchPathsFileLocation = [System.IO.Path]::Combine($script:configEnvironmentRootPath, "CustomSearchPaths.xml")
+$script:localSearchPathsFileLocation = [System.IO.Path]::Combine($script:localConfigEnvironmentRootPath, "CustomSearchPaths.xml")
+$script:globalSearchPathsFileLocation = [System.IO.Path]::Combine($script:globalConfigEnvironmentRootPath, "CustomSearchPaths.xml")
 
 function Initialize-EnvironmentModuleCache()
 {
@@ -36,7 +37,7 @@ function Initialize-CustomSearchPaths()
     #>
     $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
 
-    $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:searchPathsFileLocation
+    $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:localSearchPathsFileLocation
     if(($null -eq $fileInfo) -or ($fileInfo.Length -eq 0)) {
         return
     }
@@ -44,15 +45,47 @@ function Initialize-CustomSearchPaths()
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
+    Read-CustomSearchPathsFromFile $script:localSearchPathsFileLocation
+    Read-CustomSearchPathsFromFile $script:globalSearchPathsFileLocation
+}
+
+function Read-CustomSearchPathsFromFile([string] $FilePath)
+{
+    <#
+    .SYNOPSIS
+    Append the search paths stored in the given file to the internal search path list.
+    .DESCRIPTION
+    This function will load the search paths defined in the given file. All identified search paths are added to the internal search path collection.
+    .OUTPUTS
+    No output is returned.
+    #>
+    if(-not (Test-Path $FilePath)) {
+        return
+    }
     $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
 
     $fileStream = $null
     try {
-        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:searchPathsFileLocation, ([System.IO.FileMode]::Open)
+        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $FilePath, ([System.IO.FileMode]::Open)
         $reader = $null
         try {
             $reader = [System.Xml.XmlDictionaryReader]::CreateTextReader($fileStream, (New-Object "System.Xml.XmlDictionaryReaderQuotas"))
-            $script:customSearchPaths = $serializer.ReadObject($reader)
+            Write-Verbose "Reading file $FilePath"
+            $searchPaths = $serializer.ReadObject($reader)
+            Write-Verbose "Found $($searchPaths.Count) items"
+            foreach($moduleFullName in $searchPaths.Keys) {
+                foreach($searchPath in $searchPaths[$moduleFullName]) {
+                    Write-Verbose "Found search path"
+                    $oldValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]"
+
+                    if($script:customSearchPaths.ContainsKey($moduleFullName)) {
+                        $oldValue = $script:customSearchPaths[$moduleFullName]
+                    }
+
+                    $oldValue.Add($searchPath)
+                    $script:customSearchPaths[$moduleFullName] = $oldValue
+                }
+            }
         }
         finally {
             if ($null -ne $reader)
@@ -252,11 +285,15 @@ function Add-EnvironmentModuleSearchPath
     Add a new custom search path for an environment module.
     .DESCRIPTION
     This function will register a new custom search path for a module.
+    .PARAMETER IsGlobal
+    True if the value should be stored in the global storage file.
+    .PARAMETER IsGlobal
+    True if the value should not be stored in a storage file. It is only valid for the active Powershell session.
     .PARAMETER Type
     The type of the search path.
     .PARAMETER Key
     The key to set - the key of the class EnvironmentModuleCore.SearchPath.
-    .PARAMETER Module
+    .PARAMETER ModuleFullName
     The module that should be extended with a new search path.
     .PARAMETER SubFolder
     The sub folder for the search.
@@ -264,7 +301,10 @@ function Add-EnvironmentModuleSearchPath
     List of all search paths.
     #>
     [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
-    Param()
+    Param(
+        [Switch] $IsGlobal,
+        [Switch] $IsTemporary
+    )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
@@ -302,7 +342,7 @@ function Add-EnvironmentModuleSearchPath
 
     process {
         $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
-        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false)
+        $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false, $IsTemporary, $IsGlobal)
 
         if($oldSearchPaths) {
             $oldSearchPaths.Add($newSearchPath)
@@ -314,11 +354,13 @@ function Add-EnvironmentModuleSearchPath
             $script:customSearchPaths[$ModuleFullName] = $searchPaths
         }
 
-        Write-CustomSearchPaths
+        if(-not $IsTemporary) {
+            Write-CustomSearchPaths -IncludeGlobal:$IsGlobal
+        }
     }
 }
 
-function Remove-EnvironmentModuleSearchPath
+function Remove-EnvironmentModuleSearchPath()
 {
     <#
     .SYNOPSIS
@@ -333,11 +375,16 @@ function Remove-EnvironmentModuleSearchPath
     The key of the search path to remove.
     .PARAMETER SubFolder
     The sub folder of the search path to remove.
-    .OUTPUTS
-    List of all search paths.
+    .PARAMETER IncludeGlobal
+    True if the global search paths should be considered as well.
+    .PARAMETER Switch
+    Do not ask for deletion.
     #>
     [CmdletBinding(ConfirmImpact='Low', SupportsShouldProcess=$true)]
-    Param()
+    Param(
+        [Switch] $IncludeGlobal,
+        [Switch] $Force
+    )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
@@ -373,8 +420,9 @@ function Remove-EnvironmentModuleSearchPath
             return
         }
 
-        $customSearchPaths = Get-EnvironmentModuleSearchPath -ModuleName $ModuleFullName -Type $Type -Key $Key -SubFolder $SubFolder -Custom
+        $customSearchPaths = Get-EnvironmentModuleSearchPath -ModuleName $ModuleFullName -Type $Type -Key $Key -SubFolder $SubFolder -Custom -IncludeGlobal:$IncludeGlobal
         if($null -eq $customSearchPaths) {
+            Write-Warning "No search path found matching the given parameters"
             return
         }
 
@@ -396,12 +444,23 @@ function Remove-EnvironmentModuleSearchPath
         }
 
         if(-not $customSearchPath) {
+            Write-Warning "No search path found matching the given parameters"
             return
         }
 
+        # Ask for deletion
+        if(-not $Force) {
+            $answer = Read-Host -Prompt "Do you really want to delete the custom seach path (Y/N)?"
+
+            if($answer.ToLower() -ne "y") {
+                return
+            }
+        }
+
         $_ = $oldSearchPaths.Remove($customSearchPath)
+        Write-Verbose "Removing search path $($customSearchPath.Key) for module $($customSearchPath.Module)"
         $script:customSearchPaths[$ModuleFullName] = $oldSearchPaths
-        Write-CustomSearchPaths
+        Write-CustomSearchPaths -IncludeGlobal:$customSearchPath.IsGlobal
     }
 }
 
@@ -422,6 +481,8 @@ function Get-EnvironmentModuleSearchPath
     The sub folder to use as filter.
     .PARAMETER Custom
     True if only custom search paths should be returned.
+    .PARAMETER IncludeGlobal
+    True if global search paths should be included.
     .OUTPUTS
     List of all search paths.
     #>
@@ -433,7 +494,8 @@ function Get-EnvironmentModuleSearchPath
         [string] $Key = "*",
         [Parameter(Mandatory=$false)]
         [string] $SubFolder = "*",
-        [switch] $Custom
+        [switch] $Custom,
+        [switch] $IncludeGlobal
     )
 
     $modules = Get-EnvironmentModule -ListAvailable $ModuleName
@@ -441,6 +503,10 @@ function Get-EnvironmentModuleSearchPath
     foreach($module in $modules) {
         foreach($searchPath in $module.SearchPaths) {
             if($Custom -and $searchPath.IsDefault) {
+                continue
+            }
+
+            if((-not $IncludeGlobal) -and $searchPath.IsGlobal) {
                 continue
             }
 
@@ -470,27 +536,56 @@ function Clear-EnvironmentModuleSearchPaths
     This function will delete all custom search paths that are defined by the user.
     .PARAMETER Force
     Do not ask for deletion.
+    .PARAMETER IncludeGlobal
+    Delete the global seach paths as well.
     .OUTPUTS
     No output is returned.
     #>
     Param(
-        [Switch] $Force
+        [Switch] $OnlyTemporary,
+        [Switch] $Force,
+        [Switch] $IncludeGlobal
     )
 
     # Ask for deletion
     if(-not $Force) {
-        $answer = Read-Host -Prompt "Do you really want to delete all custom seach paths (Y/N)?"
+        $answer = Read-Host -Prompt "Do you really want to delete the custom seach paths (Y/N)?"
 
         if($answer.ToLower() -ne "y") {
             return
         }
     }
 
-    $script:customSearchPaths.Clear()
-    Write-CustomSearchPaths
+    if($OnlyTemporary) {
+        Initialize-CustomSearchPaths
+    }
+    else {
+        $searchPathsToKeep = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
+        foreach($moduleFullName in $script:customSearchPaths.Keys) {
+            foreach($searchPath in $script:customSearchPaths[$moduleFullName]) {
+                if(($searchPath.IsGlobal) -and (-not $IncludeGlobal)) {
+                    Write-Verbose "Keeping search path $($searchPath.Key) for module $moduleFullName with global state $($searchPath.IsGlobal)"
+                    $oldValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]"
+
+                    if($searchPathsToKeep.ContainsKey($moduleFullName)) {
+                        $oldValue = $searchPathsToKeep[$moduleFullName]
+                    }
+
+                    $oldValue.Add($searchPath)
+                    $searchPathsToKeep[$moduleFullName] = $oldValue
+                }
+                else {
+                    Write-Verbose "Removing search path $($searchPath.Key) for module $moduleFullName"
+                }
+            }
+        }
+
+        $script:customSearchPaths = $searchPathsToKeep
+        Write-CustomSearchPaths -IncludeGlobal:$IncludeGlobal
+    }
 }
 
-function Write-CustomSearchPaths
+function Write-CustomSearchPaths([Switch] $IncludeGlobal)
 {
     <#
     .SYNOPSIS
@@ -503,10 +598,61 @@ function Write-CustomSearchPaths
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModuleCore.SearchPath])
 
-    $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $script:customSearchPaths.GetType(), $knownTypes
+    $localSearchPathsToWrite = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
+    $globalSearchPathsToWrite = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
+    foreach($moduleFullName in $script:customSearchPaths.Keys) {
+        foreach($searchPath in $script:customSearchPaths[$moduleFullName]) {
+            if(-not $searchPath.IsTemporary) {
+                $oldValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]"
+                if($searchPath.IsGlobal) {
+                    if($globalSearchPathsToWrite.ContainsKey($moduleFullName)) {
+                        $oldValue = $globalSearchPathsToWrite[$moduleFullName]
+                    }
+
+                    $oldValue.Add($searchPath)
+                    $globalSearchPathsToWrite[$moduleFullName] = $oldValue
+                }
+                else {
+                    if($localSearchPathsToWrite.ContainsKey($moduleFullName)) {
+                        $oldValue = $localSearchPathsToWrite[$moduleFullName]
+                    }
+
+                    $oldValue.Add($searchPath)
+                    $localSearchPathsToWrite[$moduleFullName] = $oldValue
+                }
+            }
+        }
+    }
+    Write-Verbose "Writing $($localSearchPathsToWrite.Count) local search paths"
+    Write-CustomSearchPathsToFile $script:localSearchPathsFileLocation $localSearchPathsToWrite
+
+    if($IncludeGlobal) {
+        try{
+            Write-Verbose "Writing $($globalSearchPathsToWrite.Count) global search paths"
+            Write-CustomSearchPathsToFile $script:globalSearchPathsFileLocation $globalSearchPathsToWrite
+        }
+        catch{
+            if($globalSearchPathsToWrite.Count -gt 0) {
+                Write-Warning "Unable to write global configuration file $($script:globalSearchPathsFileLocation)"
+            }
+        }
+    }
+}
+
+function Write-CustomSearchPathsToFile([string] $FilePath, [System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]] $SearchPaths)
+{
+    <#
+    .SYNOPSIS
+    Write the defined custom search paths to the given configuration file.
+    .DESCRIPTION
+    This function will write all added custom search paths to the given configuration file.
+    .OUTPUTS
+    No output is returned.
+    #>
+    $serializer = New-Object "System.Runtime.Serialization.DataContractSerializer" -ArgumentList $SearchPaths.GetType(), $knownTypes
     $fileStream = $null
     try {
-        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $script:searchPathsFileLocation, ([System.IO.FileMode]::Create)
+        $fileStream = New-Object "System.IO.FileStream" -ArgumentList $FilePath, ([System.IO.FileMode]::Create)
         $writer = $null
         try {
             $writer = New-Object "System.IO.StreamWriter" -ArgumentList $fileStream, ([System.Text.Encoding]::UTF8)
@@ -515,7 +661,7 @@ function Write-CustomSearchPaths
                 $xmlWriter = [System.Xml.XmlTextWriter]($writer)
                 $xmlWriter.Formatting = [System.Xml.Formatting]::Indented
                 $xmlWriter.WriteStartDocument()
-                $serializer.WriteObject($xmlWriter, $script:customSearchPaths)
+                $serializer.WriteObject($xmlWriter, $SearchPaths)
                 $xmlWriter.Flush()
             }
             finally {

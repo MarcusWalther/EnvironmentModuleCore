@@ -24,7 +24,7 @@
     Copyright = '(c) 2019 MarcusW.'
 
     # Description of the functionality provided by this module
-    Description = 'This environment module will provide some common project function'
+    Description = 'This environment module will provide some common project functions'
 
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules = @("EnvironmentModuleCore")

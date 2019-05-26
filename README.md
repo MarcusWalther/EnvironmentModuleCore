@@ -2,13 +2,13 @@
   <img src="https://github.com/MarcusWalther/EnvironmentModuleCoreSrc/blob/master/Icon.png?raw=true" height="64">
   <h3 align="center">EnvironmentModuleCore</h3>
   <p align="left">This PowerShell module can be used to modify the environment variables and aliases of the active PowerShell-session. Therefore special modules are defined that are called *Environment Modules*. Such an environment module defines a set of variables, aliases and functions that are added to the session when the module is loaded. These information will be available until the session is closed or the environment module is unloaded.<p>
-  <p align="center"><a href="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
+  <p align="center"><a href="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/master/LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
   <a href="https://www.powershellgallery.com/packages/EnvironmentModuleCore"><img src="https://img.shields.io/powershellgallery/vpre/EnvironmentModuleCore.svg" alt="Powershell Gallery Package"></a></p>
 
 # Example
 
 <p align="center">
-<img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/unstable2.0/Samples/PythonScreen.gif">
+<img src="https://github.com/MarcusWalther/EnvironmentModuleCore/blob/master/Samples/PythonScreen.gif">
 </p>
 
 # Installation
