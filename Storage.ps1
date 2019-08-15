@@ -134,7 +134,10 @@ function Update-EnvironmentModuleCache
         $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModuleCore")
 
         if(-not ($isEnvironmentModule)) {
-            continue
+			Write-Verbose "Module $($module.Name) depends on $($module.PrivateData.PSData.ExternalModuleDependencies) externally"
+			if(-not ($module.PrivateData.PSData.ExternalModuleDependencies -match "EnvironmentModuleCore")) {
+				continue
+			}
         }
 
         Write-Verbose "Environment module $($module.Name) found"
