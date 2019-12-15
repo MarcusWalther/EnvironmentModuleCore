@@ -418,7 +418,15 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         $psModuleName = $ModuleFullName
     }
 
-    Import-Module $psModuleName -Scope Global -Force -ArgumentList $module
+    try {
+        Import-Module $psModuleName -Scope Global -Force -ArgumentList $module
+    }
+    catch {
+        if(-not $SilentMode) {
+            Write-Error $_.Exception.Message
+        }
+        return $false
+    }
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"
     if($Module.DirectUnload -eq $false) {

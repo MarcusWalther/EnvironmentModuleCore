@@ -19,5 +19,5 @@ foreach($moduleCandidate in $moduleCandidates) {
 }
 
 if(-not $found) {
-    Write-Error "Unable to find an installed module matching name $($Module.Name)"
+    throw "Unable to find an installed module matching name $($Module.Name)"
 }
