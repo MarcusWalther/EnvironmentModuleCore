@@ -1,7 +1,7 @@
 $nameRegex = "^[0-9A-Za-z_]+$"
 $versionRegex = "^v?(?:(?:(?<epoch>[0-9]+)!)?(?<release>[0-9]*(?:[_\.][0-9]+)*)(?<pre>[_\.]?(?<pre_l>(a|b|c|rc|alpha|beta|pre|preview|sp))[_\.]?(?<pre_n>[0-9]+)?)?(?<post>(?:-(?<post_n1>[0-9]+))|(?:[_\.]?(?<post_l>post|rev|r)[_\.]?(?<post_n2>[0-9]+)?))?(?<dev>[_\.]?(?<dev_l>dev)[_\.]?(?<dev_n>[0-9]+)?)?)(?:\+(?<local>[a-z0-9]+(?:[_\.][a-z0-9]+)*))?$"
 $architectureRegex = "^x64|x86$"
-$additionalOptionsRegex = "^[0-9A-Za-z]+$"
+$additionalOptionsRegex = "^[0-9A-Za-z.]+$"
 
 function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
 {
@@ -158,6 +158,8 @@ function New-EnvironmentModuleInfo
     The module info that contains the base information.
     .PARAMETER ModuleFullName
     The full name of the module. Only used if the module parameter is not set.
+    .PARAMETER ModuleFile
+    The module file (psd1) to load. If this is set, the ModuleFullName is not evaluated.
     .OUTPUTS
     The created object of type EnvironmentModuleInfo or $null.
     .NOTES
@@ -165,23 +167,36 @@ function New-EnvironmentModuleInfo
     #>
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param (
-        [EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module,
-        [String] $ModuleFullName
+        [EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module = $null,
+        [String] $ModuleFullName = $null,
+        [String] $ModuleFile = $null
     )
 
-    if($Module -eq $null) {
-        $matchingModules = Get-EnvironmentModule -ListAvailable $ModuleFullName
+    if($null -eq $Module) {
+        if(-not ([string]::IsNullOrEmpty($ModuleFile))) {
+            $matchingModules = (Get-Module "$ModuleFile" -ListAvailable)
 
-        if($matchingModules.Length -lt 1) {
-            Write-Verbose "Unable to find the module $ModuleFullName in the list of all environment modules"
-            return $null
+            if($matchingModules.Length -lt 1) {
+                Write-Verbose "Unable to find the module $ModuleFile"
+                return $null
+            }
+
+            $Module = New-EnvironmentModuleInfoBase $matchingModules[0]
         }
+        else {
+            $matchingModules = Get-EnvironmentModule -ListAvailable $ModuleFullName
 
-        if($matchingModules.Length -gt 1) {
-            Write-Warning "More than one environment module matches the given full name '$ModuleFullName'"
+            if($matchingModules.Length -lt 1) {
+                Write-Verbose "Unable to find the module $ModuleFullName in the list of all environment modules"
+                return $null
+            }
+
+            if($matchingModules.Length -gt 1) {
+                Write-Warning "More than one environment module matches the given full name '$ModuleFullName'"
+            }
+
+            $Module = $matchingModules[0]
         }
-
-        $Module = $matchingModules[0]
     }
 
     $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.FullName

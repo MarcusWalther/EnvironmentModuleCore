@@ -102,6 +102,27 @@ function Read-CustomSearchPathsFromFile([string] $FilePath)
     }
 }
 
+function Test-IsEnvironmentModule([psmoduleinfo] $Module) {
+    <#
+    .SYNOPSIS
+    Check if the given module is an environment module.
+    .PARAMETER Module
+    The module to check.
+    .OUTPUTS
+    True if the module is an environment module, otherwise false.
+    #>
+    Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
+    $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModuleCore")
+
+    if(-not ($isEnvironmentModule)) {
+        Write-Verbose "Module $($module.Name) depends on $($module.PrivateData.PSData.ExternalModuleDependencies) externally"
+        if(-not ($module.PrivateData.PSData.ExternalModuleDependencies -match "EnvironmentModuleCore")) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function Update-EnvironmentModuleCache
 {
     <#
@@ -130,14 +151,8 @@ function Update-EnvironmentModuleCache
     Remove-Item (Join-Path $script:tmpEnvironmentModulePath "*") -Force -Recurse
 
     foreach ($module in (Get-Module -ListAvailable)) {
-        Write-Verbose "Module $($module.Name) depends on $($module.RequiredModules)"
-        $isEnvironmentModule = ("$($module.RequiredModules)" -match "EnvironmentModuleCore")
-
-        if(-not ($isEnvironmentModule)) {
-			Write-Verbose "Module $($module.Name) depends on $($module.PrivateData.PSData.ExternalModuleDependencies) externally"
-			if(-not ($module.PrivateData.PSData.ExternalModuleDependencies -match "EnvironmentModuleCore")) {
-				continue
-			}
+        if(-not (Test-IsEnvironmentModule $module)) {
+            continue
         }
 
         Write-Verbose "Environment module $($module.Name) found"
@@ -290,7 +305,7 @@ function Add-EnvironmentModuleSearchPath
     This function will register a new custom search path for a module.
     .PARAMETER IsGlobal
     True if the value should be stored in the global storage file.
-    .PARAMETER IsGlobal
+    .PARAMETER IsTemporary
     True if the value should not be stored in a storage file. It is only valid for the active Powershell session.
     .PARAMETER Type
     The type of the search path.
@@ -312,12 +327,13 @@ function Add-EnvironmentModuleSearchPath
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
         $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName
-        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $False -Position 0 -ValidateSet $moduleSet
 
         Add-DynamicParameter 'Type' String $runtimeParameterDictionary -Mandatory $True -Position 1 -ValidateSet $script:searchPathTypes.Keys
         Add-DynamicParameter 'Key' String $runtimeParameterDictionary -Mandatory $True -Position 2
         Add-DynamicParameter 'SubFolder' String $runtimeParameterDictionary -Mandatory $False -Position 3
         Add-DynamicParameter 'Priority' Int $runtimeParameterDictionary -Mandatory $False -Position 4
+        Add-DynamicParameter 'CustomModuleFullName' String $runtimeParameterDictionary -Mandatory $False -Position 5
 
         return $runtimeParameterDictionary
     }
@@ -328,6 +344,11 @@ function Add-EnvironmentModuleSearchPath
         }
 
         $ModuleFullName = $PsBoundParameters['ModuleFullName']
+        if(-not ([string]::IsNullOrEmpty($PsBoundParameters['CustomModuleFullName']))) {
+            $ModuleFullName = $PsBoundParameters['CustomModuleFullName']
+            $IsTemporary = $true
+        }
+
         $Type = $PsBoundParameters['Type']
         $Key = $PsBoundParameters['Key']
         $SubFolder = $PsBoundParameters['SubFolder']
@@ -347,6 +368,11 @@ function Add-EnvironmentModuleSearchPath
     }
 
     process {
+        if([string]::IsNullOrEmpty($PsBoundParameters['CustomModuleFullName'])) {
+            Write-Error "No module name specified"
+            return
+        }
+
         $oldSearchPaths = $script:customSearchPaths[$ModuleFullName]
         $newSearchPath = New-Object EnvironmentModuleCore.SearchPath -ArgumentList @($Key, $Type.ToUpper(), $Priority, $SubFolder, $false, $IsTemporary, $IsGlobal)
 

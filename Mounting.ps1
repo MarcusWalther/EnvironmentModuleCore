@@ -253,8 +253,9 @@ function Import-EnvironmentModule
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
         $moduleSet = Get-ConcreteEnvironmentModules -ListAvailable | Select-Object -ExpandProperty "FullName"
-        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $true -Position 0 -ValidateSet $moduleSet
+        Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $false -Position 0 -ValidateSet $moduleSet
         Add-DynamicParameter 'IsLoadedDirectly' Bool $runtimeParameterDictionary -Mandatory $false -Position 1 -ValidateSet @($true, $false)
+        Add-DynamicParameter 'ModuleFile' String $runtimeParameterDictionary -Mandatory $false -Position 2
         return $runtimeParameterDictionary
     }
 
@@ -262,6 +263,7 @@ function Import-EnvironmentModule
         # Bind the parameter to a friendly variable
         $ModuleFullName = $PsBoundParameters["ModuleFullName"]
         $IsLoadedDirectly = $PsBoundParameters["IsLoadedDirectly"]
+        $ModuleFile = $PsBoundParameters["ModuleFile"]
     }
 
     process {
@@ -274,14 +276,22 @@ function Import-EnvironmentModule
             $IsLoadedDirectly = $true
         }
 
+        if($null -ne $ModuleFile) {
+            $ModuleFullName = (Get-Module "$ModuleFile" -ListAvailable)[0].Name
+            if($null -eq $ModuleFullName) {
+                Write-Error "Unable to load module information from $ModuleFile, please specify a valid psd1 file."
+                return
+            }
+        }
+
         $initialSilentLoadState = $script:silentLoad
-        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $null $silentMode
+        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $null $silentMode $ModuleFile
         $script:silentLoad = $initialSilentLoadState
     }
 }
 
 function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules,
-                                         [EnvironmentModuleCore.EnvironmentModuleInfo] $SourceModule = $null, [Bool] $SilentMode = $false)
+                                         [EnvironmentModuleCore.EnvironmentModuleInfo] $SourceModule = $null, [Bool] $SilentMode = $false, [String] $ModuleFile = $null)
 {
     <#
     .SYNOPSIS
@@ -298,11 +308,11 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     The module that has triggered the loading of this module (used when module is loaded as dependency).
     .PARAMETER SilentMode
     True if no outputs should be printed.
+    .PARAMETER ModuleFile
+    The module file to load. If no file is specified, the module is loaded from the PSModulePath.
     .OUTPUTS
     True if the module was loaded correctly, otherwise false.
     #>
-    $progressName = "$($Module.FullName) Loading"
-    Write-Progress -activity $progressName -status "Analysing name $($Module.FullName)" -percentcomplete 10
 
     if($KnownModules.Contains($ModuleFullName) -and (0 -eq (Get-Module $ModuleFullName).Count)) {
         Write-Error "A circular dependency between the modules was detected"
@@ -335,8 +345,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Load the dependencies first
-    Write-Progress -activity $progressName -status "Loading module info" -percentcomplete 20
-    $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName
+    $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName -ModuleFile $ModuleFile
 
     $alreadyLoadedModules = $null
     if(($module.ModuleType -eq [EnvironmentModuleCore.EnvironmentModuleType]::Meta) -and ($LoadedDirectly)) {
@@ -370,14 +379,10 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
     $loadedDependencies = New-Object "System.Collections.Stack"
-    Write-Progress -activity $progressName -status "Importing dependencies" -percentcomplete 30
 
     if($module.Dependencies.Count -gt 0) {
-        $percentagePerDependency = 50 / $module.Dependencies.Count
         $dependencyIndex = 0
         foreach ($dependency in $module.Dependencies) {
-            $percentageComplete = 30 + ($percentagePerDependency * $dependencyIndex)
-            Write-Progress -activity $progressName -status "Importing dependency $dependency" -percentcomplete $percentageComplete
             Write-Verbose "Importing dependency $dependency"
 
             $silentDependencyMode = $dependency.IsOptional
@@ -400,7 +405,6 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     # Create the temp directory
     New-Item -ItemType directory -Force $module.TmpDirectory
-    Write-Progress -activity $progressName -status "Importing the module itself" -percentcomplete 85
 
     # Set the parameter defaults
     $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName }
@@ -409,7 +413,12 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     $module = New-Object "EnvironmentModuleCore.EnvironmentModule" -ArgumentList ($module, $LoadedDirectly, $SourceModule)
 
     Write-Verbose "Importing the module $ModuleFullName into the Powershell environment"
-    Import-Module $ModuleFullName -Scope Global -Force -ArgumentList $module
+    $psModuleName = $ModuleFile
+    if([string]::IsNullOrEmpty($ModuleFile)) {
+        $psModuleName = $ModuleFullName
+    }
+
+    Import-Module $psModuleName -Scope Global -Force -ArgumentList $module
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"
     if($Module.DirectUnload -eq $false) {
@@ -429,8 +438,6 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         Remove-Module $ModuleFullName -Force
         return $true
     }
-
-    Write-Progress -activity $progressName -status "Finishing import" -percentcomplete 95
 
     # Print the summary
     if(($module.ModuleType -eq [EnvironmentModuleCore.EnvironmentModuleType]::Meta) -and ($LoadedDirectly) -and (-not $SilentMode)) {
