@@ -368,7 +368,7 @@ function Add-EnvironmentModuleSearchPath
     }
 
     process {
-        if([string]::IsNullOrEmpty($PsBoundParameters['CustomModuleFullName'])) {
+        if([string]::IsNullOrEmpty($ModuleFullName)) {
             Write-Error "No module name specified"
             return
         }
