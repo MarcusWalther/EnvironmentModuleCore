@@ -10,13 +10,12 @@
 @{
 
     # Environment Modules that must be imported into the global environment prior importing this module
-    Dependencies = @({{Dependencies}})
+    Dependencies = @(
+      {{ for dependency in Dependencies }}@{Name="{{dependency.ModuleFullName}}"; Optional="${{dependency.IsOptional}}"}{{ end }}
+    )
 
     # The type of the module, either "Default" or "Meta" if it is a project-module
     ModuleType = "{{ModuleType}}"
-
-    # Additional information that are displayed when the module is loaded
-    AdditionalDescription = "{{AdditionalDescription}}"
 
     # If this value is set to true, the module will be removed after loading it including the given dependencies - so that just the dependencies will remain.
     DirectUnload = {{DirectUnload}}
@@ -24,12 +23,18 @@
     # The version of the description files
     StyleVersion = 3.0
 
-    # The category (default storage path) of the module (for instance "Project", "Abstract", "Program", "Development")
-    Category = "{{Category}}"
+    # Default search paths that are used to identify the root directory
+    DefaultSearchPaths = @(
+      {{ for searchPath in SearchPaths }}@{Type="{{searchPath.Type}}";Key="{{searchPath.Key}}"}{{ end }}
+    )
+
+    # The required items of the module
+    RequiredItems = @(
+      {{ for requiredItem in RequiredItems }}@{Type="{{requiredItem.ItemType}}"; Value="{{requiredItem.Value}}"}{{ end }}
+    )
 
     # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
     Parameters = @{
-      {{ for parameterKey in Parameters }}"{{parameterKey}}"="{{Parameters[parameterKey]}}"
-      {{ end }}
+      {{ for parameter in Parameters }}"{{parameter.Key}}"="{{parameter.Value}}"{{ end }}
 	}
 }

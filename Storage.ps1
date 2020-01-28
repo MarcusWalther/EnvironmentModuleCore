@@ -443,7 +443,7 @@ function Remove-EnvironmentModuleSearchPath()
             $Key = "*"
         }
         if(-not $SubFolder) {
-            $SubFolder = ""
+            $SubFolder = "*"
         }
     }
 
@@ -482,7 +482,7 @@ function Remove-EnvironmentModuleSearchPath()
 
         # Ask for deletion
         if(-not $Force) {
-            $answer = Read-Host -Prompt "Do you really want to delete the custom seach path (Y/N)?"
+            $answer = Read-Host -Prompt "Do you really want to delete the custom seach path '$($customSearchPath.Type)' - '$($customSearchPath.Key)' (Y/N)?"
 
             if($answer.ToLower() -ne "y") {
                 return

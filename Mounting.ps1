@@ -105,7 +105,12 @@ function Test-ItemExistence([string] $FolderPath, [EnvironmentModuleCore.Require
     }
 
     Write-Verbose "Testing item exisiting in folder '$Folder' and subfolder '$SubFolderPath'"
-    $folderCandidates = (Get-Item (Join-Path "$FolderPath" "$SubFolderPath") -ErrorAction SilentlyContinue) | Where-Object {$_.PsIsContainer}
+    try {
+        $folderCandidates = Get-Item (Join-Path "$FolderPath" "$SubFolderPath") | Where-Object {$_.PsIsContainer}
+    }
+    catch {
+        $folderCandidates = @()
+    }
 
     foreach($folderCandidate in $folderCandidates) {
         $match = $true

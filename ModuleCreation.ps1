@@ -39,12 +39,16 @@ function New-EnvironmentModule
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     Param(
         [String] $Name,
-        [String] $Author,
-        [String] $Description,
-        [String] $Version,
-        [String] $Architecture,
-        [String] $Executable,
-        [String[]] $AdditionalEnvironmentModules,
+        [String] $Author = $null,
+        [String] $Company = $null,
+        [String] $Description = "",
+        [String] $Version = "",
+        [String] $Architecture = "",
+        [String[]] $RequiredFiles = @(),
+        [String[]] $SearchPaths = @(),
+        [String[]] $Dependencies = @(),
+        [hashtable] $Parameters = @{},
+        [String] $Path = $null,
         [Switch] $Force
     )
 
@@ -56,27 +60,55 @@ function New-EnvironmentModule
         if([string]::IsNullOrEmpty($Author)) {
             $Author = [Environment]::UserName
         }
+        if([string]::IsNullOrEmpty($Company)) {
+            $Company = ""
+        }
         if([string]::IsNullOrEmpty($Description)) {
             $Description = ""
         }
-        if([string]::IsNullOrEmpty($Executable)) {
-            Write-Error('An executable must be specified')
-            return
+        if([string]::IsNullOrEmpty($Version)) {
+            $Version = ""
+        }
+        if([string]::IsNullOrEmpty($Architecture)) {
+            $Version = ""
         }
 
         $environmentModulePath = Resolve-Path (Join-Path $script:moduleFileLocation "..")
 
-        $selectedPath = Select-ModulePath
+        if([string]::IsNullOrEmpty($Path)) {
+            $Path = Select-ModulePath
+        }
 
-        if($null -eq $selectedPath) {
+        if($null -eq $Path) {
             return
         }
 
-        if((-not $Force) -and (Test-PartOfTmpDirectory $selectedPath -ShowError)) {
-            return
+        if((-not $Force) -and (Test-PartOfTmpDirectory $Path)) {
+            throw "The Path is Part of the tmp directory. Specifiy the Force parameter."
         }
 
-        [EnvironmentModuleCore.ModuleCreator]::CreateEnvironmentModule($Name, $selectedPath, $Description, $environmentModulePath, $Author, $Version, $Architecture, $Executable, $AdditionalEnvironmentModules)
+        $requiredItemsList = [System.Collections.Generic.List[EnvironmentModuleCore.RequiredItem]]::new()
+        foreach($requiredFile in $RequiredFiles) {
+            $requiredItemsList.Add([EnvironmentModuleCore.RequiredItem]::new([EnvironmentModuleCore.RequiredItem]::TYPE_FILE, $requiredFile))
+        }
+
+        $searchPathsList = [System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]::new()
+        foreach($searchPath in $SearchPaths) {
+            $priority = $script:searchPathTypes[[EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY].Item2 + 20 # Get the default priority of the type and increase it because it is custom
+            $searchPathsList.Add([EnvironmentModuleCore.SearchPath]::new($searchPath, [EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY, $priority, "", $true))
+        }
+
+        $dependenciesList = [System.Collections.Generic.List[EnvironmentModuleCore.DependencyInfo]]::new()
+        foreach($dependency in $Dependencies) {
+            $dependenciesList.Add([EnvironmentModuleCore.DependencyInfo]::new($dependency, $false))
+        }
+
+        $parametersDictionary = [System.Collections.Generic.Dictionary[string, string]]::new()
+        foreach($key in $Parameters.Keys) {
+            $parametersDictionary[$key] = $Parameters[$key]
+        }
+
+        [EnvironmentModuleCore.ModuleCreator]::CreateEnvironmentModule($Name, $Path, $Description, $environmentModulePath, $Author, $Company, $Version, $Architecture, $requiredItemsList.ToArray(), $searchPathsList.ToArray(), $dependenciesList.ToArray(), $parametersDictionary)
         Update-EnvironmentModuleCache
     }
 }

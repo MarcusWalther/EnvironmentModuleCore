@@ -66,7 +66,7 @@ Each environment module should contain a pse file in its module directory. The s
 
     # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
     Parameters = @{
-        "NotepadPlusPlus.Parameter1" = "Value1"
+        "NotepadPlusPlus.Parameter1" = "Value1";
         "NotepadPlusPlus.Parameter2" = "Value2"
     }
 }
