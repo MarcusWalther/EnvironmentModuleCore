@@ -412,7 +412,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     New-Item -ItemType directory -Force $module.TmpDirectory
 
     # Set the parameter defaults
-    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName }
+    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName $false }
 
     # Load the module itself
     $module = New-Object "EnvironmentModuleCore.EnvironmentModule" -ArgumentList ($module, $LoadedDirectly, $SourceModule)
@@ -609,6 +609,7 @@ function Switch-EnvironmentModule
     #>
     [CmdletBinding()]
     Param(
+        [switch] $Silent
     )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -635,9 +636,18 @@ function Switch-EnvironmentModule
             return
         }
 
+        $oldUserParameters = Get-EnvironmentModuleParameter "*" -UserDefined
+
         Remove-EnvironmentModule $moduleFullName -Force
 
-        Import-EnvironmentModule $newModuleFullName
+        Import-EnvironmentModule $newModuleFullName -IsLoadedDirectly:$module.IsLoadedDirectly -Silent:$Silent
+
+        foreach($parameter in $oldUserParameters) {
+            $newParameter = (Get-EnvironmentModuleParameter $parameter.Name)
+            if(($null -ne $newParameter) -and ($newParameter.IsUserDefined -eq $False)) {
+                Set-EnvironmentModuleParameterInternal $parameter.Name $parameter.Value "" $True
+            }
+        }
 
         [void] (New-Event -SourceIdentifier "EnvironmentModuleSwitched" -EventArguments $moduleFullName, $newModuleFullName)
     }

@@ -193,6 +193,10 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
             Remove-EnvironmentModuleFunction $functionInfo
         }
 
+        foreach ($parameterName in $Module.Parameters.Keys) {
+            Remove-EnvironmentModuleParameterInternal($parameterName)
+        }
+
         $loadedEnvironmentModules.Remove($Module.Name)
         Write-Verbose ("Removing " + $Module.Name + " from list of loaded environment variables")
 

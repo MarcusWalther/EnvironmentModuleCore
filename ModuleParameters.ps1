@@ -8,22 +8,42 @@ function Set-EnvironmentModuleParameterInternal {
     The value to set.
     .PARAMETER ModuleFullName
     The module that has specified the value. A user change should be indicated by an empty string.
+    .PARAMETER IsUserDefined
+    True if the value was defined manually by the user.
     #>
 
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param(
         [String] $Parameter,
         [String] $Value,
-        [String] $ModuleFullName = ""  # Empty string means: set by user
+        [String] $ModuleFullName = "",  # Empty string means: set by user
+        [Bool] $IsUserDefined = $false
     )
 
     $knownValue = $script:environmentModuleParameters[$Parameter]
     if($null -eq $knownValue) {
-        $knownValue = New-Object "EnvironmentModuleCore.ParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value
+        $knownValue = New-Object "EnvironmentModuleCore.ParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value, $IsUserDefined
     }
+    $knownValue.IsUserDefined = $IsUserDefined
     $knownValue.Value = $Value
     $knownValue.ModuleFullName = $ModuleFullName
     $script:environmentModuleParameters[$Parameter] = $knownValue
+}
+
+function Remove-EnvironmentModuleParameterInternal {
+    <#
+    .SYNOPSIS
+    Remove the parameter from the internal storage.
+    .PARAMETER Parameter
+    The name of the parameter to remove. If the parameter does not exist, nothing is done.
+    #>
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param(
+        [String] $Parameter
+    )
+
+    $script:environmentModuleParameters.Remove($Parameter)
 }
 
 function Set-EnvironmentModuleParameter {
@@ -69,7 +89,9 @@ function Set-EnvironmentModuleParameter {
             $Value = ""
         }
 
-        Set-EnvironmentModuleParameterInternal $Parameter $Value ""
+        $IsUserDefined = $null -eq (Get-PSCallStack | Where-Object {$_.Command -like "*.psm1"})
+
+        Set-EnvironmentModuleParameterInternal $Parameter $Value "" $IsUserDefined
     }
 }
 
@@ -84,15 +106,20 @@ function Get-EnvironmentModuleParameter {
     #>
     [cmdletbinding()]
     Param(
-        [string] $ParameterName = "*"
+        [string] $ParameterName = "*",
+        [Switch] $UserDefined
     )
     process {
-        foreach($parameter in $script:environmentModuleParameters.Keys) {
-            if(-not ($parameter -like $ParameterName)) {
+        foreach($parameter in $script:environmentModuleParameters.Values) {
+            if(-not ($parameter.Name -like $ParameterName)) {
                 continue
             }
 
-            $script:environmentModuleParameters[$parameter]
+            if($UserDefined -and ($parameter.IsUserDefined -eq $false)) {
+                continue
+            }
+
+            $parameter
         }
     }
 }
