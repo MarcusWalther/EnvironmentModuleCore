@@ -72,6 +72,7 @@ $script:configuration = @{} # Configuration parameters
 $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = @{} # AliasName -> AliasInfo[]
 $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> FunctionInfo[]
+$script:loadedEnvironmentModuleSetPaths = @{} # FullName -> Dictionary[string, string]
 $script:environmentModuleParameters = @{} # ParameterName -> ParameterInfo
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase

@@ -151,15 +151,39 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
             }
 
             if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::PREPEND) {
-                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $_}
+                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -ModuleValue $_}
             }
             if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
-                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $_ -Reverse}
+                $pathInfo.Values | ForEach-Object {Remove-EnvironmentVariableValue -Variable $pathInfo.Variable -ModuleValue $_ -Reverse}
             }
             if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
-                [Environment]::SetEnvironmentVariable($pathInfo.Variable, $null, "Process")
+                $previousValue = $script:loadedEnvironmentModuleSetPaths[$Module.FullName]
+                $newValue = $null
+                if($null -ne $previousValue) {
+                    $previousValue = $previousValue[$pathInfo.Variable]
+
+                    if($null -ne $previousValue) {
+                        $actualValue = [Environment]::GetEnvironmentVariable($pathInfo.Variable)
+                        if($actualValue -ne $pathInfo.Values[0]) {
+                            $newValue = $actualValue
+                        }
+                        else {
+                            $newValue = $previousValue
+                        }
+                    }
+                    else {
+                        Write-Warning "Unable to find previous set path value for variable '$($pathInfo.Variable)' and module '$($Module.FullName)'"
+                    }
+                }
+                else {
+                    Write-Warning "Unable to find previous set path values for module '$($Module.FullName)'"
+                }
+
+                [Environment]::SetEnvironmentVariable($pathInfo.Variable, $newValue, "Process")
             }
         }
+
+        $script:loadedEnvironmentModuleSetPaths.Remove($Module.FullName)
 
         foreach ($alias in $Module.Aliases.Keys) {
             Remove-Item alias:$alias
@@ -193,8 +217,8 @@ function Remove-EnvironmentVariableValue
     of the environment variable, no changes are performed.
     .PARAMETER Variable
     The name of the environment variable that should be extended.
-    .PARAMETER Value
-    The new value that should be removed from the environment variable.
+    .PARAMETER ModuleValue
+    The value that was added by the module and that should be removed from the environment variable.
     .PARAMETER Reverse
     The last occurence will be removed if this value is set.
     .OUTPUTS
@@ -203,31 +227,49 @@ function Remove-EnvironmentVariableValue
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param(
         [String] $Variable,
-        [String] $Value,
+        [String] $ModuleValue,
         [Switch] $Reverse
     )
 
-    $oldValue = [environment]::GetEnvironmentVariable($Variable,"Process")
-    if($null -eq $oldValue) {
+    $actualValue = [environment]::GetEnvironmentVariable($Variable,"Process")
+    if(($null -eq $actualValue) -or ($null -eq $ModuleValue)) {
         return
     }
-    Write-Verbose "Removing value '$Value' from environment variable '$Variable'. Reverse search is set to '$Reverse'"
-    [System.Collections.Generic.List[string]] $allPathValues = $oldValue.Split([IO.Path]::PathSeparator)
-    if($Reverse) {
-        for($i = $allPathValues.Count; $i -gt 0; $i++) {
-            if($_ -eq $Value) {
-                $allPathValues.RemoveAt($i)
-                break
+    Write-Verbose "Removing value '$ModuleValue' from environment variable '$Variable'. Reverse search is set to '$Reverse'"
+
+    $actualValuePartsMapping = [System.Collections.Generic.Dictionary[string, int]]::new()  # Mapping of each PATH value to its index
+    [System.Collections.Generic.List[string]] $allPathValues = $actualValue.Split([IO.Path]::PathSeparator)
+
+    # Setup the parts mapping
+    $index = 0
+    foreach($part in $allPathValues) {
+        if(-not $actualValuePartsMapping.ContainsKey($part)) {
+            $actualValuePartsMapping[$part] = $index
+        }
+        else {
+            if($Reverse) {
+                $actualValuePartsMapping[$part] = $index
             }
         }
+        $index += 1
     }
-    else {
-        for($i = 0; $i -lt $allPathValues.Count; $i++) {
-            if($_ -eq $Value) {
-                $allPathValues.RemoveAt($i)
-                break
-            }
+
+    # Fill the indices to remove
+    $indicesToRemove = [System.Collections.Generic.List[string]]::new()
+    foreach($part in $ModuleValue.Split([IO.Path]::PathSeparator)) {
+        if(-not $actualValuePartsMapping.ContainsKey($part)) {
+            Write-Verbose "The PATH value '$part' is not part of the variable '$Variable' anymore"
+            continue
         }
+
+        $indicesToRemove.Add($actualValuePartsMapping[$part])
+    }
+
+    $indicesToRemove.Sort()
+    $indicesToRemove.Reverse()
+
+    foreach($index in $indicesToRemove) {
+        $allPathValues.RemoveAt($index)
     }
 
     $newValue = ($allPathValues -join [IO.Path]::PathSeparator)

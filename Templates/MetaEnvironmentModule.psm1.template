@@ -1,7 +1,8 @@
 param(
     [parameter(Position=0, Mandatory=$true)]
     [EnvironmentModuleCore.EnvironmentModule]
-    $Module
+    $Module,
+    $SilentMode = $false
 )
 
 $moduleCandidates = Get-EnvironmentModule -ListAvailable "$($Module.Name)*" -Architecture "$($Module.Architecture)" -Version "$($Module.Version)*" | Sort-Object -Property "Architecture"
@@ -13,7 +14,7 @@ foreach($moduleCandidate in $moduleCandidates) {
 
     if(Test-EnvironmentModuleRootDirectory $moduleCandidate -IncludeDependencies) {
         $found = $True
-        Import-EnvironmentModule $moduleCandidate.FullName-IsLoadedDirectly $Module.IsLoadedDirectly
+        Import-EnvironmentModule $moduleCandidate.FullName-IsLoadedDirectly $Module.IsLoadedDirectly -Silent:$SilentMode
         break
     }
 }

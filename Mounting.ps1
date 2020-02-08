@@ -424,7 +424,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     try {
-        Import-Module $psModuleName -Scope Global -Force -ArgumentList $module
+        Import-Module $psModuleName -Scope Global -Force -ArgumentList $module, $SilentMode
     }
     catch {
         if(-not $SilentMode) {
@@ -447,7 +447,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         }
     }
     else {
-        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)
+        [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly, $SilentMode)
         Remove-Module $ModuleFullName -Force
         return $true
     }
@@ -457,7 +457,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         Show-EnvironmentSummary -ModuleBlacklist $alreadyLoadedModules
     }
 
-    [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly)
+    [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly, $SilentMode)
     return $true
 }
 
@@ -483,7 +483,21 @@ function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModul
         foreach ($pathInfo in $Module.Paths)
         {
             [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator
+            [String] $actualValue = [Environment]::GetEnvironmentVariable($pathInfo.Variable)
             Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
+
+            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
+                Write-Verbose "Joined Set-Path: $($pathInfo.Variable) = $joinedValue"
+                if($script:loadedEnvironmentModuleSetPaths.ContainsKey($Module.FullName)) {
+                    $script:loadedEnvironmentModuleSetPaths[$Module.FullName][$pathInfo.Variable] = $actualValue
+                }
+                else {
+                    $script:loadedEnvironmentModuleSetPaths[$Module.FullName] = @{$pathInfo.Variable = $actualValue}
+                }
+
+                [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
+            }
+
             if($joinedValue -eq "")  {
                 continue
             }
@@ -495,10 +509,6 @@ function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModul
             if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
                 Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
                 Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $true
-            }
-            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
-                Write-Verbose "Joined Set-Path: $($pathInfo.Variable) = $joinedValue"
-                [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
             }
         }
 
