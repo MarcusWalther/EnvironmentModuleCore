@@ -99,7 +99,7 @@ function Get-NonTempEnvironmentModules()
     .OUTPUTS
     All non temp environment modules.
     #>
-    return Get-AllEnvironmentModules | Where-Object { -not(Test-PartOfTmpDirectory $_.PSModuleInfo.ModuleBase) }
+    return Get-AllEnvironmentModules | Where-Object { -not(Test-PartOfTmpDirectory $_.ModuleBase) }
 }
 
 function Get-ConcreteEnvironmentModules([switch] $ListAvailable, [switch] $ExcludeMetaModules)

@@ -142,7 +142,7 @@ function Copy-EnvironmentModule
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $moduleSet =  Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName
+        $moduleSet =  Get-NonTempEnvironmentModules | Select-Object -ExpandProperty FullName
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
         Add-DynamicParameter 'NewModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 1
