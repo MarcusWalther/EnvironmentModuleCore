@@ -5,3 +5,4 @@
 /Config/
 /package/
 .vscode
+*.code-workspace
