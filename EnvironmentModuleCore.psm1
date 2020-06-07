@@ -3,15 +3,19 @@ $script:moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:moduleFileLocation, ".."))
 $localStorageFileLocation = "$env:APPDATA"
 if(-not $localStorageFileLocation) {
-    $localStorageFileLocation = "~"
+    $localStorageFileLocation = Join-Path (Resolve-Path "~") ".config/powershell/EnvironmentModuleCore"
 }
-$localStorageFileLocation += "/PowerShell/EnvironmentModuleCore"
+else {
+    $localStorageFileLocation += "/PowerShell/EnvironmentModuleCore"
+}
 
 $globalStorageFileLocation = "$env:PROGRAMDATA"
 if(-not $globalStorageFileLocation) {
-    $globalStorageFileLocation = "/lib"
+    $globalStorageFileLocation = Join-Path (Resolve-Path "~") ".powershell/EnvironmentModuleCore"
 }
-$globalStorageFileLocation += "/PowerShell/EnvironmentModuleCore"
+else {
+    $globalStorageFileLocation += "/PowerShell/EnvironmentModuleCore"
+}
 
 # Include the util functions
 . (Join-Path $PSScriptRoot "Utils.ps1")

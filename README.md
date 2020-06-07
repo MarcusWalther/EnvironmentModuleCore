@@ -14,8 +14,12 @@
 # Installation
 
 You can either download the package from the Powershell Gallery or downlaod it manually.
-* A) Download the package from the Powershell Gallery using **Install-Module EnvironmentModuleCore**
-* B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the script **Utilities/Prepare.ps1** to download the required libraries.
+* **A)** Download the package from the Powershell Gallery using **Install-Module EnvironmentModuleCore**
+
+* B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the command below in order to download the required .Net core libraries.
+```powershell
+Invoke-Build Setup
+```
 
 
 # Usage Overview
@@ -103,8 +107,18 @@ The name of an environment module plays an important role, because it is used to
 
 In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
 
+# Testing 
+
+Pester based tests are included as submodule that must be checked out explicitely. Afterwards the tests can be invoked using the command 
+
+```powershell
+Invoke-Build Test
+```
+
 # References
 
 * Library -- Scriban (see https://github.com/lunet-io/scriban) - BSD 2-Clause "Simplified" License.
+* Powershell Module -- InvokeBuild (see https://github.com/nightroman/Invoke-Build) - Apache License, Version 2.0
+* Powershell Module -- Pester (see https://github.com/pester/Pester) - Apache License, Version 2.0
 * Idea -- Environment Modules on Linux Systems (see http://modules.sourceforge.net)
 * Icon -- Adaption of Powershell Icon (see https://de.wikipedia.org/wiki/Datei:PowerShell_5.0_icon.png)

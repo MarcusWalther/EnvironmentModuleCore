@@ -67,12 +67,18 @@ Register-EnvironmentModuleRequiredItemType ([EnvironmentModuleCore.RequiredItem]
         Write-Warning "Required file without value specified"
     }
 
-    if (-not (Test-Path (Join-Path "$($Directory.FullName)" "$($Item.Value)"))) {
-        Write-Verbose "The file $($Item.Value) does not exist in folder $($Directory.FullName)"
-        return $false
+    $found = $false
+    foreach($testItem in $item.Value.Split(";")) {
+        if (-not (Test-Path (Join-Path "$($Directory.FullName)" "$testItem"))) {
+            Write-Verbose "The file $testItem does not exist in folder $($Directory.FullName)"
+        }
+        else {
+            $found = $true
+            break
+        }
     }
 
-    return $true
+    return $found
 }
 
 # ---------------------------------
@@ -409,7 +415,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Create the temp directory
-    New-Item -ItemType directory -Force $module.TmpDirectory
+    (New-Item -ItemType directory -Force $module.TmpDirectory) | Out-Null
 
     # Set the parameter defaults
     $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName $false }
