@@ -3,6 +3,7 @@ param(
 	[string] $NugetSource = "nuget.org",
 	[string] $PowershellExecutable = "pwsh",
 	[string] $Suffix = $null,
+	[string] $NuGetApiKey = $null,
 	[switch] $AllowPrerelease
 )
 
@@ -42,8 +43,6 @@ task Test {
 	.SYNOPSIS
 	Run the script analyser over the module code. The pester tests for the module are 
 	#>
-	# Install-Module PSScriptAnalyzer
-	Invoke-ScriptAnalyzer -Recurse -Severity Warning "$PSScriptRoot"
 
 	if ((Get-ChildItem "Test").count -eq 0) {
 		Write-Warning "The test folder submodule was not checked out correctly"
@@ -89,6 +88,8 @@ task Pack {
 	if(-not [string]::IsNullOrEmpty($Suffix)) {
 		Update-ModuleManifest "$Folder/EnvironmentModuleCore.psd1" -Prerelease "$Suffix"
 	}
+	$commandBlock = "& {Import-Module `"./$Folder/EnvironmentModuleCore.psd1`"; Set-Location `"Test`"; Invoke-Pester -Path `"./ScriptAnalyzerTests.ps1`" -CI; Move-Item `"testResults.xml`" `"../TestResults/testResults.analyzer.xml`"}"
+	& "$PowershellExecutable" -NoProfile -Command $commandBlock
 }
 
 task Deploy {

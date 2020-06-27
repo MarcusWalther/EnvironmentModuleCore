@@ -29,18 +29,18 @@ steps:
 - pwsh: Invoke-Build Test -Suffix $(suffix)
   displayName: 'Test the module'
 
-- task: PublishTestResults@2
-  inputs:
-    testResultsFormat: 'NUnit'
-    testResultsFiles: 'TestResults/testResults.xml'
-    failTaskOnFailedTests: true
-
 - task: PublishCodeCoverageResults@1
   inputs:
     summaryFileLocation: 'TestResults/coverage.xml'
 
 - pwsh: Invoke-Build Pack -Suffix $(suffix) -Folder "Nuget" -AllowPrerelease
   displayName: 'Pack the build'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'NUnit'
+    testResultsFiles: 'TestResults/testResults.xml'
+    failTaskOnFailedTests: true
 
 - pwsh: Invoke-Build Deploy -NugetSource "$(nugetSource)" -NugetApiKey AzureArtifacts -Folder "Nuget" -AllowPrerelease
   displayName: 'Deploy the package'
