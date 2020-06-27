@@ -99,16 +99,5 @@ task Deploy {
     .SYNOPSIS
 	Copy the relevant files to the specified output folder and publish it via nuget afterwards.
 	#>
-
-	$cmdArguments = "-Path `"$Folder`" -Repository $NugetSource -Verbose"
-
-	if($AllowPrerelease) {
-		$cmdArguments += " -AllowPrerelease"
-	}
-
-	if(-not [string]::IsNullOrEmpty($NuGetApiKey)) {
-		$cmdArguments += " -NuGetApiKey $NuGetApiKey"
-	}
-
-    Invoke-Expression "Publish-Module $cmdArguments"
+	Publish-Module -Path "$Folder" -Verbose -Repository $NugetSource -NuGetApiKey $NuGetApiKey
 }

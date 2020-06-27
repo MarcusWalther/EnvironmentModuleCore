@@ -33,7 +33,7 @@ steps:
   inputs:
     summaryFileLocation: 'TestResults/coverage.xml'
 
-- pwsh: Invoke-Build Pack -Suffix $(suffix) -Folder "Nuget" -AllowPrerelease
+- pwsh: Invoke-Build Pack -Suffix $(suffix) -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
   displayName: 'Pack the build'
 
 - task: PublishTestResults@2
@@ -52,5 +52,5 @@ steps:
     ENV_ACCESS_TOKEN: $(ACCESS_TOKEN)
     ENV_EMAIL: $(EMAIL)
 
-- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget" -AllowPrerelease
+- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
   displayName: 'Deploy the package'
