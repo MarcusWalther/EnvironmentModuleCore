@@ -42,11 +42,11 @@ steps:
     testResultsFiles: 'TestResults/testResults*.xml'
     failTaskOnFailedTests: false
 
--pwsh: |
+- pwsh: |
     $Cred = Get-Credential;
     $Params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = $(nugetSource); 'PublishLocation' = $(nugetSource); 'Credential' = $Cred}
     Register-PSRepository @Params
- displayName: 'Register the Powershell Nuget Feed'
+  displayName: 'Register the Powershell Nuget Feed'
 
 - pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget" -AllowPrerelease
   displayName: 'Deploy the package'
