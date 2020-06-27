@@ -9,7 +9,9 @@ variables:
   nugetSource: 'https://marcuswalther.pkgs.visualstudio.com/EnvironmentModuleCoreSrc/_packaging/EnvironmentModuleCoreSrc_Feed/nuget/v3/index.json'
 
 steps:
-- task: NuGetToolInstaller@1
+- pwsh: sudo apt-get install nuget
+  displayName: 'Installing nuget'
+
 - task: NuGetAuthenticate@0
 
 - pwsh: .\SetupEnvironment.ps1
