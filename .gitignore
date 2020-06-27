@@ -6,4 +6,4 @@
 /package/
 .vscode
 *.code-workspace
-/TestResults/Test-Pester.xml
+/TestResults/*.xml
