@@ -39,7 +39,7 @@ steps:
 - task: PublishTestResults@2
   inputs:
     testResultsFormat: 'NUnit'
-    testResultsFiles: 'TestResults/testResults.xml'
+    testResultsFiles: 'TestResults/testResults*.xml'
     failTaskOnFailedTests: true
 
 - pwsh: Invoke-Build Deploy -NugetSource "$(nugetSource)" -NugetApiKey AzureArtifacts -Folder "Nuget" -AllowPrerelease
