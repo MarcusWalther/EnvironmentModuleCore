@@ -5,8 +5,10 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables: 
+  name: $(Date:yyyyMMdd)$(Rev:.r)
   suffix: '$(Build.BuildNumber)'
-  nugetSource: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore/nuget/v3/index.json'
+  nugetSourceLibrary: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore/nuget/v3/index.json'
+  nugetSource: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore_Module/nuget/v3/index.json'
 
 steps:
 - pwsh: sudo apt-get install nuget
@@ -20,7 +22,7 @@ steps:
 - pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
   displayName: 'Checkout the Git submodules'
 
-- pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSource)" -AllowPrerelease
+- pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
   displayName: 'Download the required binary libraries'
 
 - pwsh: Invoke-Build Test -Suffix $(suffix)
@@ -29,5 +31,15 @@ steps:
 - task: PublishTestResults@2
   inputs:
     testResultsFormat: 'NUnit'
-    testResultsFiles: 'TestResults/*.xml'
+    testResultsFiles: 'TestResults/testResults.xml'
     failTaskOnFailedTests: true
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    summaryFileLocation: 'TestResults/coverage.xml'
+
+- pwsh: Invoke-Build Pack -Suffix $(suffix) -Folder "Nuget" -AllowPrerelease
+  displayName: 'Pack the build'
+
+- pwsh: Invoke-Build Deploy -NugetSource "$(nugetSource)" -NugetApiKey AzureArtifacts -Folder "Nuget" -AllowPrerelease
+  displayName: 'Deploy the package'

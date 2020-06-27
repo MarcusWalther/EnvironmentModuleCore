@@ -1,5 +1,5 @@
 param(
-	[System.IO.DirectoryInfo] $OutputFolder,
+	[System.IO.DirectoryInfo] $Folder,
 	[string] $NugetSource = "nuget.org",
 	[string] $PowershellExecutable = "pwsh",
 	[string] $Suffix = $null,
@@ -51,7 +51,7 @@ task Test {
 	}
 
 	New-Item -ItemType Directory "TestResults" -Force | Out-Null
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Path "./Tests.ps1" -CI; Move-Item "testResults.xml" "../TestResults/"}
+	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Path "./Tests.ps1" -CI; Move-Item "*.xml" "../TestResults/"}
 }
 
 task Pack {
@@ -59,7 +59,7 @@ task Pack {
     .SYNOPSIS
 	Copy the relevant files to the specified output folder.
 	#>
-	if($null -eq $OutputFolder) {
+	if($null -eq $Folder) {
 		Write-Error "Please specify the output folder parameter"
 		return
 	}
@@ -68,23 +68,27 @@ task Pack {
 	Set-Location "$PSScriptRoot"
 
 	# Create the package directory
-	if($null -eq $OutputFolder) {
-		$OutputFolder = (Join-Path "package" "EnvironmentModuleCore")
+	if($null -eq $Folder) {
+		$Folder = (Join-Path "package" "EnvironmentModuleCore")
 	}
 
-	if(Test-Path $OutputFolder) {
-		Remove-Item -Recurse -Force $OutputFolder
+	if(Test-Path $Folder) {
+		Remove-Item -Recurse -Force $Folder
 	}
 
-	New-Item -ItemType directory $OutputFolder
+	New-Item -ItemType directory $Folder
 
 	# Copy the relevant items to the package folder
-	Copy-Item "*.ps*1" $OutputFolder -Exclude "Tasks.build.ps1"
-	Copy-Item "*.dll" $OutputFolder
-	Copy-Item "LICENSE.md" $OutputFolder
-	Copy-Item "*.ps1xml" $OutputFolder
-	Copy-Item "Templates" $OutputFolder -Recurse
-	Copy-Item "Extensions" $OutputFolder -Recurse
+	Copy-Item "*.ps*1" $Folder -Exclude "Tasks.build.ps1", "SetupEnvironment.ps1", "Tasks.build.ps1"
+	Copy-Item "*.dll" $Folder
+	Copy-Item "LICENSE.md" $Folder
+	Copy-Item "*.ps1xml" $Folder
+	Copy-Item "Templates" $Folder -Recurse
+	Copy-Item "Extensions" $Folder -Recurse
+
+	if(-not [string]::IsNullOrEmpty($Suffix)) {
+		Update-ModuleManifest "$Folder/EnvironmentModuleCore.psd1" -Prerelease "$Suffix"
+	}
 }
 
 task Deploy {
@@ -93,5 +97,15 @@ task Deploy {
 	Copy the relevant files to the specified output folder and publish it via nuget afterwards.
 	#>
 
-    Publish-Module -Path "$PackageFolder" -Repository "$NugetSource" -Verbose #-NuGetApiKey "$NuGetApiKey"
+	$cmdArguments = "-Path", "'$Folder'", "-Repository", "$NugetSource", "-Verbose"
+
+	if($AllowPrerelease) {
+		$cmdArguments += "-AllowPrerelease"
+	}
+
+	if(-not [string]::IsNullOrEmpty($NuGetApiKey)) {
+		$cmdArguments += "-NuGetApiKey", "$NuGetApiKey"
+	}
+
+    Publish-Module $cmdArguments  
 }
