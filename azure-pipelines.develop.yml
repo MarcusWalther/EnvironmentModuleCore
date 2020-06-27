@@ -43,9 +43,10 @@ steps:
     failTaskOnFailedTests: false
 
 - pwsh: |
-    $Cred = Get-Credential;
-    $Params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = $(nugetSource); 'PublishLocation' = $(nugetSource); 'Credential' = $Cred}
-    Register-PSRepository @Params
+    $patToken = AzureArtifacts | ConvertTo-SecureString -AsPlainText -Force
+    $credsAzureDevopsServices = New-Object System.Management.Automation.PSCredential("$env:EMAIL", $patToken)
+    $params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = $(nugetSource); 'PublishLocation' = $(nugetSource); 'Credential' = $credsAzureDevopsServices}
+    Register-PSRepository @params
   displayName: 'Register the Powershell Nuget Feed'
 
 - pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget" -AllowPrerelease
