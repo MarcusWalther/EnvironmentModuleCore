@@ -50,7 +50,8 @@ task Test {
 	}
 
 	New-Item -ItemType Directory "TestResults" -Force | Out-Null
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Path "./Tests.ps1" -CI; Move-Item "*.xml" "../TestResults/"}
+	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Path "./Tests.ps1" -CI}
+	Move-Item "Test/*.xml" "TestResults/"
 }
 
 task Pack {
@@ -88,8 +89,9 @@ task Pack {
 	if(-not [string]::IsNullOrEmpty($Suffix)) {
 		Update-ModuleManifest "$Folder/EnvironmentModuleCore.psd1" -Prerelease "$Suffix"
 	}
-	$commandBlock = "& {Import-Module `"./$Folder/EnvironmentModuleCore.psd1`"; Set-Location `"Test`"; Invoke-Pester -Path `"./ScriptAnalyzerTests.ps1`" -CI; Move-Item `"testResults.xml`" `"../TestResults/testResults.analyzer.xml`"}"
+	$commandBlock = "& {Import-Module `"./$Folder/EnvironmentModuleCore.psd1`"; Set-Location `"Test`"; Invoke-Pester -Path `"./ScriptAnalyzerTests.ps1`" -CI -ErrorAction SilentlyContinue}"
 	& "$PowershellExecutable" -NoProfile -Command $commandBlock
+	Move-Item "Test/testResults.xml" "TestResults/testResults.analyzer.xml"
 }
 
 task Deploy {
@@ -98,7 +100,7 @@ task Deploy {
 	Copy the relevant files to the specified output folder and publish it via nuget afterwards.
 	#>
 
-	$cmdArguments = "-Path '$Folder' -Repository $NugetSource -Verbose"
+	$cmdArguments = "-Path `"$Folder`" -Repository $NugetSource -Verbose"
 
 	if($AllowPrerelease) {
 		$cmdArguments += " -AllowPrerelease"
@@ -108,5 +110,5 @@ task Deploy {
 		$cmdArguments += " -NuGetApiKey $NuGetApiKey"
 	}
 
-    Publish-Module $cmdArguments  
+    Invoke-Expression "Publish-Module $cmdArguments"
 }
