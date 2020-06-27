@@ -296,7 +296,7 @@ function Import-EnvironmentModule
         }
 
         $initialSilentLoadState = $script:silentLoad
-        $_ = Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $null $silentMode $ModuleFile
+        Import-RequiredModulesRecursive $ModuleFullName $IsLoadedDirectly (New-Object "System.Collections.Generic.HashSet[string]") $null $silentMode $ModuleFile | Out-Null
         $script:silentLoad = $initialSilentLoadState
     }
 }
@@ -329,7 +329,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         Write-Error "A circular dependency between the modules was detected"
         return $false
     }
-    $_ = $KnownModules.Add($ModuleFullName)
+    $KnownModules.Add($ModuleFullName) | Out-Null
 
     Write-Verbose "Importing the module $ModuleFullName recursive"
 

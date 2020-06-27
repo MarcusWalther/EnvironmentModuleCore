@@ -174,7 +174,7 @@ function Update-EnvironmentModuleCache
         $allModuleNames.Add($module.Name) > $null
 
         # Handle the module by short name
-        $_ = $modulesByShortName.Add($moduleNameParts.Name)
+        $modulesByShortName.Add($moduleNameParts.Name) | Out-Null
 
         # Handle the module by architecture (if architecture is specified)
         if(-not([string]::IsNullOrEmpty($moduleNameParts.Architecture))) {
@@ -182,7 +182,7 @@ function Update-EnvironmentModuleCache
             if($null -eq $knownValues) {
                 $knownValues = New-Object "System.Collections.Generic.HashSet[string]]"
             }
-            $_ = $knownValues.Add($moduleNameParts.Architecture)
+            $knownValues.Add($moduleNameParts.Architecture) | Out-Null
             $modulesByArchitecture[$moduleNameParts.Name] = $knownValues
         }
 
@@ -197,7 +197,7 @@ function Update-EnvironmentModuleCache
                 $knownValues = New-Object "System.Collections.Generic.HashSet[object]]"
             }
             $newValue = New-Object "System.Tuple[string,string]" -ArgumentList $Matches["MajorVersion"],$moduleNameParts.Architecture
-            $_ = $knownValues.Add($newValue)
+            $knownValues.Add($newValue) | Out-Null
             $modulesByMajorVersion[$moduleNameParts.Name] = $knownValues
         }
     }
@@ -489,7 +489,7 @@ function Remove-EnvironmentModuleSearchPath()
             }
         }
 
-        $_ = $oldSearchPaths.Remove($customSearchPath)
+        $oldSearchPaths.Remove($customSearchPath) | Out-Null
         Write-Verbose "Removing search path $($customSearchPath.Key) for module $($customSearchPath.Module)"
         $script:customSearchPaths[$ModuleFullName] = $oldSearchPaths
         Write-CustomSearchPaths -IncludeGlobal:$customSearchPath.IsGlobal

@@ -197,7 +197,7 @@ function Copy-EnvironmentModule
             return
         }
 
-        $_ = New-Item -ItemType directory $destination -Force
+        New-Item -ItemType directory $destination -Force | Out-Null
 
         Write-Verbose "Cloning module $ModuleFullName to $destination"
 
@@ -248,6 +248,7 @@ function Copy-EnvironmentModule
 # This argument completer is used by Copy-EnvironmentModule for the file filter
 Register-ArgumentCompleter -CommandName Copy-EnvironmentModule -ParameterName Path -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
+    $commandName | Out-Null; $parameterName | Out-Null; $wordToComplete | Out-Null; $commandAst | Out-Null; $fakeBoundParameter | Out-Null
 
     $env:PSModulePath.Split([IO.Path]::PathSeparator) | Where-Object {(Test-Path $_) -and -not (Test-PartOfTmpDirectory $_)} | Select-Object -Unique
 }
@@ -304,6 +305,7 @@ function Edit-EnvironmentModule
 Register-ArgumentCompleter -CommandName Edit-EnvironmentModule -ParameterName FileFilter -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
 
+    $commandName | Out-Null; $parameterName | Out-Null; $wordToComplete | Out-Null; $commandAst | Out-Null
     $module = Get-EnvironmentModule -ListAvailable $fakeBoundParameter["ModuleFullName"]
 
     if($module) {

@@ -40,7 +40,7 @@ steps:
   inputs:
     testResultsFormat: 'NUnit'
     testResultsFiles: 'TestResults/testResults*.xml'
-    failTaskOnFailedTests: false
+    failTaskOnFailedTests: true
 
 - pwsh: |
     $patToken = $env:ENV_ACCESS_TOKEN | ConvertTo-SecureString -AsPlainText -Force

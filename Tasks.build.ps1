@@ -1,5 +1,5 @@
 param(
-	[System.IO.DirectoryInfo] $Folder,
+	[System.IO.DirectoryInfo] $Folder = "Nuget/EnvironmentModuleCore",
 	[string] $NugetSource = "nuget.org",
 	[string] $PowershellExecutable = "pwsh",
 	[string] $Suffix = "local",
