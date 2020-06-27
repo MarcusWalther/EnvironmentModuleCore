@@ -6,7 +6,7 @@ pool:
 
 variables: 
   name: $(Date:yyyyMMdd)$(Rev:r)
-  suffix: '$(Build.BuildNumber)'
+  suffix: '$(name)'
   nugetSourceLibrary: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore/nuget/v3/index.json'
   nugetSource: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore_Module/nuget/v3/index.json'
 
