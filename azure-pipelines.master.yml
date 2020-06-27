@@ -1,0 +1,48 @@
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+name: $(Date:yyyyMMdd)$(Rev:r)
+
+variables: 
+  suffix: ''
+  nugetSourceLibrary: 'https://api.nuget.org/v3/index.json'
+  nugetSource: 'https://www.powershellgallery.com/api/v2'
+
+steps:
+- pwsh: sudo apt-get install nuget
+  displayName: 'Installing nuget'
+
+- task: NuGetAuthenticate@0
+
+- pwsh: .\SetupEnvironment.ps1
+  displayName: 'Setup the environment'
+
+- pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
+  displayName: 'Checkout the Git submodules'
+
+- pwsh: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
+  displayName: 'Download the required binary libraries'
+
+- pwsh: Invoke-Build Test -Suffix "$(suffix)"
+  displayName: 'Test the module'
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    summaryFileLocation: 'TestResults/coverage.xml'
+
+- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+  displayName: 'Pack the build'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'NUnit'
+    testResultsFiles: 'TestResults/testResults*.xml'
+    failTaskOnFailedTests: true
+
+- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey $env:NUGET_APIKEY -Folder "Nuget/EnvironmentModuleCore"
+  displayName: 'Deploy the package'
+  env:
+    ENV_NUGET_APIKEY: $(NUGET_APIKEY)

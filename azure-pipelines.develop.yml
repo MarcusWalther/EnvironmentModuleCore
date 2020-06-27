@@ -23,17 +23,17 @@ steps:
 - pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
   displayName: 'Checkout the Git submodules'
 
-- pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
+- pwsh: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
   displayName: 'Download the required binary libraries'
 
-- pwsh: Invoke-Build Test -Suffix $(suffix)
+- pwsh: Invoke-Build Test -Suffix "$(suffix)"
   displayName: 'Test the module'
 
 - task: PublishCodeCoverageResults@1
   inputs:
     summaryFileLocation: 'TestResults/coverage.xml'
 
-- pwsh: Invoke-Build Pack -Suffix $(suffix) -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
   displayName: 'Pack the build'
 
 - task: PublishTestResults@2
@@ -52,5 +52,5 @@ steps:
     ENV_ACCESS_TOKEN: $(ACCESS_TOKEN)
     ENV_EMAIL: $(EMAIL)
 
-- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget/EnvironmentModuleCore"
   displayName: 'Deploy the package'
