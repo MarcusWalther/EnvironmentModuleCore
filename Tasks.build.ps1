@@ -50,7 +50,7 @@ task Test {
 		return
 	}
 
-	mkdir "TestResults" -Force
+	New-Item -ItemType Directory "TestResults" -Force
 	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Script "./Tests.ps1" -OutputFile "../TestResults/Test-Pester.xml" -OutputFormat NUnitXml}
 }
 

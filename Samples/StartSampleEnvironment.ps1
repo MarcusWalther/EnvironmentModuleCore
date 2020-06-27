@@ -33,7 +33,7 @@ Write-Host "Using EnvironmentModuleCore module $((Get-Module 'EnvironmentModuleC
 
 $binaryAssembly = [System.Reflection.Assembly]::GetAssembly([EnvironmentModuleCore.ParameterInfo])
 Write-Host "Libraries are loaded from $([System.IO.Path]::GetDirectoryName($binaryAssembly.Location))"
-$versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($binaryAssembly.Location).ProductVersion
+$versionInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($binaryAssembly.Location)
 Write-Host "Library version is $($versionInfo.ProductVersion)"
 
 Update-EnvironmentModuleCache
