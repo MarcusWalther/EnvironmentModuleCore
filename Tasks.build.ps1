@@ -2,6 +2,7 @@ param(
 	[System.IO.DirectoryInfo] $OutputFolder,
 	[string] $NugetSource = "nuget.org",
 	[string] $PowershellExecutable = "pwsh",
+	[string] $Suffix = $null,
 	[switch] $AllowPrerelease
 )
 
