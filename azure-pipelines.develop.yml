@@ -15,6 +15,9 @@ steps:
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'
 
+- pwsh: git submodule update --init; git checkout develop ./Test
+  displayName: 'Checkout the Git submodules'
+
 - pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSource)" -AllowPrerelease
   displayName: 'Download the required binary libraries'
 
