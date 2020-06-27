@@ -23,7 +23,7 @@ steps:
 - pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
   displayName: 'Checkout the Git submodules'
 
-- pwsh: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
+- pwsh: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)"
   displayName: 'Download the required binary libraries'
 
 - pwsh: Invoke-Build Test -Suffix "$(suffix)"
@@ -33,7 +33,7 @@ steps:
   inputs:
     summaryFileLocation: 'TestResults/coverage.xml'
 
-- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore"
   displayName: 'Pack the build'
 
 - task: PublishTestResults@2
@@ -42,7 +42,7 @@ steps:
     testResultsFiles: 'TestResults/testResults*.xml'
     failTaskOnFailedTests: true
 
-- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey $env:ENV_NUGET_APIKEY -Folder "Nuget/EnvironmentModuleCore"
+- pwsh: Invoke-Build Deploy -NugetSource "PSGallery" -NugetApiKey $env:ENV_NUGET_APIKEY -Folder "Nuget/EnvironmentModuleCore"
   displayName: 'Deploy the package'
   env:
     ENV_NUGET_APIKEY: $(NUGET_APIKEY)
