@@ -45,7 +45,7 @@ steps:
 - pwsh: |
     $patToken = $env:ENV_ACCESS_TOKEN | ConvertTo-SecureString -AsPlainText -Force
     $credsAzureDevopsServices = New-Object System.Management.Automation.PSCredential("$env:ENV_EMAIL", $patToken)
-    $params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = '$(nugetSource)''; 'PublishLocation' = '$(nugetSource)''; 'Credential' = $credsAzureDevopsServices}
+    $params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = '$(nugetSource)'; 'PublishLocation' = '$(nugetSource)'; 'Credential' = $credsAzureDevopsServices}
     Register-PSRepository @params
   displayName: 'Register the Powershell Nuget Feed'
   env:
