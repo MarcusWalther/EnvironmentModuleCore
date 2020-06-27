@@ -8,10 +8,10 @@ variables:
   suffix: '$(Build.BuildNumber)'
   nugetSource: 'https://marcuswalther.pkgs.visualstudio.com/EnvironmentModuleCoreSrc/_packaging/EnvironmentModuleCoreSrc_Feed/nuget/v3/index.json'
 
+steps:
 - task: NuGetToolInstaller@1
 - task: NuGetAuthenticate@0
 
-steps:
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'
 
