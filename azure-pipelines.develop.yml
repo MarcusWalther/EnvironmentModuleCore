@@ -1,0 +1,19 @@
+trigger:
+- develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables: 
+  suffix: '$(Build.BuildNumber)'
+  nugetSource: 'https://marcuswalther.pkgs.visualstudio.com/EnvironmentModuleCoreSrc/_packaging/EnvironmentModuleCoreSrc_Feed/nuget/v3/index.json'
+
+steps:
+- pwsh: .\SetupEnvironment.ps1
+  displayName: 'Setup the environment'
+
+- pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSource)" -AllowPrerelease
+  displayName: 'Download the required binary libraries'
+
+- pwsh: Invoke-Build Test -Suffix $(suffix)
+  displayName: 'Test the module'

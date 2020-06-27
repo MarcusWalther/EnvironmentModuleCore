@@ -1,8 +1,8 @@
 param(
 	[System.IO.DirectoryInfo] $OutputFolder,
-    [string] $NuGetApiKey,
-	[string] $Repository,
-	[string] $PowershellExecutable = "pwsh"
+	[string] $NugetSource = "nuget.org",
+	[string] $PowershellExecutable = "pwsh",
+	[switch] $AllowPrerelease
 )
 
 task Test {
@@ -20,7 +20,7 @@ task Test {
 	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; ./Tests.ps1}
 }
 
-task Setup {
+task Prepare {
 	<#
 	.SYNOPSIS
 	Download the latest compiled .Net Standard libraries from Nuget that are required to use the module.
@@ -35,7 +35,16 @@ task Setup {
 	New-Item -ItemType directory -Force $nugetDirectory
 	Set-Location $nugetDirectory
 
-	nuget install EnvironmentModuleCore
+	$cmdArguments = "install EnvironmentModuleCore -Source '$NugetSource'"
+	if($AllowPrerelease) {
+		$cmdArguments += " -Prerelease"
+	}
+
+	if(-not [string]::IsNullOrEmpty($NuGetApiKey)) {
+		$cmdArguments += " -Prerelease"
+	}
+
+	& nuget $cmdArguments
 
 	$libraries = (Get-ChildItem "." "lib" -Recurse) | ForEach-Object {Get-ChildItem $_ (Join-Path "netstandard2.0" "*.dll")} | Select-Object -ExpandProperty "Fullname"
 	foreach($library in $libraries) {
@@ -46,7 +55,7 @@ task Setup {
 	Pop-Location
 }
 
-task Deploy {
+task Pack {
     <#
     .SYNOPSIS
 	Copy the relevant files to the specified output folder.
@@ -79,11 +88,11 @@ task Deploy {
 	Copy-Item "Extensions" $OutputFolder -Recurse
 }
 
-task Publish Deploy, {
+task Deploy {
     <#
     .SYNOPSIS
 	Copy the relevant files to the specified output folder and publish it via nuget afterwards.
 	#>
 
-    Publish-Module -Path "$PackageFolder" -Repository "$Repository" -Verbose -NuGetApiKey "$NuGetApiKey"
+    Publish-Module -Path "$PackageFolder" -Repository "$NugetSource" -Verbose #-NuGetApiKey "$NuGetApiKey"
 }
