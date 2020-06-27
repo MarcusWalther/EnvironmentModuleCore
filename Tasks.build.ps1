@@ -21,16 +21,12 @@ task Prepare {
 	New-Item -ItemType directory -Force $nugetDirectory
 	Set-Location $nugetDirectory
 
-	$cmdArguments = "install EnvironmentModuleCore -Source '$NugetSource'"
+	$cmdArguments = "install", "EnvironmentModuleCore", "-Source", "$NugetSource"
 	if($AllowPrerelease) {
-		$cmdArguments += " -Prerelease"
+		$cmdArguments += '-Prerelease'
 	}
 
-	if(-not [string]::IsNullOrEmpty($NuGetApiKey)) {
-		$cmdArguments += " -Prerelease"
-	}
-
-	& nuget $cmdArguments
+	nuget.exe $cmdArguments
 
 	$libraries = (Get-ChildItem "." "lib" -Recurse) | ForEach-Object {Get-ChildItem $_ (Join-Path "netstandard2.0" "*.dll")} | Select-Object -ExpandProperty "Fullname"
 	foreach($library in $libraries) {
