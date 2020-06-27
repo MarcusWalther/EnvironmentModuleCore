@@ -2,7 +2,7 @@ param(
 	[System.IO.DirectoryInfo] $Folder,
 	[string] $NugetSource = "nuget.org",
 	[string] $PowershellExecutable = "pwsh",
-	[string] $Suffix = $null,
+	[string] $Suffix = "local",
 	[string] $NuGetApiKey = $null,
 	[switch] $AllowPrerelease
 )
@@ -51,7 +51,7 @@ task Test {
 
 	New-Item -ItemType Directory "TestResults" -Force | Out-Null
 	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Path "./Tests.ps1" -CI}
-	Move-Item "Test/*.xml" "TestResults/"
+	Move-Item "Test/*.xml" "TestResults/" -Force
 }
 
 task Pack {
@@ -91,7 +91,7 @@ task Pack {
 	}
 	$commandBlock = "& {Import-Module `"./$Folder/EnvironmentModuleCore.psd1`"; Set-Location `"Test`"; Invoke-Pester -Path `"./ScriptAnalyzerTests.ps1`" -CI -ErrorAction SilentlyContinue}"
 	& "$PowershellExecutable" -NoProfile -Command $commandBlock
-	Move-Item "Test/testResults.xml" "TestResults/testResults.analyzer.xml"
+	Move-Item "Test/testResults.xml" "TestResults/testResults.analyzer.xml" -Force
 }
 
 task Deploy {
