@@ -49,7 +49,9 @@ task Test {
 		Write-Warning "The test folder submodule was not checked out correctly"
 		return
 	}
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; ./Tests.ps1}
+
+	mkdir "TestResults" -Force
+	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Script "./Tests.ps1" -OutputFile "../TestResults/Test-Pester.xml" -OutputFormat NUnitXml}
 }
 
 task Pack {

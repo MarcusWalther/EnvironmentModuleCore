@@ -20,3 +20,9 @@ steps:
 
 - pwsh: Invoke-Build Test -Suffix $(suffix)
   displayName: 'Test the module'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'NUnit'
+    testResultsFiles: 'TestResults/*.xml'
+    failTaskOnFailedTests: true

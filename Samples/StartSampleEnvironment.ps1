@@ -27,7 +27,14 @@ if($null -ne (Get-Module 'EnvironmentModuleCore')) {
 # Remove the temp directory
 Remove-Item -Recurse -Force "$(Join-Path $TempDirectory 'Modules')" -ErrorAction SilentlyContinue
 
-Import-Module "$(Resolve-Path (Join-Path $PSScriptRoot (Join-Path '..' 'EnvironmentModuleCore.psm1')))"
+$environmentModuleCorePath = "$(Resolve-Path (Join-Path $PSScriptRoot (Join-Path '..' 'EnvironmentModuleCore.psm1')))"
+Import-Module "$environmentModuleCorePath"
+Write-Host "Using EnvironmentModuleCore module $((Get-Module 'EnvironmentModuleCore')[0].ModuleBase) loaded from '$environmentModuleCorePath'"
+
+$binaryAssembly = [System.Reflection.Assembly]::GetAssembly([EnvironmentModuleCore.ParameterInfo])
+Write-Host "Libraries are loaded from $([System.IO.Path]::GetDirectoryName($binaryAssembly.Location))"
+$versionInfo = System.Diagnostics.FileVersionInfo]::GetVersionInfo($binaryAssembly.Location).ProductVersion
+Write-Host "Library version is $($versionInfo.ProductVersion)"
 
 Update-EnvironmentModuleCache
 Clear-EnvironmentModuleSearchPaths -Force

@@ -9,7 +9,8 @@ param(
 )
 
 [ModuleSpecification[]] $RequiredModules = @([Microsoft.PowerShell.Commands.ModuleSpecification]::new("InvokeBuild"),
-                                             [Microsoft.PowerShell.Commands.ModuleSpecification]::new("Pester"))
+                                             [Microsoft.PowerShell.Commands.ModuleSpecification]::new("Pester"),
+                                             [Microsoft.PowerShell.Commands.ModuleSpecification]::new("PSScriptAnalyzer"))
 $Policy = (Get-PSRepository PSGallery).InstallationPolicy
 Set-PSRepository PSGallery -InstallationPolicy Trusted
 
