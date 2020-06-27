@@ -8,11 +8,12 @@ variables:
   suffix: '$(Build.BuildNumber)'
   nugetSource: 'https://marcuswalther.pkgs.visualstudio.com/EnvironmentModuleCoreSrc/_packaging/EnvironmentModuleCoreSrc_Feed/nuget/v3/index.json'
 
+- task: NuGetToolInstaller@1
+- task: NuGetAuthenticate@0
+
 steps:
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'
-
-- task: NuGetAuthenticate@0
 
 - pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSource)" -AllowPrerelease
   displayName: 'Download the required binary libraries'
