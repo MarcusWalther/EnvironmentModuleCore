@@ -18,7 +18,7 @@ steps:
   displayName: 'NuGet authenticate'
   inputs:
     command: custom
-    arguments: sources update -Name "$(nugetSource)" -Username "user" -Password "$(System.AccessToken)" -StorePasswordInClearText
+    arguments: add source "$(nugetSource)" -name "EnvironmentModuleCoreSrc_Feed" -username "user" -password "$(System.AccessToken)" -StorePasswordInClearText
 
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'
