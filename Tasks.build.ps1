@@ -6,21 +6,6 @@ param(
 	[switch] $AllowPrerelease
 )
 
-task Test {
-	<#
-	.SYNOPSIS
-	Run the script analyser over the module code. The pester tests for the module are 
-	#>
-	# Install-Module PSScriptAnalyzer
-	Invoke-ScriptAnalyzer -Recurse -Severity Warning "$PSScriptRoot"
-
-	if ((Get-ChildItem "Test").count -eq 0) {
-		Write-Warning "The test folder submodule was not checked out correctly"
-		return
-	}
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; ./Tests.ps1}
-}
-
 task Prepare {
 	<#
 	.SYNOPSIS
@@ -54,6 +39,21 @@ task Prepare {
 	}
 
 	Pop-Location
+}
+
+task Test {
+	<#
+	.SYNOPSIS
+	Run the script analyser over the module code. The pester tests for the module are 
+	#>
+	# Install-Module PSScriptAnalyzer
+	Invoke-ScriptAnalyzer -Recurse -Severity Warning "$PSScriptRoot"
+
+	if ((Get-ChildItem "Test").count -eq 0) {
+		Write-Warning "The test folder submodule was not checked out correctly"
+		return
+	}
+	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; ./Tests.ps1}
 }
 
 task Pack {

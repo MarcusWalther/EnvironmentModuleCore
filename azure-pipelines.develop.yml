@@ -12,6 +12,8 @@ steps:
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'
 
+- task: NuGetAuthenticate@0
+
 - pwsh: Invoke-Build Prepare -Suffix $(suffix) -NugetSource "$(nugetSource)" -AllowPrerelease
   displayName: 'Download the required binary libraries'
 
