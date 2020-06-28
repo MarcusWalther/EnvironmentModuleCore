@@ -1,5 +1,5 @@
 param(
-	[System.IO.DirectoryInfo] $Folder = "Nuget/EnvironmentModuleCore",
+	[System.IO.DirectoryInfo] $Folder = (Join-Path "Nuget" "EnvironmentModuleCore"),
 	[string] $NugetSource = "nuget.org",
 	[string] $PowershellExecutable = "pwsh",
 	[string] $Suffix = "local",
@@ -29,13 +29,14 @@ task Prepare {
 
 	nuget $cmdArguments
 
-	$libraries = (Get-ChildItem "." "lib" -Recurse) | ForEach-Object {Get-ChildItem $_ (Join-Path "netstandard2.0" "*.dll")} | Select-Object -ExpandProperty "Fullname"
+	$libraries = (Get-ChildItem "." "lib" -Recurse) | ForEach-Object {Get-ChildItem $_.FullName (Join-Path "netstandard2.0" "*.dll")} | Select-Object -ExpandProperty "FullName"
 	foreach($library in $libraries) {
 		Copy-Item $library ".."
 		Write-Verbose "Found library $library"
 	}
 
 	Pop-Location
+	Remove-Item -Recurse -Force "Nuget"
 }
 
 task Test {
@@ -50,8 +51,8 @@ task Test {
 	}
 
 	New-Item -ItemType Directory "TestResults" -Force | Out-Null
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module "./EnvironmentModuleCore.psd1"; Set-Location "Test"; Invoke-Pester -Path "./Tests.ps1" -CI}
-	Move-Item "Test/*.xml" "TestResults/" -Force
+	& "$PowershellExecutable" -NoProfile -Command {Import-Module (Join-Path "." "EnvironmentModuleCore.psd1"); Set-Location "Test"; Invoke-Pester -Path (Join-Path "." "Tests.ps1") -CI}
+	Move-Item (Join-Path "Test" "*.xml") "TestResults" -Force
 }
 
 task Pack {
@@ -87,11 +88,11 @@ task Pack {
 	Copy-Item "Extensions" $Folder -Recurse
 
 	if(-not [string]::IsNullOrEmpty($Suffix)) {
-		Update-ModuleManifest "$Folder/EnvironmentModuleCore.psd1" -Prerelease "$Suffix"
+		Update-ModuleManifest "$(Join-Path $Folder 'EnvironmentModuleCore.psd1')" -Prerelease "$Suffix"
 	}
-	$commandBlock = "& {Import-Module `"./$Folder/EnvironmentModuleCore.psd1`"; Set-Location `"Test`"; Invoke-Pester -Path `"./ScriptAnalyzerTests.ps1`" -CI -ErrorAction SilentlyContinue}"
+	$commandBlock = "& {Import-Module `"$(Join-Path '.' (Join-Path `"$Folder`" 'EnvironmentModuleCore.psd1'))`"; Set-Location `"Test`"; Invoke-Pester -Path `"(Join-Path '.' 'ScriptAnalyzerTests.ps1')`" -CI -ErrorAction SilentlyContinue}"
 	& "$PowershellExecutable" -NoProfile -Command $commandBlock
-	Move-Item "Test/testResults.xml" "TestResults/testResults.analyzer.xml" -Force
+	Move-Item (Join-Path "Test" "testResults.xml") (Join-Path "TestResults" "testResults.analyzer.xml") -Force
 }
 
 task Deploy {
