@@ -30,7 +30,7 @@ You can either download the package from the Powershell Gallery or downlaod it m
 
 * B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the command below in order to download the required .Net core libraries.
 ```powershell
-Invoke-Build Setup
+Invoke-Build Prepare
 ```
 
 
