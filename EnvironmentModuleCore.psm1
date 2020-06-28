@@ -1,4 +1,4 @@
-﻿# Read the temp folder location
+# Read the temp folder location
 $script:moduleFileLocation = $MyInvocation.MyCommand.ScriptBlock.Module.Path
 $env:ENVIRONMENT_MODULE_ROOT = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($script:moduleFileLocation, ".."))
 $localStorageFileLocation = "$env:LOCALAPPDATA"
