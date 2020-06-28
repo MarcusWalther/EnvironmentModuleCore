@@ -62,9 +62,7 @@ jobs:
       vmImage: 'windows-latest'
 
     steps:
-    - powershell: sudo apt-get install nuget
-      displayName: 'Installing nuget'
-
+    - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@0
 
     - powershell: .\SetupEnvironment.ps1
