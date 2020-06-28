@@ -19,7 +19,7 @@ jobs:
 
     - task: NuGetAuthenticate@0
 
-    - pwsh: .\SetupEnvironment.ps1
+    - pwsh: ./SetupEnvironment.ps1
       displayName: 'Setup the environment'
 
     - pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
@@ -68,7 +68,7 @@ jobs:
     - powershell: .\SetupEnvironment.ps1
       displayName: 'Setup the environment'
 
-    - powershell: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
+    - powershell: Push-Location; git submodule update --init -q; Set-Location Test; git fetch -q; git checkout -f develop -q; Pop-Location
       displayName: 'Checkout the Git submodules'
 
     - powershell: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
@@ -79,7 +79,7 @@ jobs:
 
     - task: PublishCodeCoverageResults@1
       inputs:
-        summaryFileLocation: 'TestResults/coverage.xml'
+        summaryFileLocation: 'TestResults\coverage.xml'
 
     - powershell: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
       displayName: 'Pack the build'
@@ -87,5 +87,5 @@ jobs:
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'NUnit'
-        testResultsFiles: 'TestResults/testResults*.xml'
+        testResultsFiles: 'TestResults\testResults*.xml'
         failTaskOnFailedTests: true
