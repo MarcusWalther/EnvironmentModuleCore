@@ -1,4 +1,4 @@
-function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAvailable, [string] $Architecture = "*", [string] $Version = "*")
+function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAvailable, [string] $Architecture = "*", [string] $Version = "*", [switch] $SkipMetaModules)
 {
     <#
     .SYNOPSIS
@@ -13,6 +13,8 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
     Show only modules matching the given architecture.
     .PARAMETER Version
     Show only modules matching the given version.
+    .PARAMETER SkipMetaModules
+    True if no meta modules should be included in the result list.
     .OUTPUTS
     The EnvironmentModule-object(s) matching the filter. If no module was found, $null is returned.
     #>
@@ -38,6 +40,10 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
                 continue
             }
 
+            if($SkipMetaModules -and ([EnvironmentModuleCore.EnvironmentModuleType]::Meta -eq $module.ModuleType)) {
+                continue
+            }
+
             New-EnvironmentModuleInfo -Module $module
         }
     }
@@ -45,6 +51,9 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
         $filteredResult = $script:loadedEnvironmentModules.GetEnumerator() | Where-Object {$_.Value.FullName -like $ModuleFullName} | Select-Object -ExpandProperty "Value"
         $filteredResult = $filteredResult | Where-Object {(($null -eq $_.Version) -or ($_.Version -like $Version)) -and (($null -eq $_.Architecture) -or ($_.Architecture -like $Architecture))}
 
+        if($SkipMetaModules) {
+            $filteredResult = $filteredResult | Where-Object {[EnvironmentModuleCore.EnvironmentModuleType]::Meta -ne $_.ModuleType}
+        }
         return $filteredResult
     }
 }

@@ -342,3 +342,104 @@ function New-EnvironmentModuleInfo
 
     return $result
 }
+
+function Compare-EnvironmentModulesByVersion([EnvironmentModuleCore.EnvironmentModuleInfoBase[]] $EnvironmentModules) {
+    <#
+    .SYNOPSIS
+    Compare the given environment modules by its version. If the version is equal, the architecture is compared.
+    .PARAMETER EnvironmentModules
+    The environment modules to compare.
+    .OUTPUTS
+    The sorted environment modules.
+    #>
+    if($null -eq $EnvironmentModules)
+    {
+        return $null
+    }
+
+    $versionMatches = [System.Collections.Generic.Dictionary[String, System.Text.RegularExpressions.Match]]::new()
+    foreach($environmentModule in $EnvironmentModules) {
+        if([String]::IsNullOrEmpty($environmentModule.Version)) {
+            $versionMatches.Add($environmentModule.FullName, $null)
+            continue
+        }
+        $versionMatch = [System.Text.RegularExpressions.Regex]::Match($environmentModule.Version, $versionRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if($versionMatch.Success) {
+            $versionMatches.Add($environmentModule.FullName, $versionMatch)
+            continue
+        }
+
+        $versionMatches.Add($environmentModule.FullName, $null)
+    }
+    
+    $moduleList = [System.Collections.Generic.List[EnvironmentModuleCore.EnvironmentModuleInfoBase]]::new($EnvironmentModules)
+
+    class EnvironmentModuleComparator : System.Collections.Generic.IComparer[EnvironmentModuleCore.EnvironmentModuleInfoBase]
+    {
+        [System.Collections.Generic.Dictionary[String, System.Text.RegularExpressions.Match]] $versionMatches
+
+        EnvironmentModuleComparator([System.Collections.Generic.Dictionary[String, System.Text.RegularExpressions.Match]] $versionMatches)
+        {
+            $this.versionMatches = $versionMatches
+        }
+
+        [int] Compare([EnvironmentModuleCore.EnvironmentModuleInfoBase] $a, [EnvironmentModuleCore.EnvironmentModuleInfoBase] $b)
+        {
+            $matchA = $this.versionMatches[$a.FullName]
+            $matchB = $this.versionMatches[$b.FullName]
+            if($null -eq $matchA) {
+                if($null -eq $matchB) {
+                    return $a.Architecture.CompareTo($b.Architecture)
+                }
+                return 1
+            }
+    
+            if($null -eq $matchB){
+                return -1
+            }
+
+            $versionPartsA = $matchA.Groups[0].Value.Replace("_", ".").Split(".")
+            $versionPartsB = $matchB.Groups[0].Value.Replace("_", ".").Split(".")
+            
+            for($i = 0; $i -lt $versionPartsA.Length; $i++) {
+                # the Version A has more parts than B -> A wins
+                if($i -gt ($versionPartsB.Length - 1)) {
+                    return -1
+                }
+                $partA = $versionPartsA[$i]
+                $partB = $versionPartsB[$i]
+
+                try {
+                    [int]::TryParse($partA, [ref] $partA) | Out-Null   
+                }
+                catch {
+                }
+
+                try {
+                    [int]::TryParse($partB, [ref] $partB) | Out-Null   
+                }
+                catch {
+                }
+
+                if($partA -gt $partB) {
+                    return -1
+                }
+
+                if($partB -gt $partA) {
+                    return 1
+                }
+            }
+
+            if($versionPartsB.Length -gt $versionPartsA.Length) {
+                # The Version B has more parts than A -> B wins
+                return 1
+            }
+
+            return $a.Architecture.CompareTo($b.Architecture)
+        }
+    }
+
+    $comparator = [EnvironmentModuleComparator]::new($versionMatches)
+    $moduleList.Sort($comparator);
+    return $moduleList
+}
