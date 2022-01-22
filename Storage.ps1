@@ -29,18 +29,13 @@ function Initialize-CustomSearchPaths()
 {
     <#
     .SYNOPSIS
-    Load the custom search paths file.
+    Load the custom search paths files.
     .DESCRIPTION
     This function will load all environment modules that part of the cache file and will provide them in the environemtModules list.
     .OUTPUTS
     No output is returned.
     #>
     $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"
-
-    $fileInfo = New-Object "System.IO.FileInfo" -ArgumentList $script:localSearchPathsFileLocation
-    if(($null -eq $fileInfo) -or ($fileInfo.Length -eq 0)) {
-        return
-    }
 
     $knownTypes = New-Object "System.Collections.Generic.List[System.Type]"
     $knownTypes.Add([EnvironmentModuleCore.SearchPath])

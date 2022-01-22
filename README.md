@@ -6,6 +6,9 @@
     <a href="">
       <img src="https://dev.azure.com/MarcusWalther/EnvironmentModuleCore/_apis/build/status/Master.EnvironmentModuleCore?branchName=master" alt="Azure Pipeline">
     </a>
+    <a href="">
+      <img alt="Azure DevOps tests" src="https://img.shields.io/azure-devops/tests/MarcusWalther/EnvironmentModuleCore/7">
+    </a>
     <a href="https://www.powershellgallery.com/packages/EnvironmentModuleCore">
       <img src="https://img.shields.io/powershellgallery/vpre/EnvironmentModuleCore.svg" alt="Powershell Gallery Package">
     </a>
@@ -27,7 +30,7 @@ You can either download the package from the Powershell Gallery or downlaod it m
 
 * B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the command below in order to download the required .Net core libraries.
 ```powershell
-Invoke-Build Setup
+Invoke-Build Prepare
 ```
 
 

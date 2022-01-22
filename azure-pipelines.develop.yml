@@ -1,9 +1,6 @@
 trigger:
 - develop
 
-pool:
-  vmImage: 'ubuntu-latest'
-
 name: $(Date:yyyyMMdd)$(Rev:r)
 
 variables: 
@@ -11,46 +8,84 @@ variables:
   nugetSourceLibrary: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore/nuget/v3/index.json'
   nugetSource: 'https://pkgs.dev.azure.com/MarcusWalther/_packaging/Feed_EnvironmentModuleCore_Module/nuget/v3/index.json'
 
-steps:
-- pwsh: sudo apt-get install nuget
-  displayName: 'Installing nuget'
+jobs:
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
 
-- task: NuGetAuthenticate@0
+    steps:
+    - pwsh: sudo apt-get install nuget
+      displayName: 'Installing nuget'
 
-- pwsh: .\SetupEnvironment.ps1
-  displayName: 'Setup the environment'
+    - task: NuGetAuthenticate@0
 
-- pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
-  displayName: 'Checkout the Git submodules'
+    - pwsh: ./SetupEnvironment.ps1
+      displayName: 'Setup the environment'
 
-- pwsh: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
-  displayName: 'Download the required binary libraries'
+    - pwsh: Push-Location; git submodule update --init; Set-Location Test; git fetch; git checkout -f develop; Pop-Location
+      displayName: 'Checkout the Git submodules'
 
-- pwsh: Invoke-Build Test -Suffix "$(suffix)"
-  displayName: 'Test the module'
+    - pwsh: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
+      displayName: 'Download the required binary libraries'
 
-- task: PublishCodeCoverageResults@1
-  inputs:
-    summaryFileLocation: 'TestResults/coverage.xml'
+    - pwsh: Invoke-Build Test -Suffix "$(suffix)"
+      displayName: 'Test the module'
 
-- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
-  displayName: 'Pack the build'
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        summaryFileLocation: 'TestResults/coverage.xml'
 
-- task: PublishTestResults@2
-  inputs:
-    testResultsFormat: 'NUnit'
-    testResultsFiles: 'TestResults/testResults*.xml'
-    failTaskOnFailedTests: true
+    - pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+      displayName: 'Pack the build'
 
-- pwsh: |
-    $patToken = $env:ENV_ACCESS_TOKEN | ConvertTo-SecureString -AsPlainText -Force
-    $credsAzureDevopsServices = New-Object System.Management.Automation.PSCredential("$env:ENV_EMAIL", $patToken)
-    $params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = '$(nugetSource)'; 'PublishLocation' = '$(nugetSource)'; 'Credential' = $credsAzureDevopsServices}
-    Register-PSRepository @params
-  displayName: 'Register the Powershell Nuget Feed'
-  env:
-    ENV_ACCESS_TOKEN: $(ACCESS_TOKEN)
-    ENV_EMAIL: $(EMAIL)
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'NUnit'
+        testResultsFiles: 'TestResults/testResults*.xml'
+        failTaskOnFailedTests: true
 
-- pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget/EnvironmentModuleCore"
-  displayName: 'Deploy the package'
+    - pwsh: |
+        $patToken = $env:ENV_ACCESS_TOKEN | ConvertTo-SecureString -AsPlainText -Force
+        $credsAzureDevopsServices = New-Object System.Management.Automation.PSCredential("$env:ENV_EMAIL", $patToken)
+        $params = @{'Name' = 'Feed_EnvironmentModuleCore_Module'; 'InstallationPolicy' = 'Trusted'; 'SourceLocation' = '$(nugetSource)'; 'PublishLocation' = '$(nugetSource)'; 'Credential' = $credsAzureDevopsServices}
+        Register-PSRepository @params
+      displayName: 'Register the Powershell Nuget Feed'
+      env:
+        ENV_ACCESS_TOKEN: $(ACCESS_TOKEN)
+        ENV_EMAIL: $(EMAIL)
+
+    - pwsh: Invoke-Build Deploy -NugetSource "Feed_EnvironmentModuleCore_Module" -NugetApiKey AzureArtifacts -Folder "Nuget/EnvironmentModuleCore"
+      displayName: 'Deploy the package'
+
+  - job: Windows
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+    - task: NuGetToolInstaller@1
+    - task: NuGetAuthenticate@0
+
+    - powershell: .\SetupEnvironment.ps1
+      displayName: 'Setup the environment'
+
+    - powershell: Push-Location; git submodule update --init -q; Set-Location Test; git fetch -q; git checkout -f develop -q; Pop-Location
+      displayName: 'Checkout the Git submodules'
+
+    - powershell: Invoke-Build Prepare -Suffix "$(suffix)" -NugetSource "$(nugetSourceLibrary)" -AllowPrerelease
+      displayName: 'Download the required binary libraries'
+
+    - powershell: Invoke-Build Test -Suffix "$(suffix)"
+      displayName: 'Test the module'
+
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        summaryFileLocation: 'TestResults\coverage.xml'
+
+    - powershell: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+      displayName: 'Pack the build'
+
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'NUnit'
+        testResultsFiles: 'TestResults\testResults*.xml'
+        failTaskOnFailedTests: true

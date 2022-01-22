@@ -5,13 +5,11 @@ param(
     $SilentMode = $false
 )
 
-$moduleCandidates = Get-EnvironmentModule -ListAvailable "$($Module.Name)*" -Architecture "$($Module.Architecture)" -Version "$($Module.Version)*" | Sort-Object -Property "Architecture"
+$moduleCandidates = Get-EnvironmentModule -ListAvailable "$($Module.Name)-*" -Architecture "$($Module.Architecture)" -Version "$($Module.Version)*" -SkipMetaModules | Sort-Object -Property "Version"
 $found = $false
-foreach($moduleCandidate in $moduleCandidates) {
-    if($moduleCandidate.ModuleType -eq [EnvironmentModuleCore.EnvironmentModuleType]::Meta) {
-        continue
-    }
+$moduleCandidates = Compare-EnvironmentModulesByVersion $moduleCandidates
 
+foreach($moduleCandidate in $moduleCandidates) {
     if(Test-EnvironmentModuleRootDirectory $moduleCandidate -IncludeDependencies) {
         $found = $True
         Import-EnvironmentModule $moduleCandidate.FullName-IsLoadedDirectly $Module.IsLoadedDirectly -Silent:$SilentMode
