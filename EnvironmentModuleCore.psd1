@@ -12,7 +12,7 @@
     RootModule = 'EnvironmentModuleCore.psm1'
 
     # Version number of this module.
-    ModuleVersion = '3.5.0'
+    ModuleVersion = '3.6.0'
     #---
     PrivateData = @{
         PSData = @{
@@ -30,7 +30,7 @@
     Author = 'Marcus Walther'
 
     # Copyright statement for this module
-    Copyright = '(c) 2020 Marcus Walther'
+    Copyright = '(c) 2022 Marcus Walther'
 
     # Description of the functionality provided by this module
     Description = 'This module includes all core features to export environment modules. Environment modules are like Powershell-Modules, but they can modify environment variables on load and restore the old environment state on remove. The functionallity was inspired by the Linux program modulecmd.'

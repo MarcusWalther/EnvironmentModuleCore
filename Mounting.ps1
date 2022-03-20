@@ -418,7 +418,10 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     (New-Item -ItemType directory -Force $module.TmpDirectory) | Out-Null
 
     # Set the parameter defaults
-    $module.Parameters.Keys | ForEach-Object { Set-EnvironmentModuleParameterInternal $_ $module.Parameters[$_] $ModuleFullName $false }
+    $module.Parameters.Keys | ForEach-Object { 
+        $parameter = $module.Parameters[$_]
+        Set-EnvironmentModuleParameterInternal $parameter.Name $parameter.Value $ModuleFullName $parameter.IsUserDefined 
+    }
 
     # Load the module itself
     $module = New-Object "EnvironmentModuleCore.EnvironmentModule" -ArgumentList ($module, $LoadedDirectly, $SourceModule)

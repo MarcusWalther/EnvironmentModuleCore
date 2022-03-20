@@ -10,6 +10,8 @@ function Set-EnvironmentModuleParameterInternal {
     The module that has specified the value. A user change should be indicated by an empty string.
     .PARAMETER IsUserDefined
     True if the value was defined manually by the user.
+    .PARAMETER Force
+    Overwrite the old value, even if it is user defined.
     #>
 
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
@@ -17,12 +19,21 @@ function Set-EnvironmentModuleParameterInternal {
         [String] $Parameter,
         [String] $Value,
         [String] $ModuleFullName = "",  # Empty string means: set by user
-        [Bool] $IsUserDefined = $false
+        [Bool] $IsUserDefined = $false,
+        [Switch] $Force
     )
 
     $knownValue = $script:environmentModuleParameters[$Parameter]
     if($null -eq $knownValue) {
         $knownValue = New-Object "EnvironmentModuleCore.ParameterInfo" -ArgumentList $Parameter, $ModuleFullName, $Value, $IsUserDefined
+    }
+
+    # The previous value is user defined and this is the default -> only change it if force is set
+    if($knownValue.IsUserDefined -and (-not $IsUserDefined)) {
+        if(-not $Force) {
+            Write-Verbose "Value $Parameter is not changed, because a user defined value is already set"
+            return
+        }
     }
     $knownValue.IsUserDefined = $IsUserDefined
     $knownValue.Value = $Value
@@ -57,11 +68,13 @@ function Set-EnvironmentModuleParameter {
     .PARAMETER Silent
     No validation set is used for the parmeter name. If the parameter does not exist, no action is performed and no
     error is printed.
+    .PARAMETER Force
+    Overwrite the old value, even if it is user defined.
     #>
 
     [cmdletbinding()]
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
-    Param([switch] $Silent)
+    Param([switch] $Silent, [switch] $Force)
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
@@ -91,7 +104,7 @@ function Set-EnvironmentModuleParameter {
 
         $IsUserDefined = $null -eq (Get-PSCallStack | Where-Object {$_.Command -like "*.psm1"})
 
-        Set-EnvironmentModuleParameterInternal $Parameter $Value "" $IsUserDefined
+        Set-EnvironmentModuleParameterInternal $Parameter $Value "" $IsUserDefined -Force:$Force
     }
 }
 
@@ -102,7 +115,7 @@ function Get-EnvironmentModuleParameter {
     .PARAMETER ParameterName
     The name of the parameter to return (can contain wildcards).
     .OUTPUTS
-    All identified paramter info objects matching the search criterias.
+    All identified parameter info objects matching the search criterias.
     #>
     [cmdletbinding()]
     Param(

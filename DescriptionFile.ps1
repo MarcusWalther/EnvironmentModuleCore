@@ -336,7 +336,17 @@ function New-EnvironmentModuleInfo
     }
 
     if($descriptionContent.Contains("Parameters")) {
-        $descriptionContent.Item("Parameters").Keys | Foreach-Object { $result.Parameters[$_] = $descriptionContent.Item("Parameters")[$_] }
+        $parameters = $descriptionContent.Item("Parameters")
+        if($parameters -is [array]) {
+            # Handle the complex syntax
+            $parameters | Foreach-Object { 
+                $result.Parameters[$_.Name] = (New-Object "EnvironmentModuleCore.ParameterInfoBase" -ArgumentList $_.Name, $_.Value, $_.IsUserDefined) 
+            }
+        }
+        else {
+            # Handle the simple syntax
+            $parameters.Keys | Foreach-Object { $result.Parameters[$_] = (New-Object "EnvironmentModuleCore.ParameterInfoBase" -ArgumentList $_, $parameters[$_], $false) }
+        }
         Write-Verbose "Read module parameters $($result.Parameters.GetEnumerator() -join ',')"
     }
 
