@@ -77,7 +77,9 @@ $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = @{} # AliasName -> AliasInfo[]
 $script:loadedEnvironmentModuleFunctions = @{} # FunctionName -> FunctionInfo[]
 $script:loadedEnvironmentModuleSetPaths = @{} # FullName -> Dictionary[string, string]
-$script:environmentModuleParameters = @{} # ParameterName -> ParameterInfo
+$script:environmentModuleParameters = @{} # Tuple[ParameterName, VirtualEnvironmentName="Default"] -> ParameterInfo
+$script:virtualEnvironments = @() # List[String]
+$script:activeVirtualEnvironment = "Default"
 
 $script:environmentModules = @{} # FullName -> ModuleInfoBase
 $script:customSearchPaths = New-Object "System.Collections.Generic.Dictionary[String, System.Collections.Generic.List[EnvironmentModuleCore.SearchPath]]"

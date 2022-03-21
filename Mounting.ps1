@@ -420,7 +420,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     # Set the parameter defaults
     $module.Parameters.Keys | ForEach-Object { 
         $parameter = $module.Parameters[$_]
-        Set-EnvironmentModuleParameterInternal $parameter.Name $parameter.Value $ModuleFullName $parameter.IsUserDefined 
+        Set-EnvironmentModuleParameterInternal $parameter.Name $parameter.Value $ModuleFullName $parameter.IsUserDefined $parameter.VirtualEnvironment 
     }
 
     # Load the module itself
@@ -600,6 +600,14 @@ function Show-EnvironmentSummary([EnvironmentModuleCore.EnvironmentModuleInfoBas
     }
     Write-InformationColored -InformationAction 'Continue' "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
     Write-InformationColored -InformationAction 'Continue' ""
+
+    Write-InformationColored -InformationAction 'Continue' "Available Virtual Parameter Environments:" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    $script:virtualEnvironments | ForEach-Object {
+        Write-InformationColored -InformationAction 'Continue' "  * $_ "
+    }
+    Write-InformationColored -InformationAction 'Continue' "--------------------" -ForegroundColor $Host.PrivateData.WarningForegroundColor -BackgroundColor $Host.PrivateData.WarningBackgroundColor
+    Write-InformationColored -InformationAction 'Continue' ""
+
 }
 
 function Switch-EnvironmentModule

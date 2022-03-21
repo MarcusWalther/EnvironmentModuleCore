@@ -339,13 +339,22 @@ function New-EnvironmentModuleInfo
         $parameters = $descriptionContent.Item("Parameters")
         if($parameters -is [array]) {
             # Handle the complex syntax
-            $parameters | Foreach-Object { 
-                $result.Parameters[$_.Name] = (New-Object "EnvironmentModuleCore.ParameterInfoBase" -ArgumentList $_.Name, $_.Value, $_.IsUserDefined) 
+            $parameters | Foreach-Object {
+                $virtualEnvironment = $_.VirtualEnvironment
+                if([string]::IsNullOrEmpty($virtualEnvironment)) {
+                    $virtualEnvironment = "Default"
+                }
+                $parameterKey = [System.Tuple[string, string]]::new($_.Name, $virtualEnvironment)
+                $result.Parameters[$parameterKey] = (New-Object "EnvironmentModuleCore.ParameterInfoBase" -ArgumentList $_.Name, $_.Value, $_.IsUserDefined, $virtualEnvironment) 
             }
         }
         else {
             # Handle the simple syntax
-            $parameters.Keys | Foreach-Object { $result.Parameters[$_] = (New-Object "EnvironmentModuleCore.ParameterInfoBase" -ArgumentList $_, $parameters[$_], $false) }
+            $parameters.Keys | Foreach-Object { 
+                $virtualEnvironment = "Default"
+                $parameterKey = [System.Tuple[string, string]]::new($_, $virtualEnvironment)
+                $result.Parameters[$parameterKey] = (New-Object "EnvironmentModuleCore.ParameterInfoBase" -ArgumentList $_, $parameters[$_], $false, $virtualEnvironment)
+            }
         }
         Write-Verbose "Read module parameters $($result.Parameters.GetEnumerator() -join ',')"
     }

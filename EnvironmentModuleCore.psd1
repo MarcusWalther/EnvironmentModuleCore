@@ -52,7 +52,8 @@
                         'Clear-EnvironmentModuleSearchPaths', 'Clear-EnvironmentModules', 'Test-EnvironmentModuleRootDirectory',
                         'Get-EnvironmentModuleSearchPath', 'Get-EnvironmentModulePath', 'Set-EnvironmentModuleConfigurationValue', 'Export-EnvironmentModuleCoreConfiguration',
                         'Import-EnvironmentModuleCoreConfiguration', 'Get-EnvironmentModuleParameter', 'Set-EnvironmentModuleParameter', 'Split-EnvironmentModuleName',
-                        'Show-EnvironmentSummary', 'Read-EnvironmentModuleDescriptionFileByPath', 'Compare-EnvironmentModulesByVersion')
+                        'Show-EnvironmentSummary', 'Read-EnvironmentModuleDescriptionFileByPath', 'Compare-EnvironmentModulesByVersion',
+                        'Get-VirtualParameterEnvironments', 'Enable-VirtualParameterEnvironment')
 
     # Variables to export from this module
     VariablesToExport = @()
