@@ -66,7 +66,7 @@
 
     # List of all files packaged with this module
     FileList = @('Configuration.ps1', 'DescriptionFile.ps1', 'Dismounting.ps1', 'EnvironmentModuleCore.ps1', 'EnvironmentModuleCore.psd1', 'EnvironmentModuleCore.psm1',
-                 'ModuleCreation.ps1', 'ModuleParameters.ps1', 'Mounting.ps1', 'Storage.ps1', 'Utils.ps1', 'Types.ps1xml')
+                 'ModuleCreation.ps1', 'ModuleParameters.ps1', 'Mounting.ps1', 'Storage.ps1', 'Utils.ps1', 'Types.ps1xml', 'ValueRendering.ps1')
 
     # The type defintions for the type visualisation
     TypesToProcess=@('Types.ps1xml')

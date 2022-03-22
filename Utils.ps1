@@ -197,3 +197,23 @@ Function Write-InformationColored {
 
     Write-Information $msg
 }
+
+function Resolve-NotExistingPath {
+    <#
+    .SYNOPSIS
+        Calls Resolve-Path but works for files that don't exist.
+    .REMARKS
+        From http://devhawk.net/blog/2010/1/22/fixing-powershells-busted-resolve-path-cmdlet
+    #>
+    param (
+        [string] $FilePath
+    )
+
+    $FilePath = Resolve-Path $FilePath -ErrorAction SilentlyContinue `
+                                       -ErrorVariable _frperror
+    if (-not($FilePath)) {
+        $FilePath = $_frperror[0].TargetObject
+    }
+
+    return $FilePath
+}

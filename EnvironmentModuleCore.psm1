@@ -91,6 +91,9 @@ $script:silentLoad = $false # Indicates if output should be printed on module lo
 $script:configurationFilePath = (Join-Path $script:localConfigEnvironmentRootPath "Configuration.xml")
 Import-EnvironmentModuleCoreConfiguration $script:configurationFilePath
 
+# Include the value rendering functions
+. (Join-Path $PSScriptRoot "ValueRendering.ps1")
+
 # Include the module parameter functions
 . (Join-Path $PSScriptRoot "ModuleParameters.ps1")
 

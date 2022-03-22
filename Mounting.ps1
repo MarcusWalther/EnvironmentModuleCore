@@ -13,11 +13,12 @@ Register-EnvironmentModuleSearchPathType ([EnvironmentModuleCore.SearchPath]::TY
     param([EnvironmentModuleCore.SearchPath] $SearchPath, [EnvironmentModuleCore.EnvironmentModuleInfo] $Module)
     Write-Verbose "Checking directory search path $($SearchPath.Key)"
 
-    if([string]::IsNullOrEmpty($SearchPath.Key)) {
+    $SearchKey = Expand-ValuePlaceholders -Value $SearchPath.Key -Module $Module
+    if([string]::IsNullOrEmpty($SearchKey)) {
         Write-Warning "Directory search path without key specified"
     }
 
-    $testResult = Test-ItemExistence $SearchPath.Key $Module.RequiredItems $SearchPath.SubFolder
+    $testResult = Test-ItemExistence $SearchKey $Module.RequiredItems $SearchPath.SubFolder
     if ($testResult.Exists) {
         $Module.ModuleRoot = $testResult.Folder
         return $testResult.Folder
@@ -420,7 +421,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     # Set the parameter defaults
     $module.Parameters.Keys | ForEach-Object { 
         $parameter = $module.Parameters[$_]
-        Set-EnvironmentModuleParameterInternal $parameter.Name $parameter.Value $ModuleFullName $parameter.IsUserDefined $parameter.VirtualEnvironment 
+        Set-EnvironmentModuleParameterInternal $parameter.Name (Expand-ValuePlaceholders -Value $parameter.Value -Module $module) $ModuleFullName $parameter.IsUserDefined $parameter.VirtualEnvironment 
     }
 
     # Load the module itself
