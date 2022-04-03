@@ -232,7 +232,7 @@ function Get-EnvironmentModuleAlias([String] $ModuleFullName = "*", [String] $Al
     }
 }
 
-function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModuleCore.PathType] $PathType = [EnvironmentModuleCore.PathType]::UNKNOWN)
+function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $PathName = "*", [EnvironmentModuleCore.PathType] $PathType = [EnvironmentModuleCore.PathType]::UNKNOWN, [string] $Key = $null)
 {
     <#
     .SYNOPSIS
@@ -243,6 +243,8 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
     The name of the environment variables to investigate. Wildcards are allowed.
     .PARAMETER PathType
     The type of the paths to investigate. UNKNOWN if all types should be considered.
+    .PARAMETER Key
+    The key of the path manipulation that was used during the registration. Null if all paths should be considererd.
     .OUTPUTS
     An array of EnvironmentModules.AliasInfo objects.
     #>
@@ -258,7 +260,12 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
             if(-not ($pathInfo.Variable -like $PathName)) {
                 continue
             }
+
             if(([EnvironmentModuleCore.PathType]::UNKNOWN -ne $PathType) -and ($pathInfo.PathType -ne $PathType)) {
+                continue
+            }
+
+            if((-not [string]::IsNullOrEmpty($Key)) -and -not($pathInfo.Key -like $Key)) {
                 continue
             }
 

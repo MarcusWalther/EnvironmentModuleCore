@@ -183,10 +183,10 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
             }
         }
 
-        $script:loadedEnvironmentModuleSetPaths.Remove($Module.FullName)
+        $script:loadedEnvironmentModuleSetPaths.Remove($Module.FullName) | out-null
 
         foreach ($alias in $Module.Aliases.Keys) {
-            Remove-Item alias:$alias
+            Remove-EnvironmentModuleAlias $Module.Aliases[$alias]
         }
 
         foreach ($functionInfo in $Module.Functions.Values) {
@@ -198,7 +198,7 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
         }
         Update-VirtualParameterEnvironments
 
-        $loadedEnvironmentModules.Remove($Module.Name)
+        $loadedEnvironmentModules.Remove($Module.Name) | out-null
         Write-Verbose ("Removing " + $Module.Name + " from list of loaded environment variables")
 
         Write-Verbose "Removing module $($Module.FullName)"
@@ -304,7 +304,37 @@ function Remove-EnvironmentModuleFunction
         $knownFunctions = $script:loadedEnvironmentModuleFunctions[$FunctionDefinition.Name]
         $knownFunctions.Remove($FunctionDefinition) | out-null
         if($knownFunctions.Count -eq 0) {
-            $script:loadedEnvironmentModuleFunctions.Remove($FunctionDefinition.Name)
+            $script:loadedEnvironmentModuleFunctions.Remove($FunctionDefinition.Name) | out-null
+            Remove-Item -path "function:\$($FunctionDefinition.Name)" | out-null
+        }
+    }
+}
+
+function Remove-EnvironmentModuleAlias
+{
+    <#
+    .SYNOPSIS
+    Remove a alias from the active environment stack.
+    .DESCRIPTION
+    This function will remove the given alias from the active environment stack.
+    .PARAMETER FunctionDefinition
+    The definition of the alias.
+    .OUTPUTS
+    No output is returned.
+    #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param (
+        [EnvironmentModuleCore.AliasInfo] $AliasInfo
+    )
+
+    # Check if the function was already used
+    if($script:loadedEnvironmentModuleAliases.ContainsKey($AliasInfo.Name))
+    {
+        $knownFunctions = $script:loadedEnvironmentModuleAliases[$AliasInfo.Name]
+        $knownFunctions.Remove($AliasInfo) | out-null
+        if($knownFunctions.Count -eq 0) {
+            $script:loadedEnvironmentModuleAliases.Remove($AliasInfo.Name) | out-null
+            Remove-Item alias:$alias | out-null
         }
     }
 }

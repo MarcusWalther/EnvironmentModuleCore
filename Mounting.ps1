@@ -471,6 +471,48 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     return $true
 }
 
+function Update-PathValue([EnvironmentModuleCore.PathInfo] $PathInfo, [EnvironmentModuleCore.PathUpdateEventArgs] $AdditionalArgs) {
+    <#
+    .SYNOPSIS
+    Event handler function that is called when a environment variable value was changed at runtime.
+    .PARAMETER PathInfo
+    The path definition that was changed.
+    .PARAMETER AdditionalArgs
+    Additional event arguments.
+    #>
+    [String] $joinedValue = $PathInfo.Values -join [IO.Path]::PathSeparator
+
+    Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
+
+    if ($PathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
+        Write-Verbose "Joined Set-Path: $($PathInfo.Variable) = $joinedValue"
+        [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
+        return
+    }
+
+    [String] $actualValue = [Environment]::GetEnvironmentVariable($pathInfo.Variable)
+
+    foreach($oldValue in $AdditionalArgs.OldValues) {
+        $index = -1
+        if($PathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
+            $index = $actualValue.IndexOf($oldValue)
+        }
+        else {
+            $index = $actualValue.LastIndexOf($oldValue)
+        }
+
+        if($index -lt 0) {
+            Write-Warning "The value '$oldValue' is not part of the variable $($pathInfo.Variable)" 
+            continue
+        }
+
+        $actualValue = $actualValue.Substring(0, $index) + $joinedValue + $actualValue.Substring($index + $oldValue.Length)
+    }
+
+    [Environment]::SetEnvironmentVariable($pathInfo.Variable, $actualValue, "Process")
+    Write-Verbose "Changing variable $($pathInfo.Variable) to '$actualValue'"
+}
+
 function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModule] $Module, [Bool] $SilentMode)
 {
     <#
@@ -490,53 +532,16 @@ function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModul
         Write-Verbose "Try to load module '$($Module.Name)' with architecture '$($Module.Architecture)', Version '$($Module.Version)' and type '$($Module.ModuleType)'"
 
         Write-Verbose "Identified $($Module.Paths.Length) paths"
-        foreach ($pathInfo in $Module.Paths)
-        {
-            [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator
-            [String] $actualValue = [Environment]::GetEnvironmentVariable($pathInfo.Variable)
-            Write-Verbose "Handling path for variable $($pathInfo.Variable) with joined value $joinedValue"
-
-            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
-                Write-Verbose "Joined Set-Path: $($pathInfo.Variable) = $joinedValue"
-                if($script:loadedEnvironmentModuleSetPaths.ContainsKey($Module.FullName)) {
-                    $script:loadedEnvironmentModuleSetPaths[$Module.FullName][$pathInfo.Variable] = $actualValue
-                }
-                else {
-                    $script:loadedEnvironmentModuleSetPaths[$Module.FullName] = @{$pathInfo.Variable = $actualValue}
-                }
-
-                [Environment]::SetEnvironmentVariable($pathInfo.Variable, $joinedValue, "Process")
-            }
-
-            if($joinedValue -eq "")  {
-                continue
-            }
-
-            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::PREPEND) {
-                Write-Verbose "Joined Prepend-Path: $($pathInfo.Variable) = $joinedValue"
-                Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $false
-            }
-            if ($pathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
-                Write-Verbose "Joined Append-Path: $($pathInfo.Variable) = $joinedValue"
-                Add-EnvironmentVariableValue -Variable $pathInfo.Variable -Value $joinedValue -Append $true
-            }
+        foreach ($pathInfo in $Module.Paths) {
+            Add-EnvironmentModuleVariable $pathInfo $Module $script:loadedEnvironmentModuleSetPaths
         }
 
         foreach ($aliasInfo in $Module.Aliases.Values) {
-            Add-EnvironmentModuleAlias $aliasInfo
-
-            Set-Alias -name $aliasInfo.Name -value $aliasInfo.Definition -scope "Global"
-            if(($aliasInfo.Description -ne "") -and (-not $SilentMode)) {
-                if(-not $SilentMode) {
-                    Write-InformationColored -InformationAction 'Continue' $aliasInfo.Description -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
-                }
-            }
+            Add-EnvironmentModuleAlias $aliasInfo $Module $SilentMode $script:loadedEnvironmentModuleAliases
         }
 
         foreach ($functionInfo in $Module.Functions.Values) {
-            Add-EnvironmentModuleFunction $functionInfo
-
-            new-item -path function:\ -name "global:$($functionInfo.Name)" -value ([ScriptBlock]$functionInfo.Definition) -Force
+            Add-EnvironmentModuleFunction $functionInfo $Module $script:loadedEnvironmentModuleFunctions
         }
 
         Write-Verbose ("Register environment module with name " + $Module.Name + " and object " + $Module)
@@ -546,6 +551,30 @@ function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModul
 
         if($script:configuration["ShowLoadingMessages"]) {
             Write-InformationColored -InformationAction 'Continue' ("$($Module.FullName) loaded")
+        }
+
+        # Register the changed events for dynamic handling
+        Register-ObjectEvent -InputObject $module -EventName "OnPathChanged" -Action ${function:Update-PathValue}
+        Register-ObjectEvent -InputObject $module -EventName "OnPathAdded" -MessageData $script:loadedEnvironmentModuleSetPaths -Action {
+            param (
+                [EnvironmentModuleCore.PathInfo] $PathInfo,
+                [EnvironmentModuleCore.EnvironmentModule] $Module
+            )
+            Add-EnvironmentModuleVariable $PathInfo $Module $event.MessageData
+        }
+        Register-ObjectEvent -InputObject $module -EventName "OnAliasAdded" -MessageData $script:loadedEnvironmentModuleAliases -Action {
+            param (
+                [EnvironmentModuleCore.AliasInfo] $AliasInfo,
+                [EnvironmentModuleCore.EnvironmentModule] $Module
+            )
+            Add-EnvironmentModuleAlias $AliasInfo $Module $True $event.MessageData
+        }
+        Register-ObjectEvent -InputObject $module -EventName "OnFunctionAdded" -MessageData $script:loadedEnvironmentModuleFunctions -Action {
+            param (
+                [EnvironmentModuleCore.FunctionInfo] $FunctionInfo,
+                [EnvironmentModuleCore.EnvironmentModule] $Module
+            )
+            Add-EnvironmentModuleFunction $FunctionInfo $Module $event.MessageData
         }
 
         return $true
@@ -671,40 +700,65 @@ function Switch-EnvironmentModule
     }
 }
 
-function Add-EnvironmentVariableValue([String] $Variable, [String] $Value, [Bool] $Append = $true)
+function Add-EnvironmentModuleVariable([EnvironmentModuleCore.PathInfo] $PathInfo, [EnvironmentModuleCore.EnvironmentModule] $Module, 
+                                       [System.Collections.Generic.Dictionary[string, System.Collections.Generic.Dictionary[string, string]]] $SetPathRegistration)
 {
     <#
     .SYNOPSIS
-    Add the given value to the desired environment variable.
+    Add the given environment variable value to the current process environment.
     .DESCRIPTION
     This function will append or prepend the new value to the environment variable with the given name.
-    .PARAMETER Variable
-    The name of the environment variable that should be extended.
-    .PARAMETER Value
-    The new value that should be added to the environment variable.
-    .PARAMETER Append
-    Set this value to $true if the new value should be appended to the environment variable. Otherwise the value is prepended.
-    .OUTPUTS
-    No output is returned.
+    .PARAMETER PathInfo
+    The path to add.
+    .PARAMETER Module
+    The associated module.
     #>
-    $tmpValue = [environment]::GetEnvironmentVariable($Variable,"Process")
+    [String] $joinedValue = $PathInfo.Values -join [IO.Path]::PathSeparator
+    [String] $actualValue = [Environment]::GetEnvironmentVariable($PathInfo.Variable)
+    Write-Verbose "Handling path for variable $($PathInfo.Variable) with joined value $joinedValue"
+
+    if ($PathInfo.PathType -eq [EnvironmentModuleCore.PathType]::SET) {
+        Write-Verbose "Joined Set-Path: $($PathInfo.Variable) = $joinedValue"
+        if($SetPathRegistration.ContainsKey($Module.FullName)) {
+            $SetPathRegistration[$Module.FullName][$PathInfo.Variable] = $actualValue
+        }
+        else {
+            $SetPathRegistration[$Module.FullName] = [System.Collections.Generic.Dictionary[string, string]]::new()
+            $SetPathRegistration[$Module.FullName][$PathInfo.Variable] = $actualValue
+        }
+
+        [Environment]::SetEnvironmentVariable($PathInfo.Variable, $joinedValue, "Process")
+        return
+    }
+
+    if($joinedValue -eq "")  {
+        Write-Verbose "No path value specified for APPEND or PREPEND"
+        continue
+    }
+
+    $tmpValue = [environment]::GetEnvironmentVariable($PathInfo.Variable, "Process")
     if(!$tmpValue)
     {
-        $tmpValue = $Value
+        $tmpValue = $joinedValue
     }
     else
     {
-        if($Append) {
-            $tmpValue = "$tmpValue$([IO.Path]::PathSeparator)$Value"
+        if($PathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
+            Write-Verbose "Joined Append-Path: $($PathInfo.Variable) = $joinedValue"
+            $tmpValue = "$tmpValue$([IO.Path]::PathSeparator)$joinedValue"
         }
         else {
-            $tmpValue = "$Value$([IO.Path]::PathSeparator)$tmpValue"
+            Write-Verbose "Joined Prepend-Path: $($PathInfo.Variable) = $joinedValue"
+            $tmpValue = "$joinedValue$([IO.Path]::PathSeparator)$tmpValue"
         }
     }
-    [Environment]::SetEnvironmentVariable($Variable, $tmpValue, "Process")
+
+    Write-Verbose "Changing variable: $($PathInfo.Variable) = $joinedValue"
+    [Environment]::SetEnvironmentVariable($PathInfo.Variable, $tmpValue, "Process")
 }
 
-function Add-EnvironmentModuleAlias([EnvironmentModuleCore.AliasInfo] $AliasInfo)
+function Add-EnvironmentModuleAlias([EnvironmentModuleCore.AliasInfo] $AliasInfo, [EnvironmentModuleCore.EnvironmentModule] $Module, [bool] $SilentMode,
+                                    [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[EnvironmentModuleCore.AliasInfo]]] $AliasRegistration)
 {
     <#
     .SYNOPSIS
@@ -713,24 +767,36 @@ function Add-EnvironmentModuleAlias([EnvironmentModuleCore.AliasInfo] $AliasInfo
     This function will extend the active environment with a new alias definition. The alias is added to the loaded aliases collection.
     .PARAMETER AliasInfo
     The definition of the alias.
+    .PARAMETER Module
+    The associated module.
+    .PARAMETER SilentMode
+    True if no mounting information should be printed.
     .OUTPUTS
     No output is returned.
     #>
 
     # Check if the alias was already used
-    if($script:loadedEnvironmentModuleAliases.ContainsKey($AliasInfo.Name))
+    if($AliasRegistration.ContainsKey($AliasInfo.Name))
     {
-        $knownAliases = $script:loadedEnvironmentModuleAliases[$AliasInfo.Name]
+        $knownAliases = $AliasRegistration[$AliasInfo.Name]
         $knownAliases.Add($AliasInfo)
     }
     else {
         $newValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.AliasInfo]"
         $newValue.Add($AliasInfo)
-        $script:loadedEnvironmentModuleAliases.Add($AliasInfo.Name, $newValue)
+        $AliasRegistration.Add($AliasInfo.Name, $newValue)
+    }
+
+    Set-Alias -name $aliasInfo.Name -value $aliasInfo.Definition -scope "Global"
+    if(($aliasInfo.Description -ne "") -and (-not $SilentMode)) {
+        if(-not $SilentMode) {
+            Write-InformationColored -InformationAction 'Continue' $aliasInfo.Description -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
+        }
     }
 }
 
-function Add-EnvironmentModuleFunction([EnvironmentModuleCore.FunctionInfo] $FunctionDefinition)
+function Add-EnvironmentModuleFunction([EnvironmentModuleCore.FunctionInfo] $FunctionDefinition, [EnvironmentModuleCore.EnvironmentModule] $Module,
+                                       [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[EnvironmentModuleCore.FunctionInfo]]] $FunctionRegistration)
 {
     <#
     .SYNOPSIS
@@ -744,16 +810,18 @@ function Add-EnvironmentModuleFunction([EnvironmentModuleCore.FunctionInfo] $Fun
     #>
 
     # Check if the function was already used
-    if($script:loadedEnvironmentModuleFunctions.ContainsKey($FunctionDefinition.Name))
+    if($FunctionRegistration.ContainsKey($FunctionDefinition.Name))
     {
-        $knownFunctions = $script:loadedEnvironmentModuleFunctions[$FunctionDefinition.Name]
+        $knownFunctions = $FunctionRegistration[$FunctionDefinition.Name]
         $knownFunctions.Add($FunctionDefinition)
     }
     else {
         $newValue = New-Object "System.Collections.Generic.List[EnvironmentModuleCore.FunctionInfo]"
         $newValue.Add($FunctionDefinition)
-        $script:loadedEnvironmentModuleFunctions.Add($FunctionDefinition.Name, $newValue)
+        $FunctionRegistration.Add($FunctionDefinition.Name, $newValue)
     }
+
+    new-item -path function:\ -name "global:$($FunctionDefinition.Name)" -value ([ScriptBlock]$FunctionDefinition.Definition) -Force
 }
 
 function Test-ConflictsWithLoadedModules([string] $ModuleFullName)
