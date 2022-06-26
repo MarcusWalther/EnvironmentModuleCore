@@ -141,7 +141,7 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
             return
         }
 
-        Write-Verbose "Identified $($Module.Paths.Length) paths"
+        Write-Verbose "Identified $($Module.Paths.Count) paths"
         foreach ($pathInfo in $Module.Paths)
         {
             [String] $joinedValue = $pathInfo.Values -join [IO.Path]::PathSeparator

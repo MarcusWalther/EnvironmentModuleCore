@@ -111,7 +111,7 @@ function Test-ItemExistence([string] $FolderPath, [EnvironmentModuleCore.Require
         $SubFolderPath = ""
     }
 
-    Write-Verbose "Testing item exisiting in folder '$Folder' and subfolder '$SubFolderPath'"
+    Write-Verbose "Testing item exisiting in folder '$FolderPath' and subfolder '$SubFolderPath'"
     try {
         $folderCandidates = (Get-Item (Join-Path "$FolderPath" "$SubFolderPath" -ErrorAction SilentlyContinue) -ErrorAction SilentlyContinue) | Where-Object {$_.PsIsContainer}
     }
@@ -120,6 +120,7 @@ function Test-ItemExistence([string] $FolderPath, [EnvironmentModuleCore.Require
     }
 
     foreach($folderCandidate in $folderCandidates) {
+        Write-Verbose "Handling folder candidate $($folderCandidate.FUllName)"
         $match = $true
         foreach($item in $Items) {
             $handler = $script:requiredItemTypes[$item.ItemType.ToUpper()]
@@ -531,7 +532,7 @@ function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModul
         $SilentMode = $SilentMode -or $script:silentLoad
         Write-Verbose "Try to load module '$($Module.Name)' with architecture '$($Module.Architecture)', Version '$($Module.Version)' and type '$($Module.ModuleType)'"
 
-        Write-Verbose "Identified $($Module.Paths.Length) paths"
+        Write-Verbose "Identified $($Module.Paths.Count) paths"
         foreach ($pathInfo in $Module.Paths) {
             Add-EnvironmentModuleVariable $pathInfo $Module $script:loadedEnvironmentModuleSetPaths
         }
