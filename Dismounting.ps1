@@ -164,7 +164,7 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
 
                     if($null -ne $previousValue) {
                         $actualValue = [Environment]::GetEnvironmentVariable($pathInfo.Variable)
-                        if($actualValue -ne $pathInfo.Values[0]) {
+                        if($actualValue -ne $joinedValue) {
                             $newValue = $actualValue
                         }
                         else {

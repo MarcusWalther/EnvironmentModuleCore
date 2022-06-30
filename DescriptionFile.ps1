@@ -359,6 +359,38 @@ function New-EnvironmentModuleInfo
         Write-Verbose "Read module parameters $($result.Parameters.GetEnumerator() -join ',')"
     }
 
+    if($descriptionContent.Contains("Paths")) {
+        $descriptionContent.Item("Paths") | Foreach-Object {
+            $mode = [EnvironmentModuleCore.PathType]::UNKNOWN
+            [Enum]::TryParse($_.Mode, [ref] $mode) | Out-Null
+
+            if([String]::IsNullOrEmpty($_.Variable)) {
+                Write-Error "Path definition without 'Variable' defined in module definition $($Module.FullName)"
+                return
+            }
+
+            $pathInfo = $null
+            $pathDefinition = $_
+            switch ($mode) {
+                APPEND {
+                    $pathInfo = $result.AddAppendPath($pathDefinition.Variable, $pathDefinition.Value, $pathDefinition.Key)
+                }
+                PREPEND {
+                    $pathInfo = $result.AddPrependPath($pathDefinition.Variable, $pathDefinition.Value, $pathDefinition.Key)
+                }
+                SET {
+                    $pathInfo = $result.AddSetPath($pathDefinition.Variable, $pathDefinition.Value, $pathDefinition.Key)
+                }
+                Default {
+                    Write-Error "Unable to handle of Mode of static path definition of module $($Module.FullName)"
+                    return
+                }
+            }
+
+            Write-Verbose "Added path definition: $($pathInfo.ToString())"
+        }
+    }
+
     return $result
 }
 

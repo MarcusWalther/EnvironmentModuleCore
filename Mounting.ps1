@@ -493,22 +493,22 @@ function Update-PathValue([EnvironmentModuleCore.PathInfo] $PathInfo, [Environme
 
     [String] $actualValue = [Environment]::GetEnvironmentVariable($pathInfo.Variable)
 
-    foreach($oldValue in $AdditionalArgs.OldValues) {
-        $index = -1
-        if($PathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
-            $index = $actualValue.IndexOf($oldValue)
-        }
-        else {
-            $index = $actualValue.LastIndexOf($oldValue)
-        }
+    [String] $oldValue = $AdditionalArgs.OldValues -join [IO.Path]::PathSeparator
 
-        if($index -lt 0) {
-            Write-Warning "The value '$oldValue' is not part of the variable $($pathInfo.Variable)" 
-            continue
-        }
-
-        $actualValue = $actualValue.Substring(0, $index) + $joinedValue + $actualValue.Substring($index + $oldValue.Length)
+    $index = -1
+    if($PathInfo.PathType -eq [EnvironmentModuleCore.PathType]::APPEND) {
+        $index = $actualValue.IndexOf($oldValue)
     }
+    else {
+        $index = $actualValue.LastIndexOf($oldValue)
+    }
+
+    if($index -lt 0) {
+        Write-Warning "The value '$oldValue' is not part of the variable $($pathInfo.Variable)" 
+        continue
+    }
+
+    $actualValue = $actualValue.Substring(0, $index) + $joinedValue + $actualValue.Substring($index + $oldValue.Length)
 
     [Environment]::SetEnvironmentVariable($pathInfo.Variable, $actualValue, "Process")
     Write-Verbose "Changing variable $($pathInfo.Variable) to '$actualValue'"
@@ -714,6 +714,21 @@ function Add-EnvironmentModuleVariable([EnvironmentModuleCore.PathInfo] $PathInf
     .PARAMETER Module
     The associated module.
     #>
+    
+    $renderedVariables = [System.Collections.Generic.List[string]]::new()
+    $changed = $false
+    foreach($pathValue in $PathInfo.Values) {
+        $renderedValue = Expand-ValuePlaceholders "$pathValue" $Module
+        $renderedVariables.Add($renderedValue)
+        if($renderedValue -ne $pathValue) {
+            $changed = $true
+        }
+    }
+    
+    if($changed) {
+        $PathInfo.ChangeValues($renderedVariables)
+    }
+
     [String] $joinedValue = $PathInfo.Values -join [IO.Path]::PathSeparator
     [String] $actualValue = [Environment]::GetEnvironmentVariable($PathInfo.Variable)
     Write-Verbose "Handling path for variable $($PathInfo.Variable) with joined value $joinedValue"

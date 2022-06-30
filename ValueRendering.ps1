@@ -13,6 +13,7 @@ function Expand-ValuePlaceholders {
     $ModuleBase = $Module.ModuleBase
     $Value = $Value.Replace("{ModuleRoot}", $ModuleRoot)
     $Value = $Value.Replace("{ModuleBase}", $ModuleBase)
+    $Value = $Value.Replace("{TmpDirectory}", $Module.TmpDirectory)
 
     if($Value.StartsWith("[Path]")) {
         $Value = $Value.Substring(6)
