@@ -1,4 +1,14 @@
 function Expand-ValuePlaceholders {
+    <#
+    .SYNOPSIS
+    Replace value placeholders of format "%[<Type>]{<Name>}%" with the concrete value.
+    .PARAMETER Value
+    The value to modify.
+    .PARAMETER Module
+    The associated module.
+    .OUTPUTS
+    The rendered value.
+    #>
     param (
         [string] $Value,
         [EnvironmentModuleCore.EnvironmentModuleInfo] $Module
@@ -21,4 +31,20 @@ function Expand-ValuePlaceholders {
     }
 
     return $Value
+}
+
+function Expand-PathSeparators {
+    <#
+    .SYNOPSIS
+    Replace the path separator ":;" or ";:" by the platform specific separator.
+    .PARAMETER Value
+    The string to modify.
+    .OUTPUTS
+    The rendered string.
+    #>
+    param (
+        [string] $Value
+    )
+
+    $Value.Replace(";:", [IO.Path]::PathSeparator).Replace(":;", [IO.Path]::PathSeparator)
 }

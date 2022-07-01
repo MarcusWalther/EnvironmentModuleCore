@@ -371,15 +371,16 @@ function New-EnvironmentModuleInfo
 
             $pathInfo = $null
             $pathDefinition = $_
+            $value = Expand-PathSeparators $pathDefinition.Value
             switch ($mode) {
                 APPEND {
-                    $pathInfo = $result.AddAppendPath($pathDefinition.Variable, $pathDefinition.Value, $pathDefinition.Key)
+                    $pathInfo = $result.AddAppendPath($pathDefinition.Variable, $value, $pathDefinition.Key)
                 }
                 PREPEND {
-                    $pathInfo = $result.AddPrependPath($pathDefinition.Variable, $pathDefinition.Value, $pathDefinition.Key)
+                    $pathInfo = $result.AddPrependPath($pathDefinition.Variable, $value, $pathDefinition.Key)
                 }
                 SET {
-                    $pathInfo = $result.AddSetPath($pathDefinition.Variable, $pathDefinition.Value, $pathDefinition.Key)
+                    $pathInfo = $result.AddSetPath($pathDefinition.Variable, $value, $pathDefinition.Key)
                 }
                 Default {
                     Write-Error "Unable to handle of Mode of static path definition of module $($Module.FullName)"
