@@ -268,11 +268,19 @@ function Edit-EnvironmentModule
     No outputs are returned.
     #>
     [CmdletBinding()]
-    Param()
+    Param(
+        [switch] $IncludeTemporary
+    )
     DynamicParam {
         $runtimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName
+        $moduleSet = @()
+        if($IncludeTemporary) {
+            $moduleSet = Get-AllEnvironmentModules | Select-Object -ExpandProperty FullName
+        }
+        else {
+            $moduleSet = Get-NonTempEnvironmentModules | Select-Object -ExpandProperty FullName
+        }
         Add-DynamicParameter 'ModuleFullName' String $runtimeParameterDictionary -Mandatory $True -Position 0 -ValidateSet $moduleSet
 
         Add-DynamicParameter 'FileFilter' String $runtimeParameterDictionary -Mandatory $False -Position 1
@@ -297,7 +305,7 @@ function Edit-EnvironmentModule
             return
         }
 
-        Get-ChildItem ($modules[0].ModuleBase) | Where-Object {$_ -like $FileFilter} | Invoke-Item
+        Get-ChildItem ($modules[0].ModuleBase) | Where-Object {$_ -like $FileFilter} | Invoke-Item | Out-Null
     }
 }
 
