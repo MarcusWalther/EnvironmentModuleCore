@@ -165,7 +165,8 @@ function Test-PathPartOfEnvironmentVariable([String] $Path, [String] $Variable) 
     return $false
 }
 
-<#
+function Write-InformationColored {
+    <#
     Taken from https://blog.kieranties.com/2018/03/26/write-information-with-colours
     .SYNOPSIS
         Writes messages to the information stream, optionally with
@@ -177,8 +178,7 @@ function Test-PathPartOfEnvironmentVariable([String] $Path, [String] $Variable) 
         In PowerShell 5.0+ Write-Host calls through to Write-Information but
         will _always_ treats $InformationPreference as 'Continue', so the caller
         cannot use other options to the preference variable as intended.
-#>
-Function Write-InformationColored {
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -216,4 +216,32 @@ function Resolve-NotExistingPath {
     }
 
     return $FilePath
+}
+
+class ParameterInfoKeyComparator : System.Collections.Generic.IEqualityComparer[Tuple[string, string]] {
+    [bool] Equals([Tuple[string, string]] $t1, [Tuple[string, string]] $t2)
+    {
+        if (($null -eq $t1) -and ($null -eq $t2)) {
+           return $true;
+        }
+        if (($null -eq $t1) -or ($null -eq $t2)) {
+           return $false;
+        }
+
+        return (($t1.Item1?.ToLower() -eq $t2.Item1?.ToLower()) -and ($t1.Item2?.ToLower() -eq $t2.Item2?.ToLower()))
+    }
+
+    [int] GetHashCode([Tuple[string, string]] $value)
+    {
+        $result = 0
+        if($null -ne $value.Item1) {
+            $result = $result -bxor $value.Item1.ToLower().GetHashCode()
+        }
+
+        if($null -ne $value.Item2) {
+            $result = $result -bxor $value.Item2.ToLower().GetHashCode()
+        }
+
+        return $result
+    }
 }

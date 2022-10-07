@@ -77,7 +77,7 @@ $script:loadedEnvironmentModules = @{} # ShortName -> ModuleInfo
 $script:loadedEnvironmentModuleAliases = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[EnvironmentModuleCore.AliasInfo]]]::new() # AliasName -> AliasInfo[]
 $script:loadedEnvironmentModuleFunctions = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[EnvironmentModuleCore.FunctionInfo]]]::new() # FunctionName -> FunctionInfo[]
 $script:loadedEnvironmentModuleSetPaths = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.Dictionary[string, string]]]::new() # FullName -> Dictionary[string, string]
-$script:environmentModuleParameters = @{} # Tuple[ParameterName, VirtualEnvironmentName="Default"] -> ParameterInfo
+$script:environmentModuleParameters = [System.Collections.Generic.Dictionary[Tuple[string, string], EnvironmentModuleCore.ParameterInfo]]::new([ParameterInfoKeyComparator]::new()) # Tuple[ParameterName, VirtualEnvironmentName="Default"] -> ParameterInfo
 $script:virtualEnvironments = @() # List[String]
 $script:activeVirtualEnvironment = "Default"
 
