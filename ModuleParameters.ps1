@@ -69,7 +69,7 @@ function Remove-EnvironmentModuleParameterInternal {
     $virtualEnvironments = $script:environmentModuleParameters.Keys | ForEach-Object { if($_.Item1 -eq $Parameter) { $_.Item2 }}
     $virtualEnvironments | ForEach-Object {
         $parameterKey = [System.Tuple[string, string]]::new($Parameter, $_)
-        $script:environmentModuleParameters.Remove($parameterKey)
+        $script:environmentModuleParameters.Remove($parameterKey) | Out-Null
     }
 
     if($virtualEnvironments) {
