@@ -204,6 +204,7 @@ function Dismount-EnvironmentModule([EnvironmentModuleCore.EnvironmentModule] $M
         Write-Verbose "Removing module $($Module.FullName)"
         Remove-Module $Module.FullName -Force
 
+        $Module.FullyUnloaded()
         if($script:configuration["ShowLoadingMessages"] -and (-not $script:silentUnload)) {
             Write-InformationColored -InformationAction 'Continue' ($Module.Name + " unloaded") -Foregroundcolor $Host.PrivateData.VerboseForegroundColor -BackgroundColor $Host.PrivateData.VerboseBackgroundColor
         }

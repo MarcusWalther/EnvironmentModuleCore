@@ -12,7 +12,7 @@
     RootModule = 'EnvironmentModuleCore.psm1'
 
     # Version number of this module.
-    ModuleVersion = '3.6.2'
+    ModuleVersion = '3.7.0'
     #---
     PrivateData = @{
         PSData = @{

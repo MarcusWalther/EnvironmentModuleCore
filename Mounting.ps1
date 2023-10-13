@@ -459,6 +459,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
     else {
         [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly, $SilentMode)
+        $module.FullyLoaded()
         Remove-Module $ModuleFullName -Force
         return $true
     }
@@ -469,6 +470,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly, $SilentMode)
+    $module.FullyLoaded()
     return $true
 }
 
