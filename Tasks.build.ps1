@@ -51,7 +51,7 @@ task Test {
 	}
 
 	New-Item -ItemType Directory "TestResults" -Force | Out-Null
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module (Join-Path "." "EnvironmentModuleCore.psd1"); Set-Location "Test"; Invoke-Pester -Path (Join-Path "." "Tests.ps1") -CI}
+	& "$PowershellExecutable" -NoProfile -Command {Import-Module (Join-Path "." "EnvironmentModuleCore.psd1"); Set-Location "Test"; Invoke-Pester -Path (Join-Path "." "All.Tests.ps1") -CI}
 	Move-Item (Join-Path "Test" "*.xml") "TestResults" -Force
 }
 

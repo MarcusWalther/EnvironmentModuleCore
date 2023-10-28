@@ -435,6 +435,16 @@ function Compare-EnvironmentModulesByVersion([EnvironmentModuleCore.EnvironmentM
             $this.versionMatches = $versionMatches
         }
 
+        [bool] ContainsText([string[]] $versionParts) {
+            foreach($part in $versionParts) {
+                $tmp = 0
+                if(-not([int]::TryParse($part, [ref] $tmp))) {
+                    return $true;
+                }
+            }
+            return $false;
+        }
+
         [int] Compare([EnvironmentModuleCore.EnvironmentModuleInfoBase] $a, [EnvironmentModuleCore.EnvironmentModuleInfoBase] $b)
         {
             $matchA = $this.versionMatches[$a.FullName]
@@ -452,6 +462,18 @@ function Compare-EnvironmentModulesByVersion([EnvironmentModuleCore.EnvironmentM
 
             $versionPartsA = $matchA.Groups[0].Value.Replace("_", ".").Split(".")
             $versionPartsB = $matchB.Groups[0].Value.Replace("_", ".").Split(".")
+
+            # Check if the version numbers contain text like "dev" or "alpha"
+            $containsTextA = $this.ContainsText($versionPartsA)
+            $containsTextB = $this.ContainsText($versionPartsB)
+
+            if($containsTextA -and (-not $containsTextB)) {
+                return 1
+            }
+
+            if($containsTextB -and (-not $containsTextA)) {
+                return -1
+            }
             
             for($i = 0; $i -lt $versionPartsA.Length; $i++) {
                 # the Version A has more parts than B -> A wins
