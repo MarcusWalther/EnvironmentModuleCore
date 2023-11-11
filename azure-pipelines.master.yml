@@ -33,14 +33,14 @@ steps:
   inputs:
     summaryFileLocation: 'TestResults/Coverage.xml'
 
-- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore"
-  displayName: 'Pack the build'
-
 - task: PublishTestResults@2
   inputs:
     testResultsFormat: 'NUnit'
     testResultsFiles: 'TestResults/TestResults.xml'
     failTaskOnFailedTests: true
+
+- pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore"
+  displayName: 'Pack the build'
 
 - pwsh: Invoke-Build Deploy -NugetSource "PSGallery" -NugetApiKey $env:ENV_NUGET_APIKEY -Folder "Nuget/EnvironmentModuleCore"
   displayName: 'Deploy the package'

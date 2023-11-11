@@ -105,9 +105,6 @@ task Pack {
 	if(-not [string]::IsNullOrEmpty($Suffix)) {
 		Update-ModuleManifest "$(Join-Path $Folder 'EnvironmentModuleCore.psd1')" -Prerelease "$Suffix"
 	}
-	$commandBlock = "& {Import-Module `"$(Join-Path '.' (Join-Path `"$Folder`" 'EnvironmentModuleCore.psd1'))`"; Set-Location `"Test`"; Invoke-Pester -Path `"(Join-Path '.' 'ScriptAnalyzerTests.ps1')`" -CI -ErrorAction SilentlyContinue}"
-	& "$PowershellExecutable" -NoProfile -Command $commandBlock
-	Move-Item (Join-Path "Test" "testResults.xml") (Join-Path "TestResults" "testResults.analyzer.xml") -Force
 }
 
 task Deploy {

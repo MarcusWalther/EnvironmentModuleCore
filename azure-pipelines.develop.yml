@@ -35,14 +35,14 @@ jobs:
       inputs:
         summaryFileLocation: 'TestResults/Coverage.xml'
 
-    - pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
-      displayName: 'Pack the build'
-
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'NUnit'
         testResultsFiles: 'TestResults/TestResults.xml'
         failTaskOnFailedTests: true
+
+    - pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+      displayName: 'Pack the build'
 
     - pwsh: |
         $patToken = $env:ENV_ACCESS_TOKEN | ConvertTo-SecureString -AsPlainText -Force
@@ -81,11 +81,11 @@ jobs:
       inputs:
         summaryFileLocation: 'TestResults\Coverage.xml'
 
-    - powershell: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
-      displayName: 'Pack the build'
-
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'NUnit'
         testResultsFiles: 'TestResults\TestResults.xml'
         failTaskOnFailedTests: true
+
+    - powershell: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
+      displayName: 'Pack the build'
