@@ -55,22 +55,19 @@ function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
     return $result
 }
 
-function Read-EnvironmentModuleDescriptionFile([string] $ModuleBase, [string] $ModuleFullName)
+function Get-EnvironmentModuleDescriptionFile([string] $ModuleBase, [string] $ModuleFullName)
 {
     <#
     .SYNOPSIS
-    Read the Environment Module file (*.pse) of the of the given module.
+    Get the Environment Module file (*.pse) of the of the given module.
     .DESCRIPTION
     This function will read the environment module info of the given module. If the module does not depend on the environment module, $null is returned. If no
     description file was found, an empty map is returned.
     .OUTPUTS
-    The map containing the values or $null.
+    The path to the description file.
     #>
 
-    Write-Verbose "Reading environment module description file for $($Module.Name)"
-
-    # Search for a pse1 file in the base directory
-    return Read-EnvironmentModuleDescriptionFileByPath (Join-Path $ModuleBase "$($ModuleFullName).pse1")
+    return (Join-Path $ModuleBase "$($ModuleFullName).pse1")
 }
 
 function Read-EnvironmentModuleDescriptionFileByPath([string] $Path)
@@ -115,7 +112,7 @@ function New-EnvironmentModuleInfoBase
         return $null
     }
 
-    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.Name
+    $descriptionContent = Read-EnvironmentModuleDescriptionFileByPath (Get-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.Name)
 
     if(-not $descriptionContent) {
         return $null
@@ -149,77 +146,45 @@ function Set-EnvironmentModuleInfoBaseParameter
     }
 }
 
-function New-EnvironmentModuleInfo
+function New-EnvironmentModuleInfoFromDescriptionFile([string] $Path, [EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module = $null)
 {
     <#
     .SYNOPSIS
-    Create a new EnvironmentModuleInfo object from the given parameters.
+    Read the content of the description file stored in the given path and create an EnvironmentModuleInfo object out of it.
+    .PARAMETER Path
+    The path to the pse1 file to use.
     .PARAMETER Module
-    The module info that contains the base information.
-    .PARAMETER ModuleFullName
-    The full name of the module. Only used if the module parameter is not set.
-    .PARAMETER ModuleFile
-    The module file (psd1) to load. If this is set, the ModuleFullName is not evaluated.
+    The module info belonging to the pse1 file.
     .OUTPUTS
-    The created object of type EnvironmentModuleInfo or $null.
-    .NOTES
-    The given module name must match exactly one module, otherwise $null is returned.
+    The created EnvironmentModuleInfo object or null if the content could not be read.
     #>
-    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
-    param (
-        [EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module = $null,
-        [String] $ModuleFullName = $null,
-        [String] $ModuleFile = $null
-    )
-
-    if($null -eq $Module) {
-        if(-not ([string]::IsNullOrEmpty($ModuleFile))) {
-            $matchingModules = (Get-Module "$ModuleFile" -ListAvailable)
-
-            if($matchingModules.Length -lt 1) {
-                Write-Verbose "Unable to find the module $ModuleFile"
-                return $null
-            }
-
-            $Module = New-EnvironmentModuleInfoBase $matchingModules[0]
-        }
-        else {
-            $matchingModules = Get-EnvironmentModule -ListAvailable $ModuleFullName
-
-            if($matchingModules.Length -lt 1) {
-                Write-Verbose "Unable to find the module $ModuleFullName in the list of all environment modules"
-                return $null
-            }
-
-            if($matchingModules.Length -gt 1) {
-                Write-Warning "More than one environment module matches the given full name '$ModuleFullName'"
-            }
-
-            $Module = $matchingModules[0]
-        }
-    }
-
-    $descriptionContent = Read-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.FullName
+    $descriptionContent = Read-EnvironmentModuleDescriptionFileByPath $Path
 
     if(-not $descriptionContent) {
         return $null
     }
 
-    $arguments = @($Module, $null, (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))
-
-    $result = New-Object EnvironmentModuleCore.EnvironmentModuleInfo -ArgumentList $arguments
-
+    $result = $null
+    $moduleFullName = $Path
+    if($null -ne $Module) {
+        $arguments = @($Module, $null, (Join-Path $script:tmpEnvironmentRootSessionPath $Module.Name))
+        $result = New-Object EnvironmentModuleCore.EnvironmentModuleInfo -ArgumentList $arguments
+        $moduleFullName = $Module.FullName
+    }
+    else {
+        $result = New-Object EnvironmentModuleCore.EnvironmentModuleInfo
+    }
     Set-EnvironmentModuleInfoBaseParameter $result $descriptionContent
 
     $result.DirectUnload = $false
-    $customSearchPaths = $script:customSearchPaths[$Module.FullName]
+    $customSearchPaths = $script:customSearchPaths[$moduleFullName]
     if ($customSearchPaths) {
         $result.SearchPaths = $result.SearchPaths + $customSearchPaths
     }
 
     $dependencies = @()
     if($descriptionContent.Contains("RequiredEnvironmentModules")) {
-        Write-Warning "The field 'RequiredEnvironmentModules' defined for '$($Module.FullName)' is deprecated, please use the dependencies field."
+        Write-Warning "The field 'RequiredEnvironmentModules' defined for '$moduleFullName' is deprecated, please use the dependencies field."
         $dependencies = $descriptionContent.Item("RequiredEnvironmentModules") | Foreach-Object { New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_}
         Write-Verbose "Read module dependencies $($dependencies)"
     }
@@ -245,7 +210,7 @@ function New-EnvironmentModuleInfo
 
     $requiredItems = @()
     if($descriptionContent.Contains("RequiredFiles")) {
-        Write-Warning "The field 'RequiredFiles' defined for '$($Module.FullName)' is deprecated, please use the RequiredItems field."
+        Write-Warning "The field 'RequiredFiles' defined for '$moduleFullName' is deprecated, please use the RequiredItems field."
         $requiredItems = $result.RequiredItems + ($descriptionContent.Item("RequiredFiles") | ForEach-Object {
             New-Object "EnvironmentModuleCore.RequiredItem" -ArgumentList ([EnvironmentModuleCore.RequiredItem]::TYPE_FILE), $_
         })
@@ -267,7 +232,7 @@ function New-EnvironmentModuleInfo
     $result.RequiredItems = $requiredItems
 
     if($descriptionContent.Contains("DefaultRegistryPaths") -and $descriptionContent.Item("DefaultRegistryPaths").count -gt 0) {
-        Write-Warning "The field 'DefaultRegistryPaths' defined for '$($Module.FullName)' is deprecated, please use the DefaultSearchPaths field."
+        Write-Warning "The field 'DefaultRegistryPaths' defined for '$moduleFullName' is deprecated, please use the DefaultSearchPaths field."
         $pathValues = $descriptionContent.Item("DefaultRegistryPaths")
         $searchPathType = "REGISTRY"
         $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
@@ -280,7 +245,7 @@ function New-EnvironmentModuleInfo
     }
 
     if($descriptionContent.Contains("DefaultFolderPaths") -and $descriptionContent.Item("DefaultFolderPaths").count -gt 0) {
-        Write-Warning "The field 'DefaultFolderPaths' defined for '$($Module.FullName)' is deprecated, please use the DefaultSearchPaths field."
+        Write-Warning "The field 'DefaultFolderPaths' defined for '$moduleFullName' is deprecated, please use the DefaultSearchPaths field."
         $pathValues = $descriptionContent.Item("DefaultFolderPaths")
         $searchPathType = [EnvironmentModuleCore.SearchPath]::TYPE_DIRECTORY
         $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
@@ -293,7 +258,7 @@ function New-EnvironmentModuleInfo
     }
 
     if($descriptionContent.Contains("DefaultEnvironmentPaths") -and $descriptionContent.Item("DefaultEnvironmentPaths").count -gt 0) {
-        Write-Warning "The field 'DefaultEnvironmentPaths' defined for '$($Module.FullName)' is deprecated, please use the DefaultSearchPaths field."
+        Write-Warning "The field 'DefaultEnvironmentPaths' defined for '$moduleFullName' is deprecated, please use the DefaultSearchPaths field."
         $pathValues = $descriptionContent.Item("DefaultEnvironmentPaths")
         $searchPathType = [EnvironmentModuleCore.SearchPath]::TYPE_ENVIRONMENT_VARIABLE
         $searchPathPriority = $script:searchPathTypes[$searchPathType].Item2
@@ -365,7 +330,7 @@ function New-EnvironmentModuleInfo
             [Enum]::TryParse($_.Mode, [ref] $mode) | Out-Null
 
             if([String]::IsNullOrEmpty($_.Variable)) {
-                Write-Error "Path definition without 'Variable' defined in module definition $($Module.FullName)"
+                Write-Error "Path definition without 'Variable' defined in module definition '$moduleFullName'"
                 return
             }
 
@@ -383,7 +348,7 @@ function New-EnvironmentModuleInfo
                     $pathInfo = $result.AddSetPath($pathDefinition.Variable, $value, $pathDefinition.Key)
                 }
                 Default {
-                    Write-Error "Unable to handle of Mode of static path definition of module $($Module.FullName)"
+                    Write-Error "Unable to handle of Mode of static path definition of module '$moduleFullName'"
                     return
                 }
             }
@@ -392,6 +357,60 @@ function New-EnvironmentModuleInfo
         }
     }
 
+    return $result
+}
+
+function New-EnvironmentModuleInfo
+{
+    <#
+    .SYNOPSIS
+    Create a new EnvironmentModuleInfo object from the given parameters.
+    .PARAMETER Module
+    The module info that contains the base information.
+    .PARAMETER ModuleFullName
+    The full name of the module. Only used if the module parameter is not set.
+    .PARAMETER ModuleFile
+    The module file (psd1) to load. If this is set, the ModuleFullName is not evaluated.
+    .OUTPUTS
+    The created object of type EnvironmentModuleInfo or $null.
+    .NOTES
+    The given module name must match exactly one module, otherwise $null is returned.
+    #>
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
+    param (
+        [EnvironmentModuleCore.EnvironmentModuleInfoBase] $Module = $null,
+        [String] $ModuleFullName = $null,
+        [String] $ModuleFile = $null
+    )
+
+    if($null -eq $Module) {
+        if(-not ([string]::IsNullOrEmpty($ModuleFile))) {
+            $matchingModules = (Get-Module "$ModuleFile" -ListAvailable)
+
+            if($matchingModules.Length -lt 1) {
+                Write-Verbose "Unable to find the module $ModuleFile"
+                return $null
+            }
+
+            $Module = New-EnvironmentModuleInfoBase $matchingModules[0]
+        }
+        else {
+            $matchingModules = Get-EnvironmentModule -ListAvailable $ModuleFullName
+
+            if($matchingModules.Length -lt 1) {
+                Write-Verbose "Unable to find the module $ModuleFullName in the list of all environment modules"
+                return $null
+            }
+
+            if($matchingModules.Length -gt 1) {
+                Write-Warning "More than one environment module matches the given full name '$ModuleFullName'"
+            }
+
+            $Module = $matchingModules[0]
+        }
+    }
+
+    $result = New-EnvironmentModuleInfoFromDescriptionFile -Path (Get-EnvironmentModuleDescriptionFile $Module.ModuleBase $Module.FullName) -Module $Module
     return $result
 }
 

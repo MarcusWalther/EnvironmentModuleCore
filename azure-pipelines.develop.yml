@@ -33,7 +33,7 @@ jobs:
 
     - task: PublishCodeCoverageResults@1
       inputs:
-        summaryFileLocation: 'TestResults/coverage.xml'
+        summaryFileLocation: 'TestResults/Coverage.xml'
 
     - pwsh: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
       displayName: 'Pack the build'
@@ -41,7 +41,7 @@ jobs:
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'NUnit'
-        testResultsFiles: 'TestResults/testResults*.xml'
+        testResultsFiles: 'TestResults/TestResults.xml'
         failTaskOnFailedTests: true
 
     - pwsh: |
@@ -79,7 +79,7 @@ jobs:
 
     - task: PublishCodeCoverageResults@1
       inputs:
-        summaryFileLocation: 'TestResults\coverage.xml'
+        summaryFileLocation: 'TestResults\Coverage.xml'
 
     - powershell: Invoke-Build Pack -Suffix "$(suffix)" -Folder "Nuget/EnvironmentModuleCore" -AllowPrerelease
       displayName: 'Pack the build'
@@ -87,5 +87,5 @@ jobs:
     - task: PublishTestResults@2
       inputs:
         testResultsFormat: 'NUnit'
-        testResultsFiles: 'TestResults\testResults*.xml'
+        testResultsFiles: 'TestResults\TestResults.xml'
         failTaskOnFailedTests: true

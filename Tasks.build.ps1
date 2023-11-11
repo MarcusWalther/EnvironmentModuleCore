@@ -51,8 +51,23 @@ task Test {
 	}
 
 	New-Item -ItemType Directory "TestResults" -Force | Out-Null
-	& "$PowershellExecutable" -NoProfile -Command {Import-Module (Join-Path "." "EnvironmentModuleCore.psd1"); Set-Location "Test"; Invoke-Pester -Path (Join-Path "." "All.Tests.ps1") -CI}
-	Move-Item (Join-Path "Test" "*.xml") "TestResults" -Force
+
+	& "$PowershellExecutable" -NoProfile -Command { 
+		Import-Module Pester
+		Import-Module (Join-Path "." "EnvironmentModuleCore.psd1")
+
+		$files = ((Get-ChildItem "*.ps1") | Select-Object -ExpandProperty "FullName" )
+		Set-Location "Test"
+		$pesterConfig = [PesterConfiguration]::Default
+		$pesterConfig.Run.Path = "."
+		$pesterConfig.TestResult.OutputPath = "../TestResults/TestResults.xml"
+		$pesterConfig.TestResult.Enabled = $true
+
+		$pesterConfig.CodeCoverage.Enabled = $true
+		$pesterConfig.CodeCoverage.Path = $files
+		$pesterConfig.CodeCoverage.OutputPath = "../TestResults/Coverage.xml"
+		Invoke-Pester -Configuration $pesterConfig
+	}
 }
 
 task Pack {

@@ -243,6 +243,32 @@ function Set-EnvironmentModuleRootDirectory
     return $null
 }
 
+function Import-EnvironmentModuleDescriptionFile([String] $ModuleFile, [switch] $Silent)
+{
+    $silentMode = $false
+    if($Silent) {
+        $silentMode = $true
+    }
+
+    $module = New-EnvironmentModuleInfoFromDescriptionFile -Path $ModuleFile
+    if($null -eq $module) {
+        Write-Error "Unable to load module information from $ModuleFile, please specify a valid pse1 file."
+        return
+    }
+
+    # Load the defined dependencies
+    $result = Import-ModuleDependencies -Module $module -KnownModules (New-Object "System.Collections.Generic.HashSet[string]") -LoadDependenciesDirectly $true -SilentMode $silentMode
+    if(-not $result) {
+        return $false
+    }
+
+    # Set the parameter defaults
+    $module.Parameters.Keys | ForEach-Object { 
+        $parameter = $module.Parameters[$_]
+        Set-EnvironmentModuleParameterInternal $parameter.Name (Expand-ValuePlaceholders -Value $parameter.Value -Module $module) $ModuleFullName $parameter.IsUserDefined $parameter.VirtualEnvironment 
+    }
+}
+
 function Import-EnvironmentModule
 {
     <#
@@ -281,7 +307,7 @@ function Import-EnvironmentModule
 
     process {
         $silentMode = $false
-        if($silent) {
+        if($Silent) {
             $silentMode = $true
         }
 
@@ -303,7 +329,7 @@ function Import-EnvironmentModule
     }
 }
 
-function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]][ref] $KnownModules,
+function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $LoadedDirectly, [System.Collections.Generic.HashSet[string]] $KnownModules,
                                          [EnvironmentModuleCore.EnvironmentModuleInfo] $SourceModule = $null, [Bool] $SilentMode = $false, [String] $ModuleFile = $null)
 {
     <#
@@ -357,7 +383,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         return $true
     }
 
-    # Load the dependencies first
+    # Basic setup
     $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName -ModuleFile $ModuleFile
 
     $alreadyLoadedModules = $null
@@ -373,12 +399,6 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         return $false
     }
 
-    $loadDependenciesDirectly = $false
-
-    if($module.DirectUnload -eq $true) {
-        $loadDependenciesDirectly = $LoadedDirectly
-    }
-
     # Identify the root directory
     $moduleRoot = Set-EnvironmentModuleRootDirectory $module $SilentMode
 
@@ -390,30 +410,25 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
         return $false
     }
 
-    Write-Verbose "Children are loaded with directly state $loadDependenciesDirectly"
-    $loadedDependencies = New-Object "System.Collections.Stack"
-
-    if($module.Dependencies.Count -gt 0) {
-        $dependencyIndex = 0
-        foreach ($dependency in $module.Dependencies) {
-            Write-Verbose "Importing dependency $dependency"
-
-            $silentDependencyMode = $dependency.IsOptional
-            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $loadDependenciesDirectly $KnownModules $module $silentDependencyMode)
-            if (-not $loadingResult) {
-                if(-not ($dependency.IsOptional)) {
-                    while ($loadedDependencies.Count -gt 0) {
-                        Remove-EnvironmentModule ($loadedDependencies.Pop())
-                    }
-                    return $false
-                }
-            }
-            else {
-                $loadedDependencies.Push($dependency.ModuleFullName)
-            }
-
-            $dependencyIndex++
+    # Perform the merge with the other specified pse1 files
+    foreach($moduleReference in $module.MergeModules) {
+        $otherModuleInfo = New-EnvironmentModuleInfoFromDescriptionFile -Path (Expand-ValuePlaceholders $moduleReference $module)
+        if($null -eq $otherModuleInfo) {
+            continue
         }
+
+        Join-EnvironmentModuleInfos $module $otherModuleInfo
+    }
+
+    # Load the dependencies first
+    $loadDependenciesDirectly = $false
+    if($module.DirectUnload -eq $true) {
+        $loadDependenciesDirectly = $LoadedDirectly
+    }
+
+    $result = Import-ModuleDependencies -Module $module -LoadDependenciesDirectly $loadDependenciesDirectly -KnownModules $KnownModules -SilentMode $SilentMode
+    if(-not $result) {
+        return $false
     }
 
     # Create the temp directory
@@ -471,6 +486,50 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     [void] (New-Event -SourceIdentifier "EnvironmentModuleLoaded" -EventArguments $module, $LoadedDirectly, $SilentMode)
     $module.FullyLoaded()
+    return $true
+}
+
+function Import-ModuleDependencies([EnvironmentModuleCore.EnvironmentModuleInfo] $Module,
+                                   [bool] $LoadDependenciesDirectly,
+                                   [System.Collections.Generic.HashSet[string]] $KnownModules,
+                                   [Bool] $SilentMode = $false) {
+    <#
+    .SYNOPSIS
+    Import all dependencies of the specified module into the active session.
+    .PARAMETER Module
+    The module defining the dependencies to load.
+    .PARAMETER LoadDependenciesDirectly
+    True if the dependencies should be marked as directly loaded. False if the modules should be loaded as dependencies.
+    .PARAMETER KnownModules
+    A collection of known modules, used to detect circular dependencies.
+    .PARAMETER SilentMode
+    True if no outputs should be printed.
+    .OUTPUTS
+    The boolean value $true if the load process was performed successfully.
+    #>
+    Write-Verbose "Children are loaded with directly state $LoadDependenciesDirectly"
+    $loadedDependencies = New-Object "System.Collections.Stack"
+
+    if($Module.Dependencies.Count -gt 0) {
+        foreach ($dependency in $Module.Dependencies) {
+            Write-Verbose "Importing dependency $dependency"
+
+            $silentDependencyMode = $SilentMode -or $dependency.IsOptional
+            $loadingResult = (Import-RequiredModulesRecursive $dependency.ModuleFullName $LoadDependenciesDirectly $KnownModules $Module $silentDependencyMode)
+            if (-not $loadingResult) {
+                if(-not ($dependency.IsOptional)) {
+                    while ($loadedDependencies.Count -gt 0) {
+                        Remove-EnvironmentModule ($loadedDependencies.Pop())
+                    }
+                    return $false
+                }
+            }
+            else {
+                $loadedDependencies.Push($dependency.ModuleFullName)
+            }
+        }
+    }
+
     return $true
 }
 

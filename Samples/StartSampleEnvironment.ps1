@@ -6,17 +6,25 @@ param(
     [switch] $IgnoreSamplesFolder
 )
 
+if($script:SetupPerformed) {
+    return
+}
+
+$script:SetupPerformed = $true
+
 # $global:VerbosePreference = "Continue"
-$env:PSModulePath  = ""
+$psModulePath  = ""
 if(-not $ignoreSamplesFolder) {
-    $env:PSModulePath = "$PSScriptRoot"
+    $psModulePath = "$PSScriptRoot"
 }
 if(($null -ne $AdditionalModulePaths) -and ($AdditionalModulePaths.Count -gt 0)) {
     if(-not $ignoreSamplesFolder) {
-        $env:PSModulePath += [IO.Path]::PathSeparator
+        $psModulePath += [IO.Path]::PathSeparator
     }
-    $env:PSModulePath += [System.String]::Join([IO.Path]::PathSeparator, $AdditionalModulePaths)
+    $psModulePath += [System.String]::Join([IO.Path]::PathSeparator, $AdditionalModulePaths)
 }
+$env:PSModulePath = $psModulePath + [IO.Path]::PathSeparator + $env:PSModulePath
+
 $env:ENVIRONMENT_MODULES_TMP = "$TempDirectory"
 $env:ENVIRONMENT_MODULES_CONFIG = "$ConfigDirectory"
 
