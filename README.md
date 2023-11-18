@@ -33,7 +33,6 @@ You can either download the package from the Powershell Gallery or downlaod it m
 Invoke-Build Prepare
 ```
 
-
 # Usage Overview
 
 Import the module to get access to the functions
@@ -110,6 +109,10 @@ Pester based tests are included as submodule that must be checked out explicitel
 ```powershell
 Invoke-Build Test
 ```
+
+# Documentation
+
+A more detailed documentation is given in the [Github wiki](https://github.com/MarcusWalther/EnvironmentModuleCore/wiki).
 
 # References
 
