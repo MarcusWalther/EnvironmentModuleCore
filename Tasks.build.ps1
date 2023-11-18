@@ -56,7 +56,7 @@ task Test {
 		Import-Module Pester
 		Import-Module (Join-Path "." "EnvironmentModuleCore.psd1")
 
-		$files = ((Get-ChildItem "*.ps1") | Select-Object -ExpandProperty "FullName" )
+		$files = ((Get-ChildItem "*.ps1") | Where-Object { ($_.Name -ne "Tasks.build.ps1") -and ($_.Name -ne "SetupEnvironment.ps1") } | Select-Object -ExpandProperty "FullName" )
 		Set-Location "Test"
 		$pesterConfig = [PesterConfiguration]::Default
 		$pesterConfig.Run.Path = "."
@@ -65,6 +65,7 @@ task Test {
 
 		$pesterConfig.CodeCoverage.Enabled = $true
 		$pesterConfig.CodeCoverage.Path = $files
+		$pesterConfig.Output.Verbosity = "Detailed"
 		$pesterConfig.CodeCoverage.OutputPath = "../TestResults/Coverage.xml"
 		Invoke-Pester -Configuration $pesterConfig
 	}

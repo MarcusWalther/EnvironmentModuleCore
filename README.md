@@ -55,8 +55,11 @@ Create a new environment module from skretch or from an existing module
 Edit environment module file(s)
 - **Edit-EnvironmentModule [ModuleName] [FileFilter]**
 
-Update the cache
+Update the cache (required if a new environment module was added)
 - **Update-EnvironmentModuleCache**
+
+Import the environment module dependencies from a pse1 file
+- **Import-EnvironmentModuleDescriptionFile [FilePath]**
 
 # Environment-Module-Description-File (*.pse)
 
@@ -67,18 +70,12 @@ Each environment module should contain a pse file in its module directory. The s
     # Environment Modules that must be imported into the global environment prior importing this module
     RequiredEnvironmentModules = @("Aspell")
 
-    # The type of the module, either "Default" or "Meta" if it is a project-module
-    ModuleType = "Default"
-
     # Default search paths
     DefaultSearchPaths = @(@{Type="ENVIRONMENT_VARIABLE";Key="NOTEPAD_PLUS_PLUS_ROOT"}, "C:\Program Files (x86)\Notepad++",
                            @{Type="REGISTRY";Key="HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++\DisplayIcon"})
 
     # Required files that must be part of the folder candidate
     RequiredItems = @("notepad++.exe")
-
-    # The version of the description files
-    StyleVersion = 3.0
 
     # Parameters that control the behaviour of the module. These values can be overwritten by other modules or the user
     Parameters = @{
@@ -105,19 +102,6 @@ $Module.AddAlias("npp", "Start-NotepadPlusPlus", "Use 'npp' to start NotepadPlus
 [String] $cmd = "Start-Process -FilePath '$($Module.ModuleRoot)\notepad++.exe' @args"
 $Module.AddFunction("Start-NotepadPlusPlus", [ScriptBlock]::Create($cmd))
 ```
-
-# Naming Convention
-
-The name of an environment module plays an important role, because it is used to identify conflicts and default modules. The name of an environment module can be:
- - EnvironmentModuleName -> A simple module name without dashes, indicating that the architecture and version doesn't matter (for instance *NotepadPlusPlus*)
- - EnvironmentModuleName-Version -> A module with a version number. The version parts are separated by underscores (for instance *NotepadPlusPlus-7_4_2*)
- - EnvironmentModuleName-Version-Architecture -> An additional version tag can be specified. Either 'x64' or 'x86' are supported at the moment (for instance *NotepadPlusPlus-7_4_2-x86*).
- - EnvironmentModuleName-Version-Architecture-AdditionalOptions -> Additional information can be specified at the end (for instance *NotepadPlusPlus-7_4_2-x86-DEV*).
-
-
-# Caching and Default Modules
-
-In order to identify all available environment modules, the scripts will use 'Get-Module -ListAvailable'. It will identify all modules as environment module, that have a dependency to 'EnvironmentModules' in their '\*.psd1'. Because this is a time consuming process, a cache is used to store the information persistently. The caching infos are stored in the file 'ModuleCache.xml' and can be rebuild with the *Update-EnvironmentModuleCache* function. Besides that, this functionality will create default modules in the directory 'Tmp/Modules'.
 
 # Testing 
 
