@@ -245,6 +245,14 @@ function Set-EnvironmentModuleRootDirectory
 
 function Import-EnvironmentModuleDescriptionFile([String] $ModuleFile, [switch] $Silent)
 {
+    <#
+    .SYNOPSIS
+    Import the module dependencies and paramters from the specified module description file (pse1).    
+    .PARAMETER ModuleFile
+    The path to the pse1 file to handle.
+    .PARAMETER Silent
+    Set this parameter if no warning messages should be displayed.
+    #>
     $silentMode = $false
     if($Silent) {
         $silentMode = $true
@@ -457,6 +465,11 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
             Write-Error $_.Exception.Message
         }
         return $false
+    }
+
+    if($Module.SwitchDirectoryToModuleRoot) {
+        Write-Verbose "Switching to module root"
+        Set-Location "$($Module.ModuleRoot)"
     }
 
     Write-Verbose "The module has direct unload state $($module.DirectUnload)"

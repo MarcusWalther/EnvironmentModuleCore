@@ -210,6 +210,11 @@ function New-EnvironmentModuleInfoFromDescriptionFile([string] $Path, [Environme
         Write-Verbose "Read module direct unload $($result.DirectUnload)"
     }
 
+    if($descriptionContent.Contains("SwitchDirectoryToModuleRoot")) {
+        $result.SwitchDirectoryToModuleRoot = $descriptionContent.Item("SwitchDirectoryToModuleRoot")
+        Write-Verbose "Read module switch to directory $($result.SwitchDirectoryToModuleRoot)"
+    }
+
     $requiredItems = @()
     if($descriptionContent.Contains("RequiredFiles")) {
         Write-Warning "The field 'RequiredFiles' defined for '$moduleFullName' is deprecated, please use the RequiredItems field."
