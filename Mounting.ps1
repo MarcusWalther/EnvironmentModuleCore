@@ -361,7 +361,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     Write-Verbose "Importing the module $ModuleFullName recursive"
 
-    $conflictTestResult = (Test-ConflictsWithLoadedModules $ModuleFullName)
+    $conflictTestResult = (Test-ConflictsWithLoadedModules $ModuleFullName $script:loadedEnvironmentModules)
     $module = $conflictTestResult.Module
     $conflict = $conflictTestResult.Conflict
 
@@ -417,7 +417,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
             continue
         }
 
-        Join-EnvironmentModuleInfos $module $otherModuleInfo
+        $module = Join-EnvironmentModuleInfos $module $otherModuleInfo
     }
 
     # Load the dependencies first
@@ -901,7 +901,7 @@ function Add-EnvironmentModuleFunction([EnvironmentModuleCore.FunctionInfo] $Fun
     new-item -path function:\ -name "global:$($FunctionDefinition.Name)" -value ([ScriptBlock]$FunctionDefinition.Definition) -Force
 }
 
-function Test-ConflictsWithLoadedModules([string] $ModuleFullName)
+function Test-ConflictsWithLoadedModules([string] $ModuleFullName, [hashtable] $LoadedEnvironmentModules)
 {
     <#
     .SYNOPSIS
@@ -911,6 +911,8 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName)
     true is returned.
     .PARAMETER ModuleFullName
     The name of the module to check.
+    .PARAMETER LoadedEnvironmentModules
+    The already loaded modules to check with. The key must be the short name and the value must be the module info.
     .OUTPUTS
     A tuple containing a boolean value as first argument. True if the module does conflict with the already loaded modules, false otherwise.
     And the identified module as second argument.
@@ -923,8 +925,8 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName)
     $module = $null
     $conflict = $false
 
-    if($script:loadedEnvironmentModules.ContainsKey($name)) {
-        $module = $script:loadedEnvironmentModules.Get_Item($name)
+    if($LoadedEnvironmentModules.ContainsKey($name)) {
+        $module = $LoadedEnvironmentModules.Get_Item($name)
         Write-Verbose "A module matching name '$name' was already found - checking for version or architecture conflict"
 
         if(-not ($module.DirectUnload)) {

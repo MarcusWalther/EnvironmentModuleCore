@@ -14,6 +14,8 @@ function Split-EnvironmentModuleName([String] $ModuleFullName, [switch] $Silent)
     $null is returned at the according array index.
     .PARAMETER ModuleFullName
     The full name of the module that should be splitted.
+    .PARAMETER Silent
+    Print a warning in case the module name is not correctly formatted.
     .OUTPUTS
     A string array with 4 parts (name, version, architecture, additionalOptions)
     #>
@@ -355,6 +357,11 @@ function New-EnvironmentModuleInfoFromDescriptionFile([string] $Path, [Environme
 
             Write-Verbose "Added path definition: $($pathInfo.ToString())"
         }
+    }
+
+    if($descriptionContent.Contains("MergeModules")) {
+        $result.MergeModules = $descriptionContent.Item("MergeModules")
+        Write-Verbose "Read merge modules $($descriptionContent.Item('MergeModules'))"
     }
 
     return $result

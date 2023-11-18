@@ -100,6 +100,9 @@ Import-EnvironmentModuleCoreConfiguration $script:configurationFilePath
 # Include the file handling functions
 . (Join-Path $PSScriptRoot "DescriptionFile.ps1")
 
+# Include the module merge functions
+. (Join-Path $PSScriptRoot "ModuleMerging.ps1")
+
 # Initialize the cache file to speed up the module
 . (Join-Path $PSScriptRoot "Storage.ps1")
 if(test-path $script:moduleCacheFileLocation)
