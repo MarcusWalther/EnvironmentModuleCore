@@ -30,6 +30,7 @@ You can either download the package from the Powershell Gallery or downlaod it m
 
 * B) Download the files to a folder called "EnvironmentModuleCore" and add the parent folder to the **PSModulePath** environment variable. Execute the command below in order to download the required .Net core libraries.
 ```powershell
+# Requires the module InvokeBuild (https://github.com/nightroman/Invoke-Build)
 Invoke-Build Prepare
 ```
 
@@ -107,6 +108,7 @@ $Module.AddFunction("Start-NotepadPlusPlus", [ScriptBlock]::Create($cmd))
 Pester based tests are included as submodule that must be checked out explicitely. Afterwards the tests can be invoked using the command 
 
 ```powershell
+# Requires the module InvokeBuild (https://github.com/nightroman/Invoke-Build)
 Invoke-Build Test
 ```
 
