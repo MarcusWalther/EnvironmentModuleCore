@@ -175,7 +175,7 @@ function Update-EnvironmentModuleCache
         if(-not([string]::IsNullOrEmpty($moduleNameParts.Architecture))) {
             $knownValues = $modulesByArchitecture[$moduleNameParts.Name]
             if($null -eq $knownValues) {
-                $knownValues = New-Object "System.Collections.Generic.HashSet[string]]"
+                $knownValues = New-Object "System.Collections.Generic.HashSet[string]"
             }
             $knownValues.Add($moduleNameParts.Architecture) | Out-Null
             $modulesByArchitecture[$moduleNameParts.Name] = $knownValues
@@ -189,7 +189,7 @@ function Update-EnvironmentModuleCache
 
             $knownValues = $modulesByMajorVersion[$moduleNameParts.Name]
             if($null -eq $knownValues) {
-                $knownValues = New-Object "System.Collections.Generic.HashSet[object]]"
+                $knownValues = New-Object "System.Collections.Generic.HashSet[object]"
             }
             $newValue = New-Object "System.Tuple[string,string]" -ArgumentList $Matches["MajorVersion"],$moduleNameParts.Architecture
             $knownValues.Add($newValue) | Out-Null
