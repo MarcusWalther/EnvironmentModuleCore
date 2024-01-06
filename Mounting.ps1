@@ -949,7 +949,7 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName, [hashtable] $
                     Write-Warning "The already loaded module $($module.FullName) has no version specifier. Don't know if it is compatible to version '$version'"
                 }
                 else {
-                    if($version -ne $module.Version) {
+                    if(-not ($module.Version.StartsWith($version))) {
                         $conflict = $true
                     }
                 }
