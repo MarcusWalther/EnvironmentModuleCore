@@ -15,7 +15,7 @@ steps:
 - pwsh: sudo apt-get install nuget
   displayName: 'Installing nuget'
 
-- task: NuGetAuthenticate@0
+- task: NuGetAuthenticate@1
 
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'

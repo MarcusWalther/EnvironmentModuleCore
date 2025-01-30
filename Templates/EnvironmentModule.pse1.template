@@ -11,7 +11,7 @@
 
     # Environment Modules that must be imported into the global environment prior importing this module
     Dependencies = @(
-      {{ for dependency in Dependencies }}@{Name="{{dependency.ModuleFullName}}"; Optional="${{dependency.IsOptional}}"}{{ end }}
+      {{ for dependency in Dependencies }}@{Name="{{dependency.ModuleFullName}}"; Optional="${{dependency.IsOptional}}"} {{ if for.last }}{{ else }},{{ end }} {{ end }}
     )
 
     # The type of the module, either "Default" or "Meta" if it is a project-module
