@@ -14,9 +14,7 @@ jobs:
       vmImage: 'ubuntu-latest'
 
     steps:
-    - pwsh: sudo apt-get install nuget
-      displayName: 'Installing nuget'
-
+    - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@1
 
     - pwsh: ./SetupEnvironment.ps1
