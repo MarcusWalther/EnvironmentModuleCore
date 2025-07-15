@@ -12,7 +12,11 @@ variables:
   nugetSource: 'https://www.powershellgallery.com/api/v2'
 
 steps:
+- task: NuGetToolInstaller@1
 - task: NuGetAuthenticate@1
+
+- pwsh: sudo apt-get install mono-complete
+  displayName: 'Installing mono for nuget CLI'
 
 - pwsh: .\SetupEnvironment.ps1
   displayName: 'Setup the environment'
