@@ -27,7 +27,7 @@ task Prepare {
 		$cmdArguments += '-Prerelease'
 	}
 
-	nuget $cmdArguments
+	dotnet nuget $cmdArguments
 
 	$libraries = (Get-ChildItem "." "lib" -Recurse) | ForEach-Object {Get-ChildItem $_.FullName (Join-Path "netstandard2.0" "*.dll")} | Select-Object -ExpandProperty "FullName"
 	foreach($library in $libraries) {
