@@ -14,7 +14,6 @@ jobs:
       vmImage: 'ubuntu-latest'
 
     steps:
-    - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@1
 
     - pwsh: ./SetupEnvironment.ps1

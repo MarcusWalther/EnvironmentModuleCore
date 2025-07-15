@@ -12,9 +12,6 @@ variables:
   nugetSource: 'https://www.powershellgallery.com/api/v2'
 
 steps:
-- pwsh: sudo apt-get install nuget
-  displayName: 'Installing nuget'
-
 - task: NuGetAuthenticate@1
 
 - pwsh: .\SetupEnvironment.ps1
