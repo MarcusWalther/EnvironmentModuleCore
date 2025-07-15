@@ -49,6 +49,7 @@ function New-EnvironmentModule
         [String[]] $Dependencies = @(),
         [hashtable] $Parameters = @{},
         [String] $Path = $null,
+        [EnvironmentModuleCore.EnvironmentModuleType] $ModuleType = [EnvironmentModuleCore.EnvironmentModuleType]::Default,
         [Switch] $Force
     )
 
@@ -108,7 +109,7 @@ function New-EnvironmentModule
             $parametersDictionary[$key] = $Parameters[$key]
         }
 
-        [EnvironmentModuleCore.ModuleCreator]::CreateEnvironmentModule($Name, $Path, $Description, $environmentModulePath, $Author, $Company, $Version, $Architecture, $requiredItemsList.ToArray(), $searchPathsList.ToArray(), $dependenciesList.ToArray(), $parametersDictionary)
+        [EnvironmentModuleCore.ModuleCreator]::CreateEnvironmentModule($Name, $Path, $Description, $environmentModulePath, $Author, $Company, $Version, $Architecture, $requiredItemsList.ToArray(), $searchPathsList.ToArray(), $dependenciesList.ToArray(), $parametersDictionary, $ModuleType)
         Update-EnvironmentModuleCache
     }
 }
