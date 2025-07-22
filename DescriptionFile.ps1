@@ -369,6 +369,15 @@ function New-EnvironmentModuleInfoFromDescriptionFile([string] $Path, [Environme
         Write-Verbose "Read merge modules $($descriptionContent.Item('MergeModules'))"
     }
 
+    if($descriptionContent.Contains("VersionSpecifier")) {
+        $versionSpecifier = @()
+        $descriptionContent.Item("VersionSpecifier") | Foreach-Object {
+            $versionSpecifier += New-Object "EnvironmentModuleCore.VersionInfo" -ArgumentList @($_.Type, $_.File, $_.Value)
+        }
+
+        $result.VersionSpecifier = $versionSpecifier
+    }
+
     return $result
 }
 

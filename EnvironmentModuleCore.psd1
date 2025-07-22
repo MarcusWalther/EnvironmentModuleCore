@@ -12,7 +12,7 @@
     RootModule = 'EnvironmentModuleCore.psm1'
 
     # Version number of this module.
-    ModuleVersion = '3.8.4'
+    ModuleVersion = '3.9.0'
     #---
     PrivateData = @{
         PSData = @{
@@ -45,7 +45,7 @@
     CompatiblePSEditions = @('Desktop', 'Core')
 
     # Functions to export from this module
-    FunctionsToExport = @('Import-EnvironmentModule', 'Import-EnvironmentModuleDescriptionFile', 'Remove-EnvironmentModule', 'Get-EnvironmentModule',
+    FunctionsToExport = @('Import-EnvironmentModule', 'Import-EnvironmentModuleDescriptionFile', 'Remove-EnvironmentModule', 'Get-EnvironmentModule', 'Get-InstalledEnvironmentModules',
                         'Test-EnvironmentModuleLoaded', 'Switch-EnvironmentModule', 'New-EnvironmentModule', 'New-EnvironmentModuleFunction', 'Edit-EnvironmentModule',
                         'Update-EnvironmentModuleCache', 'Copy-EnvironmentModule', 'Get-EnvironmentModuleFunction', 'Get-EnvironmentModuleAlias',
                         'New-EnvironmentModuleExecuteFunction', 'Invoke-EnvironmentModuleFunction', 'Add-EnvironmentModuleSearchPath', 'Remove-EnvironmentModuleSearchPath',
@@ -70,5 +70,10 @@
 
     # The type defintions for the type visualisation
     TypesToProcess=@('Types.ps1xml')
+
+    # The format defintions for the type visualisation
+    FormatsToProcess = @(
+        'EnvironmentModuleCore.EnvironmentModuleInfo.format.ps1xml'
+    )
 }
 

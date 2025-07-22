@@ -164,7 +164,7 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModuleCore.EnvironmentM
     .OUTPUTS
     True if a valid root directory was found.
     #>
-    if(($Module.RequiredItems.Length -gt 0) -and ($null -eq (Set-EnvironmentModuleRootDirectory $Module))) {
+    if(($Module.RequiredItems.Length -gt 0) -and ($null -eq (Get-EnvironmentModuleRootDirectory -Module $Module))) {
         return $false
     }
 
@@ -185,16 +185,18 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModuleCore.EnvironmentM
     return $true
 }
 
-function Set-EnvironmentModuleRootDirectory
+function Get-EnvironmentModuleRootDirectory
 {
     <#
     .SYNOPSIS
-    Find the root directory of the module that is either specified by a search path object. Store the value in the object.
+    Find the root directory of the module that is either specified by a search path object.
     .DESCRIPTION
     This function will check the meta parameter of the given module and will identify the root directory of the module. The root directory is the first
     directory that contains all required items.
     .PARAMETER Module
     The module to handle.
+    .PARAMETER SilentMode
+    If no warning for a missing module root should be printed.
     .OUTPUTS
     The path to the root directory or $null if it was not found.
     #>
@@ -202,7 +204,7 @@ function Set-EnvironmentModuleRootDirectory
     [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseShouldProcessForStateChangingFunctions", "")]
     param (
         [EnvironmentModuleCore.EnvironmentModuleInfo] $Module,
-        [bool] $SilentMode
+        [Switch] $SilentMode
     )
 
     if((-not ([string]::IsNullOrEmpty($Module.ModuleRoot))) -and (Test-Path ($Module.ModuleRoot))) {
@@ -241,6 +243,78 @@ function Set-EnvironmentModuleRootDirectory
 
     $Module = $null
     return $null
+}
+
+function Get-EnvironmentModuleVersion([EnvironmentModuleCore.EnvironmentModuleInfo] $Module, [string] $RootDirectory) {
+    <#
+    .SYNOPSIS
+    Gets the version of the enviornment module by considering the version specifier field of the module itself and all abstract base modules.
+    .PARAMETER Module
+    The module to handle.
+    .PARAMETER RootDirectory
+    The installation root directory of the module.
+    .OUTPUTS
+    The identified version.
+    #>
+    $moduleCandidates = @($Module)
+
+    # Search for all abstract base modules
+    foreach($dependency in $Module.Dependencies) {
+        $dependencyModule = Get-EnvironmentModule -ModuleFullName "$($dependency.ModuleFullName)" -ListAvailable
+        if(($null -eq $dependencyModule) -or ($dependencyModule.ModuleType -ne [EnvironmentModuleCore.EnvironmentModuleType]::Abstract)) {
+            continue
+        }
+
+        $moduleCandidates += $dependencyModule
+    }
+
+    foreach($candidate in $moduleCandidates) {
+        foreach($specifier in $candidate.VersionSpecifier) {
+            if (($specifier.Type.ToUpper() -eq [EnvironmentModuleCore.VersionInfo]::TYPE_FILE_VERSION)) {
+                $file = Expand-ValuePlaceholders -Module $Module -Value $specifier.File
+
+                if(-not (Test-Path $file)) {
+                    Write-Verbose "The file '$file' specified by the version info of module '$($candidate.FullName)' cannot be found"
+                }
+                else {
+                    $result = (Get-Item $file).VersionInfo.FileVersion
+                    if (-not [string]::IsNullOrEmpty($result)) {
+                        return $result
+                    }
+
+                    Write-Verbose "Unable to read version from file '$file' specified by module '$($candidate.FullName)'"
+                }
+            }
+
+            if (($specifier.Type.ToUpper() -eq [EnvironmentModuleCore.VersionInfo]::TYPE_REGEX_FILE_VERSION)) {
+                $file = Expand-ValuePlaceholders -Module $Module -Value $specifier.File
+
+                if(-not (Test-Path $file)) {
+                    Write-Verbose "The file '$file' specified by the version info of module '$($candidate.FullName)' cannot be found"
+                }
+                else {
+                    $content = Get-Content -Path "$file" -Raw
+                    if("$content" -Match "$($specifier.Value)") {
+                        return $Matches["Version"]
+                    }
+                    else {
+                        Write-Verbose "Unable to read version from file '$file' specified by module '$($candidate.FullName)'"
+                    }
+                }
+            }
+
+            if (($specifier.Type.ToUpper() -eq [EnvironmentModuleCore.VersionInfo]::TYPE_CONSTANT_VERSION)) {
+                if(-not [string]::IsNullOrEmpty($specifier.Value)) {
+                     return $specifier.Value
+                }
+                else {
+                    Write-Verbose "No constant version value is specified by module '$($candidate.FullName)'"
+                }
+            }
+        }
+    }
+
+    return $Module.Version.Replace("_", ".")
 }
 
 function Import-EnvironmentModuleDescriptionFile([String] $ModuleFile, [switch] $Silent)
@@ -408,7 +482,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Identify the root directory
-    $moduleRoot = Set-EnvironmentModuleRootDirectory $module $SilentMode
+    $moduleRoot = Get-EnvironmentModuleRootDirectory -Module $module -SilentMode:$SilentMode
 
     if (($module.RequiredItems.Length -gt 0) -and ($null -eq $moduleRoot)) {
         if(-not $SilentMode) {
@@ -623,6 +697,8 @@ function Mount-EnvironmentModuleInternal([EnvironmentModuleCore.EnvironmentModul
 
         Write-Verbose "Adding module $($Module.Name) to mapping"
         $script:loadedEnvironmentModules[$Module.Name] = $Module
+
+        $Module.Version = Get-EnvironmentModuleVersion -Module $Module -RootDirectory $Module.ModuleRoot
 
         if($script:configuration["ShowLoadingMessages"]) {
             Write-InformationColored -InformationAction 'Continue' ("$($Module.FullName) loaded")

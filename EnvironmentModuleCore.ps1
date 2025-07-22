@@ -26,6 +26,8 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
         $Version = "*"
     }
 
+    $filteredResult = @()
+
     if($ListAvailable) {
         foreach($module in Get-AllEnvironmentModules) {
             if(-not ($module.FullName -like $ModuleFullName)) {
@@ -44,7 +46,7 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
                 continue
             }
 
-            New-EnvironmentModuleInfo -Module $module
+            $filteredResult += New-EnvironmentModuleInfo -Module $module
         }
     }
     else {
@@ -54,8 +56,9 @@ function Get-EnvironmentModule([String] $ModuleFullName = "*", [switch] $ListAva
         if($SkipMetaModules) {
             $filteredResult = $filteredResult | Where-Object {[EnvironmentModuleCore.EnvironmentModuleType]::Meta -ne $_.ModuleType}
         }
-        return $filteredResult
     }
+
+    return $filteredResult | Sort-Object -Property FullName
 }
 
 function Test-EnvironmentModuleLoaded([String] $ModuleFullName)
@@ -271,5 +274,38 @@ function Get-EnvironmentModulePath([String] $ModuleFullName = "*", [String] $Pat
 
             $pathInfo
         }
+    }
+}
+
+function Get-InstalledEnvironmentModules([String] $ModuleFullName = "*", [Switch] $IncludeModulesWithoutSearchPath) {
+    <#
+    .SYNOPSIS
+    Gets all environment modules that are not marked as meta and that have a valid root directory.
+    .PARAMETER ModuleFullName
+    The full module name of the required module object(s). Can contain wildcards.
+    .PARAMETER IncludeModulesWithoutSearchPath
+    If modules that have no search paths should be included.
+    .OUTPUTS
+    A list of objects specifing the full name, the root directory and the version of the installed environment module.
+    #>
+    $allModules = Get-EnvironmentModule -ModuleFullName "$ModuleFullName" -ListAvailable -SkipMetaModules
+
+    foreach($module in $allModules) {
+        $root = Get-EnvironmentModuleRootDirectory -Module $module -SilentMode
+        if((-not $IncludeModulesWithoutSearchPath) -and ($module.SearchPaths.Length -eq 0)) {
+            continue
+        }
+        
+        if(($null -eq $root) -and (-not $IncludeModulesWithoutSearchPath)) {
+            continue
+        }
+
+        $obj = [PSCustomObject]@{
+            FullName  = $module.FullName
+            Root = $root
+            Version = Get-EnvironmentModuleVersion -Module $module -RootDirectory $root
+        }
+        
+        $obj
     }
 }
