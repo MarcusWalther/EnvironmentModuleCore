@@ -30,7 +30,7 @@ steps:
 - pwsh: Invoke-Build Test -Suffix "$(suffix)"
   displayName: 'Test the module'
 
-- task: PublishCodeCoverageResults@1
+- task: PublishCodeCoverageResults@2
   inputs:
     summaryFileLocation: 'TestResults/Coverage.xml'
 
