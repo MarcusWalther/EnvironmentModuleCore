@@ -175,7 +175,7 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModuleCore.EnvironmentM
             if($dependency.IsOptional) {
                 continue
             }
-            
+
             if(-not $dependencyModule) {
                 return $false
             }
@@ -303,6 +303,19 @@ function Get-EnvironmentModuleVersion([EnvironmentModuleCore.EnvironmentModuleIn
                     }
                     else {
                         Write-Verbose "Unable to read version from file '$file' specified by module '$($candidate.FullName)'"
+                    }
+                }
+            }
+
+            if (($specifier.Type.ToUpper() -eq [EnvironmentModuleCore.VersionInfo]::TYPE_REGEX_FILE_NAME_VERSION)) {
+                $file = Expand-ValuePlaceholders -Module $Module -Value $specifier.File
+                Write-Verbose "Analyzing all files matching '$file' against TYPE_REGEX_FILE_NAME_VERSION"
+                $candidates = Get-Item -Path "$file"
+
+                foreach($candidate in $candidates) {
+                    Write-Verbose "Checking candidate '$candidate'"
+                    if("$($candidate.Name)" -Match "$($specifier.Value)") {
+                        return $Matches["Version"]
                     }
                 }
             }
