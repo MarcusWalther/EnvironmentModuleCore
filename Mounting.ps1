@@ -172,6 +172,10 @@ function Test-EnvironmentModuleRootDirectory([EnvironmentModuleCore.EnvironmentM
         foreach ($dependency in $Module.Dependencies) {
             $dependencyModule = Get-EnvironmentModule -ListAvailable $dependency.ModuleFullName
 
+            if($dependency.IsOptional) {
+                continue
+            }
+            
             if(-not $dependencyModule) {
                 return $false
             }

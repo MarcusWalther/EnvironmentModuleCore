@@ -520,26 +520,29 @@ function Compare-EnvironmentModulesByVersion([EnvironmentModuleCore.EnvironmentM
                 if($i -gt ($versionPartsB.Length - 1)) {
                     return -1
                 }
+
                 $partA = $versionPartsA[$i]
                 $partB = $versionPartsB[$i]
+                $partANumber = 0
+                $partBNumber = 0
 
                 try {
-                    [int]::TryParse($partA, [ref] $partA) | Out-Null   
+                    [int]::TryParse($partA, [ref] $partANumber) | Out-Null   
                 }
                 catch {
                 }
 
                 try {
-                    [int]::TryParse($partB, [ref] $partB) | Out-Null   
+                    [int]::TryParse($partB, [ref] $partBNumber) | Out-Null   
                 }
                 catch {
                 }
 
-                if($partA -gt $partB) {
+                if($partANumber -gt $partBNumber) {
                     return -1
                 }
 
-                if($partB -gt $partA) {
+                if($partBNumber -gt $partANumber) {
                     return 1
                 }
             }
