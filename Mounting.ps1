@@ -1035,7 +1035,7 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName, [hashtable] $
         $module = $LoadedEnvironmentModules.Get_Item($name)
         Write-Verbose "A module matching name '$name' was already found - checking for version or architecture conflict"
 
-        if(-not ($module.DirectUnload)) {
+        if(($module.FullName -ne $ModuleFullName) -and (-not ($module.DirectUnload))) {
             if(-not ([string]::IsNullOrEmpty($version))) {
                 # A specific version is required
                 if([string]::IsNullOrEmpty($module.Version)) {
