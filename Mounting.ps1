@@ -483,6 +483,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Basic setup
+    Write-Verbose "Creating info object for module $ModuleFullName"
     $module = New-EnvironmentModuleInfo -ModuleFullName $ModuleFullName -ModuleFile $ModuleFile
 
     $alreadyLoadedModules = $null
@@ -499,6 +500,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
     }
 
     # Identify the root directory
+    Write-Verbose "Searching for the root directory of module $ModuleFullName"
     $moduleRoot = Get-EnvironmentModuleRootDirectory -Module $module -SilentMode:$SilentMode
 
     if (($module.RequiredItems.Length -gt 0) -and ($null -eq $moduleRoot)) {
@@ -511,6 +513,8 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     # Perform the merge with the other specified pse1 files
     foreach($moduleReference in $module.MergeModules) {
+        Write-Verbose "Merging module with $moduleReference"
+
         $otherModuleInfo = New-EnvironmentModuleInfoFromDescriptionFile -Path (Expand-ValuePlaceholders $moduleReference $module)
         if($null -eq $otherModuleInfo) {
             continue
@@ -550,6 +554,7 @@ function Import-RequiredModulesRecursive([String] $ModuleFullName, [Bool] $Loade
 
     try {
         Import-Module $psModuleName -Scope Global -Force -ArgumentList $module, $SilentMode
+        Write-Verbose "Basic import of $psModuleName done"
     }
     catch {
         if(-not $SilentMode) {
