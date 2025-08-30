@@ -53,7 +53,7 @@ function Join-EnvironmentModuleInfos([EnvironmentModuleCore.EnvironmentModuleInf
 
     # Merge all path manipulations
     foreach($pathDefinition in $Other.Paths) {
-        $result.AddPath($pathDefinition)
+        $result.AddPath($pathDefinition) | Out-Null
     }
 
     return $result
