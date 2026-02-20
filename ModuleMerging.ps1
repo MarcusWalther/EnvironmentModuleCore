@@ -10,39 +10,34 @@ function Join-EnvironmentModuleInfos([EnvironmentModuleCore.EnvironmentModuleInf
     The merged module info object.
     #>
     $result = [EnvironmentModuleCore.EnvironmentModuleInfo]::new($Base)
+    $result.Dependencies = @()
 
     # Merge all dependencies
-    $otherModules = @{}
-    $result.Dependencies = $Other.Dependencies
+    $allDependencies = [ordered] @{}
 
-    foreach($dependency in $Other.Dependencies) {
+    foreach($dependency in $Base.Dependencies) {
         $nameParts = Split-EnvironmentModuleName $dependency.ModuleFullName
         if($null -eq $nameParts) {
-            $result.Dependencies -= $dependency
             continue
         }
 
-        $module = [EnvironmentModuleCore.EnvironmentModuleInfoBase]::new($ModuleFullName, $null, $nameParts.Name, $nameParts.Version, $nameParts.Architecture, $nameParts.AdditionalOptions, [EnvironmentModuleCore.EnvironmentModuleType]::Default)
-        $otherModules[$nameParts.Name] = $module
+        $allDependencies[$nameParts.Name] = @($dependency)
     }
 
-    foreach($dependency in $Base.Dependencies) {
+    foreach($dependency in $Other.Dependencies) {
         # Check if the name is correctly formated
         $nameParts = Split-EnvironmentModuleName $dependency.ModuleFullName
         if($null -eq $nameParts) {
             continue
         }
 
-        $testResult = Test-ConflictsWithLoadedModules -ModuleFullName $dependency.ModuleFullName -LoadedEnvironmentModules $otherModules
-        if(-not $testResult.Conflict) {
-            # Check if the exact same module was already specified as dependency
-            if($otherModules.Contains($nameParts.Name)) {
-                continue
-            }
-            $result.Dependencies += $dependency
-        }
-        else {
-            Write-Verbose "The dependency $($dependency.ModuleFullName) does conflict with the dependencies and is ignored"
+        $allDependencies = Select-MergeEnvironmentModule -Dependency $dependency -KnownDependencies $allDependencies
+    }
+
+    # Set all dependencies
+    foreach($dependencies in $allDependencies) {
+        foreach($subDependency in $dependencies.Values) {
+            $result.Dependencies += $subDependency
         }
     }
 
@@ -57,4 +52,50 @@ function Join-EnvironmentModuleInfos([EnvironmentModuleCore.EnvironmentModuleInf
     }
 
     return $result
+}
+
+function Select-MergeEnvironmentModule([EnvironmentModuleCore.DependencyInfo] $Dependency, [hashtable] $KnownDependencies) {
+    $moduleNameParts = Split-EnvironmentModuleName $Dependency.ModuleFullName
+    $name = $moduleNameParts.Name
+
+    if(-not $knownDependencies.ContainsKey($name)) {
+        # No module with the same name was part of the dependencies
+        $KnownDependencies[$name] = @($Dependency)
+        return $KnownDependencies
+    }
+
+    $firstDependency = $KnownDependencies[$name][0]
+    if($firstDependency.Priority -lt $Dependency.Priority) {
+        Write-Verbose "The dependency to $($Dependency.ModuleFullName) has a higher priority than the dependency to $($firstDependency.ModuleFullName)"
+        $orderedDependencies = $KnownDependencies[$name] + @($Dependency) | Sort-Object -Descending {$_.Priority}
+        $firstDependency = $orderedDependencies
+
+        if($Dependency.IsOptional) {
+            $orderedDependencies = $KnownDependencies[$name].Sort()
+            $KnownDependencies[$name] = $orderedDependencies
+
+            foreach($subDependency in $orderedDependencies) {
+                $subDependency.IsOptional = $true
+            }
+            
+            return $KnownDependencies
+        }
+        else {
+            $KnownDependencies[$name] = @($Dependency)
+            return $KnownDependencies
+        }
+    }
+
+    if($firstDependency.IsOptional) {
+        # The dependendency is optional -> all dependencies of the same modules are marked as optional as well
+        $KnownDependencies[$name] = $KnownDependencies[$name] + @([EnvironmentModuleCore.DependencyInfo]::new($Dependency.ModuleFullName, $true, $Dependency.Priority))
+        return $KnownDependencies
+    }
+
+    if($true -eq (Test-ConflictModule $Dependency.ModuleFullName $firstDependency.ModuleFullName)) {
+        return $KnownDependencies
+    }
+
+    $KnownDependencies[$name] = @($Dependency)
+    return $KnownDependencies
 }

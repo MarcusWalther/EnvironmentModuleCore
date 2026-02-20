@@ -101,7 +101,7 @@ function New-EnvironmentModule
 
         $dependenciesList = [System.Collections.Generic.List[EnvironmentModuleCore.DependencyInfo]]::new()
         foreach($dependency in $Dependencies) {
-            $dependenciesList.Add([EnvironmentModuleCore.DependencyInfo]::new($dependency, $false))
+            $dependenciesList.Add([EnvironmentModuleCore.DependencyInfo]::new($dependency, $false, 0))
         }
 
         $parametersDictionary = [System.Collections.Generic.Dictionary[string, string]]::new()

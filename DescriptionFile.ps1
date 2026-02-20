@@ -197,7 +197,12 @@ function New-EnvironmentModuleInfoFromDescriptionFile([string] $Path, [Environme
                 New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_
             }
             else {
-                New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_.Name, $_.Optional
+                $priority = $_.Priority
+                if($null -eq $priority) {
+                    $priority = 0
+                }
+
+                New-Object "EnvironmentModuleCore.DependencyInfo" -ArgumentList $_.Name, ($true -eq $_.Optional), $priority
             }
         })
         Write-Verbose "Read module dependencies $($dependencies)"

@@ -1030,8 +1030,6 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName, [hashtable] $
     #>
     $moduleNameParts = Split-EnvironmentModuleName $ModuleFullName
     $name = $moduleNameParts.Name
-    $version = $moduleNameParts.Version
-    $architecture = $moduleNameParts.Architecture
 
     $module = $null
     $conflict = $false
@@ -1041,29 +1039,7 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName, [hashtable] $
         Write-Verbose "A module matching name '$name' was already found - checking for version or architecture conflict"
 
         if(($module.FullName -ne $ModuleFullName) -and (-not ($module.DirectUnload))) {
-            if(-not ([string]::IsNullOrEmpty($version))) {
-                # A specific version is required
-                if([string]::IsNullOrEmpty($module.Version)) {
-                    Write-Warning "The already loaded module $($module.FullName) has no version specifier. Don't know if it is compatible to version '$version'"
-                }
-                else {
-                    if(-not ($module.Version.StartsWith($version))) {
-                        $conflict = $true
-                    }
-                }
-            }
-
-            if(-not ([string]::IsNullOrEmpty($architecture))) {
-                # A specific architecture is required
-                if([string]::IsNullOrEmpty($module.Architecture)) {
-                    Write-Warning "The already loaded module $($module.FullName) has no architecture specifier. Don't know if it is compatible to architecture '$architecture'"
-                }
-                else {
-                    if($architecture -ne $module.Architecture) {
-                        $conflict = $true
-                    }
-                }
-            }
+            $conflict = (Test-ConflictModule $ModuleFullName $module.FullName)
         }
     }
 
@@ -1072,4 +1048,63 @@ function Test-ConflictsWithLoadedModules([string] $ModuleFullName, [hashtable] $
     $result.Module = $module
 
     return $result
+}
+
+function Test-ConflictModule([string] $ModuleFullNameA, [string] $ModuleFullNameB)
+{
+    <#
+    .SYNOPSIS
+    Check if the 2 given modules are in conflict.
+    .PARAMETER ModuleFullNameA
+    The full name of the first module.
+    .PARAMETER ModuleFullNameB
+    The full name of the second module.
+    .OUTPUTS
+    True if the modules are in conflict, false if both can be loaded without issues.
+    #>
+    $moduleNamePartsA = Split-EnvironmentModuleName $ModuleFullNameA
+    $nameA = $moduleNamePartsA.Name
+    $versionA = $moduleNamePartsA.Version
+    $architectureA = $moduleNamePartsA.Architecture
+
+    $moduleNamePartsB = Split-EnvironmentModuleName $ModuleFullNameB
+    $nameB = $moduleNamePartsB.Name
+    $versionB = $moduleNamePartsB.Version
+    $architectureB = $moduleNamePartsB.Architecture
+
+    # The modules have a different name
+    if($nameA -ne $nameB) {
+        return $false
+    }
+
+    # The module is the same
+    if($ModuleFullNameA -eq $ModuleFullNameB) {
+        return $false
+    }
+    
+    if(-not ([string]::IsNullOrEmpty($versionA))) {
+        # A specific version is required
+        if([string]::IsNullOrEmpty($versionB)) {
+            Write-Warning "The already loaded module $ModuleFullNameB has no version specifier. Don't know if it is compatible to version '$versionA'"
+        }
+        else {
+            if(-not ($module.Version.StartsWith($versionA))) {
+                return $true
+            }
+        }
+    }
+
+    if(-not ([string]::IsNullOrEmpty($architectureA))) {
+        # A specific architecture is required
+        if([string]::IsNullOrEmpty($architectureB)) {
+            Write-Warning "The already loaded module $ModuleFullNameB has no architecture specifier. Don't know if it is compatible to architecture '$architectureA'"
+        }
+        else {
+            if($architectureA -ne $architectureB) {
+                return $true
+            }
+        }
+    }
+
+    return $false
 }
