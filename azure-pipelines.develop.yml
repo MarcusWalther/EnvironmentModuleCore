@@ -14,6 +14,10 @@ jobs:
       vmImage: 'ubuntu-latest'
 
     steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
     - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@1
 
@@ -63,6 +67,10 @@ jobs:
       vmImage: 'windows-latest'
 
     steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '9.0.x'
     - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@1
 
