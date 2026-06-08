@@ -228,7 +228,13 @@ class ParameterInfoKeyComparator : System.Collections.Generic.IEqualityComparer[
            return $false;
         }
 
-        return (($t1.Item1?.ToLower() -eq $t2.Item1?.ToLower()) -and ($t1.Item2?.ToLower() -eq $t2.Item2?.ToLower()))
+        $t1Item1 = if ($null -ne $t1.Item1) { $t1.Item1.ToLower() } else { $null }
+        $t2Item1 = if ($null -ne $t2.Item1) { $t2.Item1.ToLower() } else { $null }
+
+        $t1Item2 = if ($null -ne $t1.Item2) { $t1.Item2.ToLower() } else { $null }
+        $t2Item2 = if ($null -ne $t2.Item2) { $t2.Item2.ToLower() } else { $null }
+
+        return (($t1Item1 -eq $t2Item1) -and ($t1Item2 -eq $t2Item2))
     }
 
     [int] GetHashCode([Tuple[string, string]] $value)
