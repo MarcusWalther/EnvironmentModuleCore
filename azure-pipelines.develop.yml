@@ -17,7 +17,11 @@ jobs:
     - task: UseDotNet@2
       inputs:
         packageType: 'sdk'
-        version: '9.0.x'
+        version: '8.0.x'
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y mono-complete
+      displayName: Install Mono
     - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@1
 
@@ -67,7 +71,7 @@ jobs:
     - task: UseDotNet@2
       inputs:
         packageType: 'sdk'
-        version: '9.0.x'
+        version: '8.0.x'
     - task: NuGetToolInstaller@1
     - task: NuGetAuthenticate@1
 
